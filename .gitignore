@@ -1,0 +1,62 @@
+vscode/.vscode/extensions/
+.env
+config/.config/raycast/extensions/
+config/.config/emby-server/data/
+config/.config/emby-server/logs/
+config/.config/emby-server/plugins/
+config/.config/Minecraft Admin/Server Mods/
+
+# .gitignore for a Dotfiles Repository
+#
+# --- Secrets & History ---
+# NEVER commit files containing secrets, passwords, or shell history.
+.env
+.bash_history
+.zsh_history
+
+# --- System & OS-specific Files ---
+# Ignore macOS, Windows, and local editor clutter.
+.DS_Store
+Thumbs.db
+
+# ===================================================================
+# --- Application-Specific Ignores ---
+# Rules for specific applications, organized alphabetically.
+# ===================================================================
+
+# BoltAI
+boltai/.boltai/
+
+# Emby Media Server (entire directory for data, logs, cache, etc.)
+config/.config/emby-server/
+
+# iTerm2 (dynamic state, not the main plist config)
+config/.config/iterm2/AppSupport/
+
+# Minecraft (mods are installed code, not your config)
+config/.config/Minecraft Admin/Server Mods/
+
+# Raycast (ignore installed extensions)
+config/.config/raycast/extensions/
+
+# VSCode (ignore extensions, runtime state, and workspace cache)
+vscode/.vscode/extensions/
+vscode/.vscode/argv.json
+vscode/.vscode/globalStorage/
+vscode/.vscode/workspaceStorage/
+
+# Vim (ignore state, swap, and undo files)
+vim/.vim/.netrwist
+vim/.vim/*.swp
+vim/.vim/*.un~
+
+# ===================================================================
+# --- Generic Cache & State Files ---
+# Ignore common cache directories and specific state files.
+# ===================================================================
+
+# Generic cache used by many Node.js tools
+config/.config/configstore/
+
+# GitHub Copilot state
+config/.config/github-copilot/versions.json

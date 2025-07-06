@@ -1,0 +1,12 @@
+[user]
+	name = JDmini
+	email = 28938316+jd-santos@users.noreply.github.com
+[filter "lfs"]
+	required = true
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+[url "git@gitlab.cloudticity.com:"]
+	insteadOf = https://gitlab.cloudticity.com/
+[init]
+	defaultBranch = main
