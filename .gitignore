@@ -1,13 +1,3 @@
-vscode/.vscode/extensions/
-.env
-config/.config/raycast/extensions/
-config/.config/emby-server/data/
-config/.config/emby-server/logs/
-config/.config/emby-server/plugins/
-config/.config/Minecraft Admin/Server Mods/
-
-# .gitignore for a Dotfiles Repository
-#
 # --- Secrets & History ---
 # NEVER commit files containing secrets, passwords, or shell history.
 .env
@@ -60,3 +50,9 @@ config/.config/configstore/
 
 # GitHub Copilot state
 config/.config/github-copilot/versions.json
+
+# Misc configs
+config/.config/qBittorrent
+config/.config/github-copilot
+config/.config//gh/
+config/.config/Autodesk/
