@@ -1,0 +1,36 @@
+{
+    "jobs_tab_visibility": "closed",
+    "panes": {
+        "quadrants": [
+            "Source",
+            "Console",
+            "TabSet1",
+            "TabSet2"
+        ],
+        "tabSet1": [
+            "Environment",
+            "History",
+            "Files",
+            "Connections",
+            "Build",
+            "VCS",
+            "Tutorial",
+            "Presentation"
+        ],
+        "tabSet2": [
+            "Plots",
+            "Packages",
+            "Help",
+            "Viewer"
+        ],
+        "console_left_on_top": false,
+        "console_right_on_top": true
+    },
+    "show_doc_outline_rmd": true,
+    "pdf_previewer": "none",
+    "posix_terminal_shell": "bash",
+    "editor_theme": "Dracula",
+    "rmd_viewer_type": "pane",
+    "document_author": "Jonathan De Los Santos",
+    "show_terminal_tab": false
+}
