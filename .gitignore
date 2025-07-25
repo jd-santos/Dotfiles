@@ -17,17 +17,6 @@ Thumbs.db
 # BoltAI
 boltai/.boltai/
 
-# Emby Media Server (entire directory for data, logs, cache, etc.)
-config/.config/emby-server/
-
-# iTerm2 (dynamic state, not the main plist config)
-config/.config/iterm2/AppSupport/
-
-# Minecraft (mods are installed code, not your config)
-config/.config/Minecraft Admin/Server Mods/
-
-# Raycast (ignore installed extensions)
-config/.config/raycast/extensions/
 
 # VSCode (ignore extensions, runtime state, and workspace cache)
 vscode/.vscode/extensions/
@@ -52,7 +41,5 @@ config/.config/configstore/
 config/.config/github-copilot/versions.json
 
 # Misc configs
-config/.config/qBittorrent
 config/.config/github-copilot
 config/.config//gh/
-config/.config/Autodesk/

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "theme": "catppuccin",
+  "mode": {
+    "build": {
+      "model": "openrouter/google/gemini-2.5-flash",
+      "tools": {
+        "write": true,
+        "edit": true,
+        "bash": true
+      }
+    },
+    "plan": {
+      "model": "openrouter/google/gemini-2.5-pro",
+      "tools": {
+        "write": false,
+        "edit": false,
+        "bash": false
+      }
+    },
+    "ask": {
+      "model": "openrouter/anthropic/gemini-2.5-flash",
+      "tools": {
+        "write": false,
+        "edit": false,
+        "bash": false
+      }
+    }
+  },
+  "autoupdate": true
+}
