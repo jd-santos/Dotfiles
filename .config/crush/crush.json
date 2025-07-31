@@ -1,0 +1,24 @@
+{
+    "$schema": "https://charm.land/crush.json",
+    "providers": {
+        "spectra-litellm": {
+            "type": "openai",
+            "base_url": "https://litellm.eng.cloudticity.com/v1",
+            "api_key": "$CRUSH_API_KEY",
+            "models": [
+                {
+                    "id": "gemini-2.5-flash",
+                    "name": "gemini-2.5-flash",
+                    "context_window": "1256000
+                    "default_max_tokens": 4096
+                },
+                {
+                    "id": "gemini-2.5-pro",
+                    "name": "Gemini 2.5 Pro",
+                    "context_window": 2000000,
+                    "default_max_tokens": 8192
+                }
+            ]
+        }
+    }
+}
