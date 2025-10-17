@@ -1,22 +1,75 @@
 {
     "$schema": "https://charm.land/crush.json",
     "providers": {
-        "spectra-litellm": {
+        "openrouter": {
+            "name": "OpenRouter",
             "type": "openai",
-            "base_url": "https://litellm.eng.cloudticity.com/v1",
-            "api_key": "$CRUSH_API_KEY",
+            "base_url": "https://openrouter.ai/api/v1",
             "models": [
                 {
-                    "id": "gemini-2.5-flash",
-                    "name": "gemini-2.5-flash",
-                    "context_window": "1256000
-                    "default_max_tokens": 4096
+                    "id": "google/gemini-2.5-flash",
+                    "name": "Gemini 2.5 Flash",
+                    "cost_per_1m_in": 0.30,
+                    "cost_per_1m_out": 2.50,
+                    "cost_per_1m_in_cached": 0.30,
+                    "cost_per_1m_out_cached": 2.50,
+                    "context_window": 1050000,
+                    "default_max_tokens": 4096,
+                    "can_reason": true,
+                    "has_reasoning_efforts": true,
+                    "supports_attachments": true
                 },
                 {
-                    "id": "gemini-2.5-pro",
+                    "id": "google/gemini-2.5-pro",
                     "name": "Gemini 2.5 Pro",
-                    "context_window": 2000000,
-                    "default_max_tokens": 8192
+                    "cost_per_1m_in": 1.25,
+                    "cost_per_1m_out": 10.00,
+                    "cost_per_1m_in_cached": 1.25,
+                    "cost_per_1m_out_cached": 10.00,
+                    "context_window": 1050000,
+                    "default_max_tokens": 4096,
+                    "can_reason": true,
+                    "has_reasoning_efforts": true,
+                    "supports_attachments": true
+                },
+                {
+                    "id": "anthropic/claude-haiku-4.5",
+                    "name": "Claude 4.5 Haiku",
+                    "cost_per_1m_in": 1.00,
+                    "cost_per_1m_out": 5.00,
+                    "cost_per_1m_in_cached": 1.00,
+                    "cost_per_1m_out_cached": 5.00,
+                    "context_window": 200000,
+                    "default_max_tokens": 4096,
+                    "can_reason": true,
+                    "has_reasoning_efforts": true,
+                    "supports_attachments": false
+                },
+                {
+                    "id": "anthropic/claude-sonnet-4.5",
+                    "name": "Claude 4.5 Sonnet",
+                    "cost_per_1m_in": 3.00,
+                    "cost_per_1m_out": 15.00,
+                    "cost_per_1m_in_cached": 3.00,
+                    "cost_per_1m_out_cached": 15.00,
+                    "context_window": 1000000,
+                    "default_max_tokens": 4096,
+                    "can_reason": true,
+                    "has_reasoning_efforts": true,
+                    "supports_attachments": false
+                },
+                {
+                    "id": "anthropic/claude-opus-4.1",
+                    "name": "Claude 4.5 Opus",
+                    "cost_per_1m_in": 15.00,
+                    "cost_per_1m_out": 75.00,
+                    "cost_per_1m_in_cached": 15.00,
+                    "cost_per_1m_out_cached": 75.00,
+                    "context_window": 200000,
+                    "default_max_tokens": 4096,
+                    "can_reason": true,
+                    "has_reasoning_efforts": true,
+                    "supports_attachments": true
                 }
             ]
         }

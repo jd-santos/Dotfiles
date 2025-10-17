@@ -1,4 +1,3 @@
-
 # If you come from bash you might have to change your $PATH.
 # export PATH=$HOME/bin:/usr/local/bin:$PATH
 
@@ -109,3 +108,8 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 # Dotnet
 export PATH="$PATH:/usr/local/share/dotnet"
 export PATH="$PATH:/Users/jdmini/.dotnet/tools"
+
+# Source .env-local if it exists
+if [ -f ~/.env-local ]; then
+  source ~/.env-local
+fi
