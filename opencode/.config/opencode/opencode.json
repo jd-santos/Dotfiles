@@ -1,18 +1,36 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "theme": "catppuccin",
+  "theme": "aura",
   "mode": {
-    "build": {
+    "act": {
       "model": "openrouter/google/gemini-2.5-flash",
       "tools": {
         "write": true,
+        "read": true,
+        "grep": true,
+        "list": true,
+        "todoread": true,
+        "todowrite": true,
+        "webfetch": true,
+        "patch": true,
         "edit": true,
         "bash": true
+      },
+      "permission": {
+        "write": "ask",
+        "edit": "ask",
+        "patch": "ask",
+        "bash": "ask"
       }
     },
     "plan": {
       "model": "openrouter/google/gemini-2.5-pro",
       "tools": {
+        "grep": true,
+        "list": true,
+        "todoread": true,
+        "todowrite": true,
+        "webfetch": true,
         "write": false,
         "edit": false,
         "bash": false
@@ -21,11 +39,36 @@
     "ask": {
       "model": "openrouter/anthropic/gemini-2.5-flash",
       "tools": {
+        "grep": true,
+        "list": true,
+        "todoread": true,
+        "todowrite": true,
+        "webfetch": true,
         "write": false,
         "edit": false,
         "bash": false
       }
     }
   },
-  "autoupdate": true
+  "autoupdate": true,
+  "formatter": {
+    "prettier": {
+      "command": [
+        "prettier",
+        "--write",
+        "{file}"
+      ],
+      "extensions": [
+        "js",
+        "jsx",
+        "ts",
+        "tsx",
+        "json",
+        "css",
+        "scss",
+        "html",
+        "md"
+      ]
+    }
+  }
 }
