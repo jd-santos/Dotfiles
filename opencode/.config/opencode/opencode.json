@@ -1,9 +1,30 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "theme": "aura",
-  "mode": {
-    "act": {
+  "theme": "dracula",
+  "agent": {
+    "build": {
       "model": "openrouter/google/gemini-2.5-flash",
+      "tools": {
+        "write": true,
+        "read": true,
+        "grep": true,
+        "list": true,
+        "todoread": true,
+        "todowrite": true,
+        "webfetch": true,
+        "patch": true,
+        "edit": true,
+        "bash": true
+      },
+      "permission": {
+        "write": "ask",
+        "edit": "ask",
+        "patch": "ask",
+        "bash": "ask"
+      }
+    },
+    "build-smart": {
+      "model": "openrouter/google/gemini-2.5-pro",
       "tools": {
         "write": true,
         "read": true,
