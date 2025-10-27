@@ -7,6 +7,9 @@ fi
 # │ Environment Variables & Paths                                     │
 # └───────────────────────────────────────────────────────────────────┘
 
+# Editor
+export EDITOR="zed --wait"
+
 # Homebrew
 eval "$(/opt/homebrew/bin/brew shellenv)"
 
