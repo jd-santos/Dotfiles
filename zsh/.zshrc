@@ -229,12 +229,6 @@ fi
 # fzf
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
-# gh copilot
-eval "$(gh copilot alias -- zsh)"
-
-# saml2aws completion
-eval "$(saml2aws --completion-script-zsh)"
-
 # ┌───────────────────────────────────────────────────────────────────┐
 # │ Prompt Configuration                                              │
 # └───────────────────────────────────────────────────────────────────┘
