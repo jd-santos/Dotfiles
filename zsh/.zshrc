@@ -244,3 +244,8 @@ eval "$(saml2aws --completion-script-zsh)"
 
 # Starship
 eval "$(starship init zsh)"
+
+# Added by LM Studio CLI (lms)
+export PATH="$PATH:/Users/jdwork/.lmstudio/bin"
+# End of LM Studio CLI section
+
