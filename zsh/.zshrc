@@ -7,6 +7,9 @@ fi
 # │ Environment Variables & Paths                                     │
 # └───────────────────────────────────────────────────────────────────┘
 
+# Editor
+export EDITOR="zed --wait"
+
 # Homebrew
 eval "$(/opt/homebrew/bin/brew shellenv)"
 
@@ -235,3 +238,8 @@ fi
 
 # Starship
 eval "$(starship init zsh)"
+
+# Added by LM Studio CLI (lms)
+export PATH="$PATH:/Users/jdwork/.lmstudio/bin"
+# End of LM Studio CLI section
+
