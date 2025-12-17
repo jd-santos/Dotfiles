@@ -8,10 +8,9 @@
 // command palette (cmd-shift-p / ctrl-shift-p)
 {
   "agent": {
-    "default_profile": "write",
     "default_model": {
       "provider": "openrouter",
-      "model": "anthropic/claude-sonnet-4.5"
+      "model": "openai/gpt-5.1"
     },
     "model_parameters": []
   },
@@ -20,31 +19,21 @@
   "terminal": {
     "font_size": 14.0,
     "font_family": "JetBrainsMono Nerd Font Mono",
-    "font_fallbacks": [
-      "Menlo",
-      "Monaco",
-      "Courier New",
-      "monospace"
-    ]
+    "font_fallbacks": ["Menlo", "Monaco", "Courier New", "monospace"]
   },
   "telemetry": {
     "diagnostics": true,
     "metrics": true
   },
   "base_keymap": "VSCode",
-  "relative_line_numbers": true,
+  "relative_line_numbers": "enabled",
   "gutter": {
     "line_numbers": true
   },
   "minimap": {
     "show": "never"
   },
-  "buffer_font_fallbacks": [
-    "Menlo",
-    "Monaco",
-    "Courier New",
-    "monospace"
-  ],
+  "buffer_font_fallbacks": ["Menlo", "Monaco", "Courier New", "monospace"],
   "buffer_font_family": "JetBrainsMono Nerd Font Mono",
   "file_types": {},
   "ui_font_size": 16,
