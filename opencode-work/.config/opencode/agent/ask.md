@@ -1,7 +1,7 @@
 ---
 description: Ask mode for questions and exploration
 mode: primary
-model: openrouter/anthropic/claude-haiku-4.5
+model: openrouter/google/gemini-2.5-flash
 tools:
   grep: true
   list: true
