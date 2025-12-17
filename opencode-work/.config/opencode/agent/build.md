@@ -1,7 +1,7 @@
 ---
 description: Build and act mode with full tool access
 mode: primary
-model: openrouter/google/gemini-2.5-flash
+model: anthropic/claude-haiku-4-5 
 tools:
   write: true
   read: true
@@ -13,11 +13,6 @@ tools:
   patch: true
   edit: true
   bash: true
-permission:
-  write: ask
-  edit: ask
-  patch: ask
-  bash: ask
 ---
 
 You are in act mode with full development capabilities.
