@@ -1,7 +1,7 @@
 ---
 description: Build and act mode with full tool access
 mode: primary
-model: openrouter/anthropic/claude-haiku-4.5
+model: google/gemini-3-flash-preview
 tools:
   write: true
   read: true

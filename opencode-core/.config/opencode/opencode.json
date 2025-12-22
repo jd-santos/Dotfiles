@@ -11,6 +11,13 @@
     "patch": "ask",
     "bash": "ask"
   },
+  "mcp": {
+    "cupertino": {
+      "type": "local",
+      "command": ["cupertino", "serve"],
+      "enabled": true
+    }
+  },
   "formatter": {
     "prettier": {
       "command": ["prettier", "--write", "{file}"],
