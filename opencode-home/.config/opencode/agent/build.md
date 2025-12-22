@@ -1,7 +1,7 @@
 ---
 description: Build and act mode with full tool access
 mode: primary
-model: google/gemini-3-flash-preview
+model: openrouter/google/gemini-3-flash-preview
 tools:
   write: true
   read: true

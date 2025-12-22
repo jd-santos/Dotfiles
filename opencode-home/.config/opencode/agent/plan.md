@@ -1,7 +1,7 @@
 ---
 description: Planning mode for analysis without making changes
 mode: primary
-model: google/gemini-3-pro-preview
+model: openrouter/google/gemini-3-pro-preview
 tools:
   grep: true
   list: true
