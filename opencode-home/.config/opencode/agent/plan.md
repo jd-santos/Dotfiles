@@ -1,7 +1,7 @@
 ---
 description: Planning mode for analysis without making changes
 mode: primary
-model: openrouter/anthropic/claude-sonnet-4.5
+model: google/gemini-3-pro-preview
 tools:
   grep: true
   list: true

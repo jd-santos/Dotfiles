@@ -10,7 +10,7 @@
   "agent": {
     "default_model": {
       "provider": "openrouter",
-      "model": "openai/gpt-5.1"
+      "model": "openai/gpt-5.2"
     },
     "model_parameters": []
   },
