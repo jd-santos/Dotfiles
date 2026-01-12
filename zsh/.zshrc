@@ -100,41 +100,58 @@ alias szsh='source ~/.zshrc' # szsh: Reload .zshrc configuration
 # │ Functions                                                         │
 # └───────────────────────────────────────────────────────────────────┘
 
-# cd: Always list directory contents upon 'cd'
+# cd: Override default cd to automatically list directory contents
+# Improves navigation by showing what's in the directory you just entered
+# Skipped if PS1 is not set (non-interactive shells)
 cd() { builtin cd "$@"; [[ -n "$PS1" ]] && ls; }
 
-# mcd: Makes new Dir and jumps inside
+# mcd: Create a new directory and immediately change into it
+# Usage: mcd <directory_path>
+# Example: mcd ~/projects/my-new-project
 mcd () { mkdir -p "$1" && cd "$1"; }
 
-# showa: to remind yourself of an alias (given some part of it)
+# showa: Search and display aliases and functions matching a pattern
+# Usage: showa <pattern>
+# Example: showa ls  (displays all aliases/functions containing 'ls')
+# Opens results in a pager for easy navigation
 showa () { /usr/bin/grep --color=always -i -a1 $@ ~/.zshrc | grep -v '^\s*$' | less -FSRXc ; }
 
-# extract: Extract most know archives with one command
+# extract: Extract most known archives with one command
+# Usage: extract <archive_file>
+# Supports: tar.bz2, tar.gz, bz2, rar, gz, tar, tbz2, tgz, zip, Z, 7z
+# Dependencies: Common archive utilities (tar, unzip, 7z, etc.)
 extract () {
-if [ -f $1 ] ; then
-case $1 in
-*.tar.bz2) tar xjf $1 ;;
-*.tar.gz) tar xzf $1 ;;
-*.bz2) bunzip2 $1 ;;
-*.rar) unrar e $1 ;;
-*.gz) gunzip $1 ;;
-*.tar) tar xf $1 ;;
-*.tbz2) tar xjf $1 ;;
-*.tgz) tar xzf $1 ;;
-*.zip) unzip $1 ;;
-*.Z) uncompress $1 ;;
-*.7z) 7z x $1 ;;
-*) echo "'$1' cannot be extracted via extract()" ;;
-esac
-else
-echo "'$1' is not a valid file"
-fi
+  if [ -f $1 ] ; then
+    case $1 in
+      *.tar.bz2) tar xjf $1 ;;
+      *.tar.gz) tar xzf $1 ;;
+      *.bz2) bunzip2 $1 ;;
+      *.rar) unrar e $1 ;;
+      *.gz) gunzip $1 ;;
+      *.tar) tar xf $1 ;;
+      *.tbz2) tar xjf $1 ;;
+      *.tgz) tar xzf $1 ;;
+      *.zip) unzip $1 ;;
+      *.Z) uncompress $1 ;;
+      *.7z) 7z x $1 ;;
+      *) echo "'$1' cannot be extracted via extract()" ;;
+    esac
+  else
+    echo "'$1' is not a valid file"
+  fi
 }
 
-# findPid: find out the pid of a specified process
+# findPid: Find the process ID of a running process by name
+# Usage: findPid <process_name>
+# Example: findPid node  (returns PIDs of all node processes)
+# Dependencies: lsof (list open files)
 findPid () { lsof -t -c "$@" ; }
 
-# Activate virtual environment in current directory
+# venv: Activate a Python virtual environment in the current directory
+# Usage: venv
+# Supports both 'venv' and '.venv' directory names
+# Returns error if no virtual environment is found
+# Common usage: After cloning a Python project, run 'venv' to activate
 venv() {
     if [ -f "venv/bin/activate" ]; then
         source "venv/bin/activate"
@@ -146,10 +163,16 @@ venv() {
     fi
 }
 
-# myPs: List processes owned by my user:
+# myPs: List processes owned by the current user with detailed information
+# Usage: myPs [ps_options]
+# Shows: PID, CPU%, Memory%, start time, elapsed time, BSD time, and command
+# Example: myPs aux  (lists processes with additional flags)
 myPs() { ps $@ -u $USER -o pid,%cpu,%mem,start,time,bsdtime,command ; }
 
-# ii: display useful host related information
+# ii: Display useful host-related information
+# Usage: ii
+# Displays: hostname, OS info, logged-in users, date, uptime, network location
+# macOS specific: Uses scselect for network location
 ii() {
   local RED=$(tput setaf 1)
   local NC=$(tput sgr0)
@@ -198,21 +221,24 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
   ql () { qlmanage -p "$*" >& /dev/null; } # ql: Opens any file in MacOS Quicklook Preview
   alias DT='tee ~/Desktop/terminalOut.txt' # DT: Pipe content to file on MacOS Desktop
 
-  # cdf: 'Cd's to frontmost window of MacOS Finder
+  # cdf: Change directory to the frontmost Finder window
+  # Usage: cdf
+  # macOS specific: Uses AppleScript to interact with Finder
+  # Falls back to Desktop if no Finder window is open
   cdf () {
-  currFolderPath=$( /usr/bin/osascript <<EOT
-  tell application "Finder"
-  try
-  set currFolder to (folder of the front window as alias)
-  on error
-  set currFolder to (path to desktop folder as alias)
-  end try
-  POSIX path of currFolder
-  end tell
+    currFolderPath=$( /usr/bin/osascript <<EOT
+    tell application "Finder"
+    try
+    set currFolder to (folder of the front window as alias)
+    on error
+    set currFolder to (path to desktop folder as alias)
+    end try
+    POSIX path of currFolder
+    end tell
 EOT
-  )
-  echo "cd to \"$currFolderPath\""
-  cd "$currFolderPath"
+    )
+    echo "cd to \"$currFolderPath\""
+    cd "$currFolderPath"
   }
 
   # spotlight: Search for a file using MacOS Spotlight's metadata
