@@ -24,11 +24,80 @@ My prompt is crafted with `Starship` and inspired by the `gruvbox_dark` palette.
 
 ## Installation
 
-If you'd like to give these a spin, you can use `GNU Stow`. For example, to set up the zsh configuration:
+This repository uses **GNU Stow** to manage symlinks for dotfiles. Stow makes it easy to maintain configuration files in a organized directory structure while symlinking them to your home directory.
+
+### Basic Usage
+
+Install a single tool's configuration:
 
 ```bash
-stow zsh
+cd ~/Dotfiles
+stow zsh          # Creates symlinks for all files in zsh/ to ~/
 ```
+
+### Install Multiple Tools at Once
+
+```bash
+stow nvim git starship zsh   # Install multiple configurations
+```
+
+### Install Everything
+
+```bash
+stow */     # Install all tool configurations
+```
+
+### Remove/Unstow a Configuration
+
+If you want to remove symlinks for a tool:
+
+```bash
+stow -D zsh         # Delete symlinks for zsh
+stow --delete nvim  # Delete symlinks for nvim
+```
+
+### Restow (Update Symlinks)
+
+If you modify the directory structure and need to recreate symlinks:
+
+```bash
+stow -R zsh         # Restow (delete and reinstall) zsh
+```
+
+### Viewing What Would Happen
+
+Before stowing, you can preview the changes:
+
+```bash
+stow -n zsh         # Dry-run (no changes made)
+stow --simulate nvim # Simulate (shows what would happen)
+```
+
+### Key Concepts
+
+- **Source:** The tool directories in your Dotfiles repo (e.g., `nvim/`, `zsh/`)
+- **Target:** Your home directory (`~/`), where symlinks are created
+- **Stow creates a tree structure:** If you have `nvim/.config/nvim/init.lua`, stow creates `~/.config/nvim/init.lua` → `dotfiles/nvim/.config/nvim/init.lua`
+
+### Common Issues
+
+**Conflict: File already exists**
+```bash
+# If a file exists at the target location:
+mv ~/.zshrc ~/.zshrc.bak    # Back up the existing file
+stow zsh                     # Then stow
+```
+
+**Stow not found**
+```bash
+# Install Stow if needed:
+brew install stow           # macOS
+sudo apt install stow       # Ubuntu/Debian
+```
+
+### Reference
+
+For more detailed Stow documentation, see the [GNU Stow Manual](https://www.gnu.org/software/stow/manual/).
 
 ## Structure
 

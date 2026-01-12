@@ -33,6 +33,7 @@ return {
       end
 
       local lsp_servers = {
+        -- Lua Language Server
         lua_ls = {
           settings = {
             Lua = {
@@ -45,6 +46,44 @@ return {
                   [vim.fn.stdpath("config") .. "/lua"] = true,
                 },
               },
+            },
+          },
+        },
+        -- Python Language Server (requires: pip install pyright)
+        pyright = {
+          settings = {
+            python = {
+              analysis = {
+                autoSearchPaths = true,
+                diagnosticMode = "workspace",
+                typeCheckingMode = "standard",
+              },
+            },
+          },
+        },
+        -- TypeScript/JavaScript Language Server (requires: npm install -g typescript)
+        ts_ls = {
+          settings = {
+            typescript = {
+              inlayHints = {
+                includeInlayParameterNameHints = "all",
+                includeInlayParameterNameHintsWhenArgumentMatchesName = true,
+                includeInlayFunctionParameterTypeHints = true,
+                includeInlayVariableTypeHints = true,
+                includeInlayVariableTypeHintsWhenTypeMatchesName = true,
+              },
+            },
+          },
+        },
+        -- Go Language Server (requires: go install github.com/golang/tools/gopls@latest)
+        gopls = {
+          settings = {
+            gopls = {
+              analyses = {
+                unusedparams = true,
+                shadow = true,
+              },
+              staticcheck = true,
             },
           },
         },
