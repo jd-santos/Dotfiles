@@ -1,7 +1,7 @@
 ---
 description: Ask mode for questions and exploration
 mode: primary
-model: openrouter/google/gemini-3-flash-preview
+model: openrouter/minimax/minimax-m2.1
 tools:
   grep: true
   list: true
