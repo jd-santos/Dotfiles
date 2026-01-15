@@ -1,3 +1,4 @@
+-- Disable nvim-lint for markdown
 return {
   "mfussenegger/nvim-lint",
   opts = {
