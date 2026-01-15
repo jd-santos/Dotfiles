@@ -1,10 +1,26 @@
--- LazyVim plugin configuration
--- Import LazyVim and any additional custom plugins here
+-- Plugin specification for LazyVim
+-- Import LazyVim and add custom plugins/extras here
 
--- Import LazyVim and its extras
--- This loads all the LazyVim plugins and the extras defined in lazyvim.lua
 return {
-  { "LazyVim/LazyVim", import = "lazyvim.plugins" },
-  -- Your custom plugins can be added here
+  -- Import LazyVim and all its built-in plugins
+  {
+    "LazyVim/LazyVim",
+    import = "lazyvim.plugins",
+    opts = {
+      -- Add language extras here
+      extras = {
+        "lazyvim.plugins.extras.lang.python",
+        "lazyvim.plugins.extras.lang.typescript",
+        "lazyvim.plugins.extras.lang.go",
+        "lazyvim.plugins.extras.lang.json",
+        "lazyvim.plugins.extras.lang.toml",
+        "lazyvim.plugins.extras.lang.markdown",
+        "lazyvim.plugins.extras.lang.lua",
+        "lazyvim.plugins.extras.lsp.none-ls",
+      },
+    },
+  },
+
+  -- Add your custom plugins below
   -- { "myusername/myplugin", opts = {} }
 }
