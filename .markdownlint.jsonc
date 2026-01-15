@@ -1,0 +1,12 @@
+{
+  // Disable superfluous style rules for personal notes
+  "MD013": false,  // Line length limit
+  "MD004": false,  // Unordered list style consistency
+  "MD022": false,  // Blanks around headings
+  "MD023": false,  // Heading start left
+  "MD030": false,  // Spaces after list markers
+  "MD031": false,  // Blanks around fenced code blocks
+  "MD033": false,  // No inline HTML
+  "MD036": false,  // Emphasis as heading
+  "MD041": false   // First line heading
+}
