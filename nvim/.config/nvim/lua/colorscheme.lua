@@ -1,2 +1,0 @@
--- Set the colorscheme (loaded via LazyDone autocmd in init.lua)
--- vim.cmd.colorscheme("tokyonight")
