@@ -21,11 +21,6 @@ end
 
 require("options") -- Load basic editor options
 
--- Load LazyVim extras first
-require("lazyvim")
-
-local opts = {}
-
 lazy.setup("plugins", opts)
 
 -- Load colorscheme after plugins are set up
