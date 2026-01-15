@@ -21,12 +21,6 @@ end
 
 require("options") -- Load basic editor options
 
-lazy.setup("plugins", opts)
+local opts = {}
 
--- Load colorscheme after plugins are set up
-vim.api.nvim_create_autocmd("User", {
-  pattern = "LazyDone",
-  callback = function()
-    vim.cmd.colorscheme("tokyonight")
-  end,
-})
+lazy.setup("plugins", opts)
