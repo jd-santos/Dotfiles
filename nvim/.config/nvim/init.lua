@@ -16,6 +16,10 @@ if not (vim.uv or vim.loop).fs_stat(lazypath) then
 end
 vim.opt.rtp:prepend(lazypath)
 
+-- Leader keys must be set BEFORE lazy loads plugins
+vim.g.mapleader = ' '
+vim.g.maplocalleader = ' '
+
 require("lazy").setup({
   spec = {
     { "LazyVim/LazyVim", import = "lazyvim.plugins" },
@@ -45,4 +49,5 @@ require("lazy").setup({
   },
 })
 
-require("options") -- Load basic editor options
+-- Load options after lazy (colorschemes, etc.)
+require("options")

@@ -1,12 +1,4 @@
 -- ┌─────────────────────────────────────────────────────────────────┐
--- │ Leader Key Configuration                                        │
--- │ Must happen before plugins are loaded (otherwise wrong leader    │
--- │ will be used). See `:help mapleader`                            │
--- └─────────────────────────────────────────────────────────────────┘
-vim.g.mapleader = ' '
-vim.g.maplocalleader = ' '
-
--- ┌─────────────────────────────────────────────────────────────────┐
 -- │ Character Encoding                                              │
 -- └─────────────────────────────────────────────────────────────────┘
 vim.opt.encoding = "utf-8"     -- Set default encoding to UTF-8
