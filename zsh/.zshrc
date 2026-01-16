@@ -19,8 +19,10 @@ export PATH=$PATH:/usr/local/go/bin
 # pyenv
 export PYENV_ROOT="$HOME/.pyenv"
 [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
-eval "$(pyenv init -)"
-eval "$(pyenv virtualenv-init -)"
+if command -v pyenv &>/dev/null; then
+  eval "$(pyenv init -)"
+  eval "$(pyenv virtualenv-init -)"
+fi
 
 # Dotnet
 export PATH="$PATH:/usr/local/share/dotnet"
