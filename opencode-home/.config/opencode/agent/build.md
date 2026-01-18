@@ -1,7 +1,7 @@
 ---
 description: Build and act mode with full tool access
 mode: primary
-model: openrouter/minimax/minimax-m2.1
+model: openrouter/z-ai/glm-4.7
 tools:
   write: true
   read: true

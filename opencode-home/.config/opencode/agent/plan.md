@@ -1,7 +1,7 @@
 ---
 description: Planning mode for analysis without making changes
 mode: primary
-model: openrouter/minimax/minimax-m2.1
+model: antigravity-claude-sonnet-4-5
 tools:
   grep: true
   list: true

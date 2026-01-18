@@ -1,7 +1,7 @@
 ---
 description: Ask mode for questions and exploration
 mode: primary
-model: openrouter/minimax/minimax-m2.1
+model: antigravity-gemini-3-pro
 tools:
   grep: true
   list: true
