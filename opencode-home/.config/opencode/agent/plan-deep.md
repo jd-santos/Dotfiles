@@ -1,7 +1,7 @@
 ---
 description: Deep planning mode for thorough analysis without making changes
 mode: primary
-model: openrouter/anthropic/claude-opus-4.5
+model: antigravity-claude-opus-4-5
 tools:
   grep: true
   list: true
