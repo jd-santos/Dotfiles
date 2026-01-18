@@ -1,5 +1,5 @@
 ---
-description: Planning mode for analysis without making changes
+description: Planning mode for analysis with CLI command access
 mode: primary
 model: antigravity-claude-sonnet-4-5
 tools:
@@ -10,8 +10,8 @@ tools:
   webfetch: true
   write: false
   edit: false
-  bash: false
+  bash: true
 ---
 
 You are in planning mode focused on analysis and strategy.
-You can search and read files but cannot make changes.
+You can search and read files, and run CLI commands with permission, but cannot make changes.

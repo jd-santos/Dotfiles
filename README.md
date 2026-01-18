@@ -13,14 +13,31 @@ My `zshrc` is packed with quality-of-life improvements:
 *   **Smart Aliases:** Quick navigation with `..` and `...`, enhanced `ls` commands (`lt` for sorting by date, `lk` for sorting by size), and handy process management aliases like `memHogsTop`.
 *   **Universal Extractor:** The `extract` function handles almost any archive type you throw at it.
 *   **macOS Integration:** If you're on a Mac, you'll appreciate `cdf` to `cd` directly into your frontmost Finder window.
+*   See [Aliases & Functions Reference](zsh/ALIASES_AND_FUNCTIONS.md) for the complete list and detailed documentation.
 
 ### Neovim (`nvim`)
 
-My Neovim setup is lean and mean, powered by `lazy.nvim` for plugin management. It's designed for speed and efficiency.
+My Neovim setup is built on [LazyVim](https://lazyvim.github.io/), a modern Neovim distribution powered by `lazy.nvim` for plugin management. It's designed for speed and efficiency with sensible defaults.
+
+*   See [Neovim Documentation](docs/neovim.md) for detailed configuration info, plugin setup, and keybindings.
 
 ### Starship (`starship.toml`)
 
 My prompt is crafted with `Starship` and inspired by the `gruvbox_dark` palette. It's not just pretty; it's functional, using Nerd Font icons and clever directory substitutions to keep things informative and clean.
+
+### OpenCode (`opencode-*`)
+
+Configuration for [OpenCode](https://opencode.ai/), an AI coding assistant that helps with planning, building, and asking questions about code:
+
+*   **opencode-core/**: Shared base configuration settings
+*   **opencode-home/**: Personal agent prompts (plan, build, ask, plan-deep) for personal projects
+*   **opencode-work/**: Work-specific agent configurations for professional development
+
+## Recent Changes
+
+| Date       | Change                                                  |
+|------------|---------------------------------------------------------|
+| 2026-01-16 | Added `jj` mapping to escape insert mode in Neovim      |
 
 ## Installation
 
@@ -101,14 +118,16 @@ For more detailed Stow documentation, see the [GNU Stow Manual](https://www.gnu.
 
 ## Structure
 
-- `crush/`: Configuration for Crush
-- `emby/`: Configuration for Emby
-- `fzf/`: Configuration for fzf
+- `docs/`: Additional documentation (Neovim setup guides and more)
+- `emby/`: Emby media server configuration
+- `fzf/`: fzf fuzzy finder configuration
 - `git/`: Git configuration
-- `nvim/`: Neovim configuration
-- `opencode/`: Opencode configuration
+- `nvim/`: Neovim configuration (LazyVim-based)
+- `opencode-core/`: Core OpenCode base configuration
+- `opencode-home/`: OpenCode agent configurations for personal use
+- `opencode-work/`: OpenCode agent configurations for work
 - `starship/`: Starship prompt configuration
-- `vim/`: Vim configuration
-- `zsh/`: Zsh configuration
+- `vim/`: Legacy Vim configuration
+- `zsh/`: Zsh shell configuration
 
 Enjoy!
