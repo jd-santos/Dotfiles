@@ -9,8 +9,8 @@ font-size = 14
 font-codepoint-map = U+E5FA-U+E6B5,U+E700-U+E7C5,U+F000-U+F2E0,U+E200-U+E2A9,U+F500-U+FD46,U+E300-U+E3E3,U+F400-U+F532,U+2665,U+26A1,U+E0A0-U+E0A3,U+E0B0-U+E0C8,U+E0CA,U+E0CC-U+E0D4=Symbols Nerd Font Mono
 
 # Adjust nerd font icon height to make them more visible
-# Default is 1.2x capital letter height, increase by 25% to make icons larger
-adjust-icon-height = 25%
+# Reduced to 15% to better match text baseline
+adjust-icon-height = 15%
 
 # Theme
 theme = dracula
@@ -20,7 +20,7 @@ window-padding-x = 8
 window-padding-y = 8
 
 # Shell
-shell-integration = true
+shell-integration = detect
 shell-integration-features = cursor,sudo,title
 
 # Cursor
