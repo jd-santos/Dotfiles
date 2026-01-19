@@ -1,7 +1,8 @@
----
+ ---
 description: Build and act mode with full tool access
 mode: primary
-model: openrouter/z-ai/glm-4.7
+model: openrouter/anthropic/claude-3.5-sonnet
+skills: true
 tools:
   write: true
   read: true
@@ -18,7 +19,7 @@ permission:
   edit: ask
   patch: ask
   bash: ask
----
+ ---
 
 You are in act mode with full development capabilities.
 You can read, write, edit files and execute bash commands.
