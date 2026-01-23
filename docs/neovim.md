@@ -34,13 +34,18 @@ The configuration is organized into the following files and directories:
 
 ### Navigation and Search
 
--   **Fuzzy Finder**: `nvim-telescope/telescope.nvim`
-    -   A powerful fuzzy finder to quickly navigate files, buffers, and search for text.
+-   **Fuzzy Finder**: `ibhagwan/fzf-lua`
+    -   A high-performance fuzzy finder powered by fzf with native Lua implementation.
+    -   Provides fast file searching, buffer navigation, and LSP integration.
     -   **Keybindings**:
         -   `<leader>ff`: Find files in the current project.
-        -   `<leader>fg`: Search for a string in all project files (live grep).
+        -   `<leader>fg`: Search through git files.
         -   `<leader>fb`: Search through open buffers.
-        -   `<leader>fh`: Search Neovim's help tags.
+        -   `<leader>fh`: Browse recent files (oldfiles).
+        -   `<leader>fw`: Grep word under cursor.
+        -   `<leader>fs`: Live grep search in all files.
+        -   `<leader>fd`: Display document diagnostics.
+        -   `<leader>fl`: Search LSP document symbols.
 
 ### Code Intelligence
 
