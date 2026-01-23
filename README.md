@@ -37,6 +37,7 @@ Configuration for [OpenCode](https://opencode.ai/), an AI coding assistant that 
 
 | Date       | Change                                                  |
 |------------|---------------------------------------------------------|
+| 2026-01-23 | Added fzf-lua fuzzy finder plugin to Neovim            |
 | 2026-01-16 | Added `jj` mapping to escape insert mode in Neovim      |
 
 ## Installation
