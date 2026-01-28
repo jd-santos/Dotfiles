@@ -268,9 +268,9 @@ fi
 eval "$(starship init zsh)"
 
 # Added by LM Studio CLI (lms)
-export PATH="$PATH:/Users/jdwork/.lmstudio/bin"
+export PATH="$PATH:$HOME/.lmstudio/bin"
 # End of LM Studio CLI section
 
 
 # Added by Antigravity
-export PATH="/Users/jdmini/.antigravity/antigravity/bin:$PATH"
+export PATH="$HOME/.antigravity/antigravity/bin:$PATH"

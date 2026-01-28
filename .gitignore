@@ -26,6 +26,7 @@ vscode/.vscode/workspaceStorage/
 
 # Vim (ignore state, swap, and undo files)
 vim/.vim/.netrwist
+vim/.vim/.netrwhist
 vim/.vim/*.swp
 vim/.vim/*.un~
 
@@ -42,4 +43,5 @@ config/.config/github-copilot/versions.json
 
 # Misc configs
 config/.config/github-copilot
+config/.config/raycast/
 config/.config//gh/
