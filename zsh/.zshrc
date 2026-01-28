@@ -171,6 +171,19 @@ venv() {
 # Example: myPs aux  (lists processes with additional flags)
 myPs() { ps $@ -u $USER -o pid,%cpu,%mem,start,time,bsdtime,command ; }
 
+# fp: File Preview - Interactive file search with rich preview using fzf and bat
+# Usage: fp
+# Shows files in current directory with bat preview in a side window
+# Press Enter to open the selected file in vim
+# Dependencies: fzf, bat
+fp() {
+  local selected
+  selected=$(fzf --preview 'bat --style=numbers --color=always --line-range :500 {}')
+  if [[ -n "$selected" ]]; then
+    vim "$selected"
+  fi
+}
+
 # ii: Display useful host-related information
 # Usage: ii
 # Displays: hostname, OS info, logged-in users, date, uptime, network location
