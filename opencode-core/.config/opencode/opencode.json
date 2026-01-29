@@ -199,10 +199,6 @@
       "command": ["gofmt", "-w", "{file}"],
       "extensions": [".go"]
     },
-    "swift-format": {
-      "command": ["swift-format", "format", "--in-place", "{file}"],
-      "extensions": [".swift"]
-    },
     "gdformat": {
       "command": ["gdformat", "{file}"],
       "extensions": [".gd"]

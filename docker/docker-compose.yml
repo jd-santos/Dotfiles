@@ -1,0 +1,102 @@
+# =============================================================================
+# Opencode Development Container - Docker Compose Configuration
+# =============================================================================
+# Usage:
+#   docker compose up -d        # Start container in background
+#   docker compose stop         # Stop container (preserves data)
+#   docker compose down         # Remove container (preserves volumes)
+#   docker compose down -v      # Remove everything including data volumes
+# =============================================================================
+
+services:
+  opencode:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Customize the dotfiles repo if needed
+        DOTFILES_REPO: "https://github.com/jdwork/Dotfiles.git"
+    
+    container_name: opencode-dev
+    hostname: opencode
+    
+    # SSH access from host
+    ports:
+      - "2222:22"  # SSH on port 2222 to avoid conflict with host SSH
+    
+    # Load environment variables from .env.container file
+    # This file contains API keys and should NEVER be committed
+    env_file:
+      - .env.container
+    
+    # Additional environment variables
+    environment:
+      # Set timezone to match host (optional)
+      - TZ=America/New_York
+      # Ensure proper shell
+      - SHELL=/bin/zsh
+    
+    # Persistent storage
+    volumes:
+      # --- Named Volumes (Docker-managed, survives container removal) ---
+      
+      # Home directory (configs, shell history, projects, caches, etc.)
+      - home:/home/dev
+      
+      # --- Bind Mounts (direct host filesystem access) ---
+      
+      # Obsidian vault - needs to sync with host application
+      # IMPORTANT: Update this path to your actual Obsidian vault location
+      # Example: ~/Documents/Obsidian:/home/dev/Obsidian
+      # Uncomment and modify the line below:
+      # - ~/Documents/Obsidian:/home/dev/Obsidian
+      
+      # SSH keys for git operations (read-only for security)
+      # This allows you to push/pull from GitHub without re-configuring SSH
+      - ~/.ssh:/home/dev/.ssh-host:ro
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Resource limits (adjust based on your system)
+    deploy:
+      resources:
+        limits:
+          cpus: '4'          # Max 4 CPU cores
+          memory: 8G         # Max 8GB RAM
+        reservations:
+          cpus: '1'          # Min 1 CPU core guaranteed
+          memory: 2G         # Min 2GB RAM guaranteed
+    
+    # Network configuration
+    # Uses default bridge network - suitable for most use cases
+    # For advanced networking (e.g., connecting to other containers), add custom networks here
+    
+    # Security options (optional hardening)
+    # Uncomment if you want additional security restrictions
+    # security_opt:
+    #   - no-new-privileges:true
+    # cap_drop:
+    #   - ALL
+    # cap_add:
+    #   - NET_BIND_SERVICE  # Allow binding to ports < 1024 if needed
+
+# =============================================================================
+# Named Volumes
+# =============================================================================
+# These persist data between container restarts/removals
+# To backup: docker run --rm -v opencode-home:/data -v $(pwd):/backup alpine tar czf /backup/home-backup.tar.gz /data
+# To restore: docker run --rm -v opencode-home:/data -v $(pwd):/backup alpine tar xzf /backup/home-backup.tar.gz -C /
+# =============================================================================
+
+volumes:
+  home:
+    driver: local
+
+# =============================================================================
+# Networks (optional)
+# =============================================================================
+# Uncomment if you need custom networking
+# networks:
+#   dev-network:
+#     driver: bridge
