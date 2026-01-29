@@ -33,6 +33,42 @@ Configuration for [OpenCode](https://opencode.ai/), an AI coding assistant that 
 *   **opencode-home/**: Personal agent prompts (plan, build, ask, plan-deep) for personal projects
 *   **opencode-work/**: Work-specific agent configurations for professional development
 
+## Keyboard Shortcuts
+
+### Tmux (Prefix: `Ctrl+O`)
+
+| Shortcut | Description |
+|----------|-------------|
+| `Ctrl+O` | Tmux prefix (activates command mode) |
+| `Ctrl+O` `Ctrl+O` | Send prefix to nested session |
+| `Prefix` + `h/j/k/l` | Navigate panes (vim-style) |
+| `Prefix` + `H/J/K/L` | Resize panes (repeatable) |
+| `Option+1-9` | Quick switch to window 1-9 |
+| `Prefix` + `\|` | Vertical split |
+| `Prefix` + `-` | Horizontal split |
+| `Prefix` + `x` | Close pane |
+| `Prefix` + `r` | Reload tmux config |
+
+**Copy Mode (vi-style):** Press `Prefix` + `[` to enter, `v` to select, `y` to copy.
+
+### Neovim (Leader: `Space`)
+
+Custom keybindings added on top of [LazyVim defaults](https://www.lazyvim.org/keymaps):
+
+| Shortcut | Description |
+|----------|-------------|
+| `jj` | Exit insert mode |
+| `<leader>ff` | Find files |
+| `<leader>fg` | Find git files |
+| `<leader>fb` | Find buffers |
+| `<leader>fh` | Recent files |
+| `<leader>fw` | Grep word under cursor |
+| `<leader>fs` | Live grep |
+| `<leader>fd` | Document diagnostics |
+| `<leader>fl` | LSP document symbols |
+
+**fzf-lua Navigation:** `Ctrl+d/u` for preview scroll, `Ctrl+f/b` for half-page scroll.
+
 ## Recent Changes
 
 | Date       | Change                                                  |
@@ -117,8 +153,32 @@ sudo apt install stow       # Ubuntu/Debian
 
 For more detailed Stow documentation, see the [GNU Stow Manual](https://www.gnu.org/software/stow/manual/).
 
+## 🐳 Docker Container
+
+Want a fully reproducible development environment? This repository includes a complete Docker container setup with Opencode and all your dotfiles pre-configured!
+
+**Quick Start:**
+
+```bash
+cd ~/Dotfiles/docker
+cp .env.container.example .env.container
+# Edit .env.container with your API keys
+docker compose up -d
+ssh -p 2222 dev@localhost
+```
+
+**Features:**
+- ✅ Opencode AI assistant with your full configuration
+- ✅ Multi-language support (Python, Node.js, Go, Swift)
+- ✅ SSH access from your host terminal
+- ✅ Persistent volumes for projects and configs
+- ✅ Auto-syncing dotfiles on container restart
+
+See [docker/README.md](docker/README.md) for complete setup instructions, troubleshooting, and advanced usage.
+
 ## Structure
 
+- `docker/`: **Docker container configuration for portable dev environment**
 - `docs/`: Additional documentation (Neovim setup guides and more)
 - `emby/`: Emby media server configuration
 - `fzf/`: fzf fuzzy finder configuration
