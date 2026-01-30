@@ -1,6 +1,6 @@
 # Neovim Configuration
 
-This document outlines the structure and features of the Neovim configuration. The setup is designed to be simple, modular, and easy to extend, using `lazy.nvim` for plugin management.
+Structure and features of my Neovim setup, using `lazy.nvim` for plugin management.
 
 ## File Structure
 
