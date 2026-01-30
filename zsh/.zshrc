@@ -7,11 +7,17 @@ fi
 # │ Environment Variables & Paths                                     │
 # └───────────────────────────────────────────────────────────────────┘
 
-# Editor
-export EDITOR="zed --wait"
+# Editor - use zed on macOS, nvim elsewhere
+if command -v zed &>/dev/null; then
+  export EDITOR="zed --wait"
+else
+  export EDITOR="nvim"
+fi
 
-# Homebrew
-eval "$(/opt/homebrew/bin/brew shellenv)"
+# Homebrew (macOS only)
+if [[ -f /opt/homebrew/bin/brew ]]; then
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+fi
 
 # Go
 export PATH=$PATH:/usr/local/go/bin
@@ -21,7 +27,9 @@ export PYENV_ROOT="$HOME/.pyenv"
 [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
 if command -v pyenv &>/dev/null; then
   eval "$(pyenv init -)"
-  eval "$(pyenv virtualenv-init -)"
+  if command -v pyenv-virtualenv-init &>/dev/null; then
+    eval "$(pyenv virtualenv-init -)"
+  fi
 fi
 
 # Dotnet
@@ -44,7 +52,14 @@ fi
 alias cp='cp -iv' # Preferred 'cp' implementation
 alias mv='mv -iv' # Preferred 'mv' implementation
 alias mkdir='mkdir -pv' # Preferred 'mkdir' implementation
-alias ls='ls -FGlAhp' # Preferred 'ls' implementation
+
+# ls - use appropriate flags for the platform
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  alias ls='ls -FGlAhp' # macOS ls with colorized output
+else
+  alias ls='ls -FlAhp --color=auto' # GNU ls with color
+fi
+
 alias less='less -FSRXc' # Preferred 'less' implementation
 alias cat='bat' # Preferred 'cat' implementation
 
@@ -77,11 +92,7 @@ ffe () { /usr/bin/find . -name '*'"$@" ; } # ffe: Find file whose name ends with
 ft() { /usr/bin/find . -name "$2" -exec grep -il "$1" {} \; } # ft: Find text in any file
 
 # Process Management
-alias memHogsTop='top -l 1 -o rsize | head -20' # memHogsTop, memHogsPs: Find memory hogs
 alias memHogsPs='ps wwaxm -o pid,stat,vsize,rss,time,command | head -10'
-alias cpuHogs='ps wwaxr -o pid,stat,%cpu,time,command | head -10' # cpuHogs: Find CPU hogs
-alias topForever='top -l 9999999 -s 10 -o cpu' # topForever: Continual 'top' listing (every 10 seconds)
-alias ttop="top -R -F -s 10 -o rsize" # ttop: Recommended 'top' invocation to minimize resources
 alias tm="ps -ef | grep" # tm: Search for a process
 
 # Networking
@@ -171,10 +182,22 @@ venv() {
 # Example: myPs aux  (lists processes with additional flags)
 myPs() { ps $@ -u $USER -o pid,%cpu,%mem,start,time,bsdtime,command ; }
 
+# fp: File Preview - Interactive file search with rich preview using fzf and bat
+# Usage: fp
+# Shows files in current directory with bat preview in a side window
+# Press Enter to open the selected file in vim
+# Dependencies: fzf, bat
+fp() {
+  local selected
+  selected=$(fzf --preview 'bat --style=numbers --color=always --line-range :500 {}')
+  if [[ -n "$selected" ]]; then
+    vim "$selected"
+  fi
+}
+
 # ii: Display useful host-related information
 # Usage: ii
-# Displays: hostname, OS info, logged-in users, date, uptime, network location
-# macOS specific: Uses scselect for network location
+# Displays: hostname, OS info, logged-in users, date, uptime, (network location on macOS)
 ii() {
   local RED=$(tput setaf 1)
   local NC=$(tput sgr0)
@@ -183,7 +206,9 @@ ii() {
   echo -e "\n${RED}Users logged on:${NC} " ; w -h
   echo -e "\n${RED}Current date :${NC} " ; date
   echo -e "\n${RED}Machine stats :${NC} " ; uptime
-  echo -e "\n${RED}Current network location :${NC} " ; scselect
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    echo -e "\n${RED}Current network location :${NC} " ; scselect
+  fi
   echo
 }
 
@@ -251,6 +276,12 @@ EOT
   alias ipInfo0='ipconfig getpacket en0' # ipInfo0: Get info on connections for en0
   alias ipInfo1='ipconfig getpacket en1' # ipInfo1: Get info on connections for en1
   alias showBlocked='sudo ipfw list' # showBlocked: All ipfw rules inc/ blocked IPs
+
+  # Process Management (macOS-specific top flags)
+  alias memHogsTop='top -l 1 -o rsize | head -20' # memHogsTop: Find memory hogs
+  alias cpuHogs='ps wwaxr -o pid,stat,%cpu,time,command | head -10' # cpuHogs: Find CPU hogs
+  alias topForever='top -l 9999999 -s 10 -o cpu' # topForever: Continual 'top' listing (every 10 seconds)
+  alias ttop="top -R -F -s 10 -o rsize" # ttop: Recommended 'top' invocation to minimize resources
 fi
 
 # ┌───────────────────────────────────────────────────────────────────┐
@@ -268,9 +299,9 @@ fi
 eval "$(starship init zsh)"
 
 # Added by LM Studio CLI (lms)
-export PATH="$PATH:/Users/jdwork/.lmstudio/bin"
+export PATH="$PATH:$HOME/.lmstudio/bin"
 # End of LM Studio CLI section
 
 
 # Added by Antigravity
-export PATH="/Users/jdmini/.antigravity/antigravity/bin:$PATH"
+export PATH="$HOME/.antigravity/antigravity/bin:$PATH"

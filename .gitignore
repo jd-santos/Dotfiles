@@ -1,8 +1,18 @@
 # --- Secrets & History ---
 # NEVER commit files containing secrets, passwords, or shell history.
 .env
+.env.local
+.env-local
+**/.env-local
+**/.env.local
 .bash_history
 .zsh_history
+
+# Docker secrets (CRITICAL - contains API keys!)
+docker/.env.container
+docker/.env.container.*
+!docker/.env.container.example
+*.local
 
 # --- System & OS-specific Files ---
 # Ignore macOS, Windows, and local editor clutter.
@@ -26,6 +36,7 @@ vscode/.vscode/workspaceStorage/
 
 # Vim (ignore state, swap, and undo files)
 vim/.vim/.netrwist
+vim/.vim/.netrwhist
 vim/.vim/*.swp
 vim/.vim/*.un~
 
@@ -42,4 +53,5 @@ config/.config/github-copilot/versions.json
 
 # Misc configs
 config/.config/github-copilot
+config/.config/raycast/
 config/.config//gh/
