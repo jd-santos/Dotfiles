@@ -25,6 +25,15 @@ My Neovim setup is built on [LazyVim](https://lazyvim.github.io/), a modern Neov
 
 My prompt is crafted with `Starship` and inspired by the `gruvbox_dark` palette. It's not just pretty; it's functional, using Nerd Font icons and clever directory substitutions to keep things informative and clean.
 
+### Claude Skills (`claude`)
+
+Reusable instruction sets for Claude Code that enhance AI-assisted development:
+
+*   **Skills System:** Domain-specific expertise modules that Claude can load for specialized tasks
+*   **Custom Workflows:** Step-by-step processes for code review, API design, testing, and more
+*   **Extensible:** Create your own skills for project-specific patterns and best practices
+*   See [Claude Skills README](claude/README.md) for detailed documentation on creating and using skills
+
 ### OpenCode (`opencode-*`)
 
 Configuration for [OpenCode](https://opencode.ai/), an AI coding assistant that helps with planning, building, and asking questions about code:
@@ -155,29 +164,23 @@ For more detailed Stow documentation, see the [GNU Stow Manual](https://www.gnu.
 
 ## 🐳 Docker Container
 
-Want a fully reproducible development environment? This repository includes a complete Docker container setup with Opencode and all your dotfiles pre-configured!
+Docker container with Opencode and my dotfiles, plus Python, Node.js, and Go. Good for a portable dev environment.
 
 **Quick Start:**
 
 ```bash
 cd ~/Dotfiles/docker
-cp .env.container.example .env.container
-# Edit .env.container with your API keys
+cp .env.example ~/.env
+# Edit ~/.env with your API keys
 docker compose up -d
 ssh -p 2222 dev@localhost
 ```
 
-**Features:**
-- ✅ Opencode AI assistant with your full configuration
-- ✅ Multi-language support (Python, Node.js, Go, Swift)
-- ✅ SSH access from your host terminal
-- ✅ Persistent volumes for projects and configs
-- ✅ Auto-syncing dotfiles on container restart
-
-See [docker/README.md](docker/README.md) for complete setup instructions, troubleshooting, and advanced usage.
+See [docker/README.md](docker/README.md) for full setup, troubleshooting, and usage details.
 
 ## Structure
 
+- `claude/`: Claude Code skills - reusable instruction sets for AI workflows
 - `docker/`: **Docker container configuration for portable dev environment**
 - `docs/`: Additional documentation (Neovim setup guides and more)
 - `emby/`: Emby media server configuration
