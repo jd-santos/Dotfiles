@@ -66,6 +66,25 @@ su - dev -c '
 '
 
 # =============================================================================
+# Environment Variables Setup
+# =============================================================================
+
+echo "🔑 Loading environment variables..."
+
+# Source .env file if it exists (bind-mounted from host)
+if [ -f /home/dev/.env ]; then
+    # Export all variables from .env file
+    set -a  # Automatically export all variables
+    source /home/dev/.env
+    set +a  # Turn off automatic export
+    echo "✅ Loaded environment variables from ~/.env"
+else
+    echo "⚠️  No .env file found at /home/dev/.env"
+    echo "   Create ~/.env on your host with your API keys"
+    echo "   See docker/.env.example for the required format"
+fi
+
+# =============================================================================
 # Context Switching (Home vs Work)
 # =============================================================================
 

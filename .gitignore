@@ -9,9 +9,12 @@
 .zsh_history
 
 # Docker secrets (CRITICAL - contains API keys!)
+# Note: API keys now live in ~/.env on host (bind-mounted into container)
+docker/.env
+docker/.env.*
+!docker/.env.example
 docker/.env.container
 docker/.env.container.*
-!docker/.env.container.example
 *.local
 
 # --- System & OS-specific Files ---

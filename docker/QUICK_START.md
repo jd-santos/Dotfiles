@@ -1,16 +1,16 @@
-# 🚀 Quick Start - Opencode Dev Container
+# Quick Start - Opencode Dev Container
 
-## First Time Setup (5 minutes)
+## First Time Setup
 
 ```bash
 # 1. Go to docker directory
 cd ~/Dotfiles/docker
 
-# 2. Create your secrets file
-cp .env.container.example .env.container
+# 2. Create your secrets file in home directory
+cp .env.example ~/.env
 
 # 3. Edit and add your API keys
-vim .env.container
+vim ~/.env
 # Add your real ANTHROPIC_API_KEY, TAVILY_API_KEY, etc.
 
 # 4. Optional: Configure Obsidian path in docker-compose.yml
@@ -25,7 +25,7 @@ docker compose up -d
 
 # 7. Connect via SSH
 ssh -p 2222 dev@localhost
-# Password: use your SSH key (no password needed)
+# Uses your SSH key (no password needed)
 ```
 
 ## Daily Commands

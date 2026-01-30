@@ -24,11 +24,6 @@ services:
     ports:
       - "2222:22"  # SSH on port 2222 to avoid conflict with host SSH
     
-    # Load environment variables from .env.container file
-    # This file contains API keys and should NEVER be committed
-    env_file:
-      - .env.container
-    
     # Additional environment variables
     environment:
       # Set timezone to match host (optional)
@@ -44,6 +39,12 @@ services:
       - home:/home/dev
       
       # --- Bind Mounts (direct host filesystem access) ---
+      
+      # Environment variables (API keys, secrets)
+      # IMPORTANT: Create ~/.env on your host with your API keys
+      # See .env.example for the required format
+      # Keys are stored on separate device for security
+      - ~/.env:/home/dev/.env:ro
       
       # Obsidian vault - needs to sync with host application
       # IMPORTANT: Update this path to your actual Obsidian vault location

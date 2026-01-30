@@ -1,14 +1,8 @@
 # 🐳 Opencode Development Container
 
-A fully-configured, reproducible development environment in a Docker container with:
+Docker container with Opencode and my dotfiles. Includes Python, Node.js, and Go, with SSH access and persistent storage for projects.
 
-- **Opencode AI Assistant** - Pre-configured with your dotfiles
-- **Multi-language Support** - Python, Node.js, Go
-- **SSH Access** - Seamless terminal integration via SSH
-- **Persistent Storage** - Your work survives container restarts
-- **Auto-syncing Dotfiles** - Always up to date with your latest configs
-
-## 📋 Table of Contents
+## Table of Contents
 
 - [Quick Start](#-quick-start)
 - [Architecture](#-architecture)
@@ -20,15 +14,15 @@ A fully-configured, reproducible development environment in a Docker container w
 - [Advanced Topics](#-advanced-topics)
 - [FAQ](#-faq)
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 # 1. Navigate to the docker directory
 cd ~/Dotfiles/docker
 
-# 2. Copy environment template and add your API keys
-cp .env.container.example .env.container
-vim .env.container  # Add your real API keys
+# 2. Copy environment template to your home directory and add your API keys
+cp .env.example ~/.env
+vim ~/.env  # Add your real API keys
 
 # 3. Build and start the container (takes ~10 minutes first time)
 docker compose up -d
@@ -41,7 +35,7 @@ ssh -p 2222 dev@localhost
 opencode
 ```
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -50,52 +44,43 @@ opencode
 │                                                         │
 │  Terminal ────────SSH:2222──▶ Container                │
 │                                                         │
+│  ~/.env ──────────────────────▶ Environment Variables   │
+│  (API Keys - bind mounted read-only)                    │
 │  ~/.ssh ──────────────────────▶ SSH Keys (read-only)   │
 │  ~/Obsidian ◀─────bind mount─▶ /home/dev/Obsidian      │
 │                                                         │
 │  Docker Volume (persisted):                             │
 │    • opencode-home ──────────▶ /home/dev                │
 │      (includes projects, caches, configs)              │
-│                                                         │
-│  .env.container ──────────────▶ Environment Variables   │
-│  (API Keys - NEVER COMMITTED)                           │
 └─────────────────────────────────────────────────────────┘
 ```
 
-## 📦 Prerequisites
+## Prerequisites
 
-### Required
+- **Docker Desktop** - [Download](https://www.docker.com/products/docker-desktop) and make sure it's running
+- **API Keys** you'll need:
+  - Anthropic Claude (required) - [Get key](https://console.anthropic.com/)
+  - Tavily Search (required for MCP) - [Get key](https://tavily.com/)
+  - OpenRouter (optional) - [Get key](https://openrouter.ai/)
+  - Google AI (optional) - [Get key](https://makersuite.google.com/app/apikey)
 
-- **Docker Desktop** (macOS)
-  - [Download Docker Desktop](https://www.docker.com/products/docker-desktop)
-  - Ensure it's running before proceeding
-
-### API Keys
-
-You'll need API keys for AI providers:
-
-1. **Anthropic Claude** (required) - [Get key](https://console.anthropic.com/)
-2. **Tavily Search** (required for MCP) - [Get key](https://tavily.com/)
-3. **OpenRouter** (optional) - [Get key](https://openrouter.ai/)
-4. **Google AI** (optional) - [Get key](https://makersuite.google.com/app/apikey)
-
-## 🛠️ Initial Setup
+## Initial Setup
 
 ### Step 1: Environment Configuration
 
 ```bash
 cd ~/Dotfiles/docker
 
-# Copy the template
-cp .env.container.example .env.container
+# Copy the template to your home directory
+cp .env.example ~/.env
 
 # Edit with your API keys
-vim .env.container
+vim ~/.env
 ```
 
-**CRITICAL:** Never commit `.env.container` - it's already in `.gitignore`!
+Your `~/.env` file lives in your home directory (on a separate device), not in the git repo. It gets bind-mounted read-only into the container.
 
-Example `.env.container`:
+Example `~/.env`:
 
 ```bash
 ANTHROPIC_API_KEY=sk-ant-your-actual-key-here
@@ -142,9 +127,9 @@ docker compose logs -f
 # Press Ctrl+C to exit logs (container keeps running)
 ```
 
-### Step 5: SSH Configuration (Optional but Recommended)
+### Step 5: SSH Configuration (optional but nice)
 
-Add this to your `~/.ssh/config` for easy access:
+Add this to your `~/.ssh/config` for easier access:
 
 ```ssh-config
 Host opencode
@@ -157,7 +142,7 @@ Host opencode
 
 Now you can connect with just: `ssh opencode`
 
-## 💻 Daily Usage
+## Daily Usage
 
 ### Starting/Stopping
 
@@ -226,11 +211,11 @@ go mod download    # Go projects
 opencode
 ```
 
-## ⚙️ Configuration
+## Configuration
 
 ### Switching Context (Home vs Work)
 
-Edit `.env.container`:
+Edit `~/.env` on your host machine:
 
 ```bash
 # For personal projects
@@ -279,7 +264,7 @@ deploy:
       memory: 8G     # Change this
 ```
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### SSH Connection Refused
 
@@ -327,8 +312,11 @@ ssh -T git@github.com  # Test GitHub access
 # Verify environment variables are loaded
 docker compose exec opencode env | grep API_KEY
 
-# If missing, check .env.container exists
-ls -la ~/Dotfiles/docker/.env.container
+# If missing, check ~/.env exists on your host
+ls -la ~/.env
+
+# Verify it's bind-mounted correctly
+docker compose exec opencode ls -la /home/dev/.env
 
 # Restart container to reload env vars
 docker compose restart
@@ -345,8 +333,10 @@ docker compose logs
 #    Solution: Change port in docker-compose.yml
 # 2. Docker out of disk space
 #    Solution: docker system prune
-# 3. Invalid .env.container syntax
+# 3. Invalid ~/.env syntax
 #    Solution: Check for quotes/spaces in env file
+# 4. ~/.env file missing
+#    Solution: cp ~/Dotfiles/docker/.env.example ~/.env
 ```
 
 ### Neovim Plugins Not Loading
@@ -361,7 +351,7 @@ nvim
 # Quit and restart nvim
 ```
 
-## 🎓 Advanced Topics
+## Advanced Topics
 
 ### Backing Up Your Work
 
@@ -433,65 +423,33 @@ docker rmi opencode-dev
 docker compose up -d
 ```
 
-## ❓ FAQ
+## FAQ
 
-### Q: Can I use VS Code with this container?
+**VS Code?** Yes, use the "Remote - SSH" extension and connect to `localhost:2222`. The container is set up for terminal workflows though.
 
-**A:** Yes! Install the "Remote - SSH" extension and connect to `localhost:2222`. However, the container is optimized for terminal workflows with Opencode.
+**Disk space?** Base image is ~2GB, with language runtimes it's ~4-5GB, plus whatever projects and caches you add.
 
-### Q: How much disk space does this use?
+**Docker-in-Docker?** Not by default. If you need it, uncomment the Docker socket mount in `docker-compose.yml`.
 
-**A:** 
-- Base image: ~2GB
-- With language runtimes: ~4-5GB
-- Plus your projects and caches
+**Windows/Linux?** Should work fine. You'll need to adjust SSH key paths and bind mount paths (Windows uses different syntax).
 
-### Q: Can I run Docker commands inside the container?
-
-**A:** Not by default (for security). If needed, uncomment the Docker socket mount in `docker-compose.yml`, but understand the security implications.
-
-### Q: Will this work on Windows/Linux?
-
-**A:** The Dockerfile is Linux-based and will work on any platform running Docker. You'll need to adjust:
-- SSH key paths
-- Bind mount paths (Windows uses different path syntax)
-- The Obsidian path (if using)
-
-### Q: How do I update to a newer Python/Node/Go version?
-
-**A:** Edit the `Dockerfile`, change the version variables:
+**Update Python/Node/Go?** Edit the version variables in `Dockerfile`:
 ```dockerfile
 ENV GO_VERSION="1.24.0"
 ENV NODE_VERSION="23.0.0"
 ```
 Then rebuild: `docker compose build --no-cache`
 
-### Q: Can I use my own custom MCP servers?
+**Custom MCP servers?** Install them in the Dockerfile or mount as volumes, then update your Opencode config.
 
-**A:** Yes! Install them in the Dockerfile or mount them as volumes. Update your Opencode config to reference them.
+**Skip SSH?** You can use `docker compose exec opencode zsh`, but SSH gives better terminal emulation.
 
-### Q: What if I don't want SSH, just terminal access?
+## Resources
 
-**A:** You can use `docker compose exec opencode zsh`, but SSH provides better terminal emulation (tmux, proper colors, etc.)
+- [Docker Compose docs](https://docs.docker.com/compose/)
+- [Opencode docs](https://github.com/opencodetorch/opencode)
+- [GNU Stow guide](https://www.gnu.org/software/stow/manual/stow.html)
 
-## 📚 Additional Resources
+## Getting Help
 
-- [Docker Compose Documentation](https://docs.docker.com/compose/)
-- [Opencode Documentation](https://github.com/opencodetorch/opencode)
-- [GNU Stow Guide](https://www.gnu.org/software/stow/manual/stow.html)
-
-## 🆘 Getting Help
-
-If you encounter issues:
-
-1. Check the [Troubleshooting](#-troubleshooting) section
-2. Review container logs: `docker compose logs`
-3. Join the discussion in the repo issues
-
-## 🔒 Security Notes
-
-- `.env.container` is gitignored - never commit it
-- SSH uses key-based auth only (no passwords)
-- Container runs as non-root user `dev`
-- Read-only mounts for SSH keys prevent accidental modification
-- No Docker socket access by default
+Check the troubleshooting section above, or review container logs with `docker compose logs`.
