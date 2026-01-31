@@ -95,6 +95,8 @@ Prohibited files:
 - `*credentials*`, `*secrets*`, `*token*`, `*.key`, `*.pem`
 - `.aws/credentials`, `.ssh/id_rsa*`
 
+**Note:** The global `.gitignore` (in `git/.gitignore`) helps prevent accidental commits of these sensitive files across all repositories.
+
 ### When Users Request .env Help
 
 **FORBIDDEN:**

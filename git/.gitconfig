@@ -1,5 +1,5 @@
 [user]
-	name = JDmini
+	name = JD
 	email = 28938316+jd-santos@users.noreply.github.com
 [filter "lfs"]
 	required = true
@@ -8,3 +8,5 @@
 	process = git-lfs filter-process
 [init]
 	defaultBranch = main
+[core]
+	excludesfile = ~/.gitignore

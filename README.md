@@ -21,6 +21,16 @@ My Neovim setup is built on [LazyVim](https://lazyvim.github.io/), a modern Neov
 
 *   See [Neovim Documentation](docs/neovim.md) for detailed configuration info, plugin setup, and keybindings.
 
+### Git (`git`)
+
+My Git configuration includes:
+
+*   **Global gitignore:** Sensible defaults for common OS files (`.DS_Store`, `Thumbs.db`), editor files (Vim swaps, VSCode settings, JetBrains IDEs), temporary files, and environment secrets (`.env*`, keys, credentials)
+*   **Git LFS:** Pre-configured for large file storage
+*   **Default branch:** Set to `main`
+
+The `.gitignore` patterns are applied globally across all repositories, keeping your workspace clean without cluttering individual project `.gitignore` files.
+
 ### Starship (`starship.toml`)
 
 My prompt is crafted with `Starship` and inspired by the `gruvbox_dark` palette. It's not just pretty; it's functional, using Nerd Font icons and clever directory substitutions to keep things informative and clean.
@@ -212,7 +222,7 @@ See [docker/README.md](docker/README.md) for full setup, troubleshooting, and us
 - `docs/`: Additional documentation (Neovim setup guides and more)
 - `emby/`: Emby media server configuration
 - `fzf/`: fzf fuzzy finder configuration
-- `git/`: Git configuration
+- `git/`: Git configuration and global gitignore
 - `nvim/`: Neovim configuration (LazyVim-based)
 - `opencode-core/`: Core OpenCode base configuration
 - `opencode-home/`: OpenCode agent configurations for personal use

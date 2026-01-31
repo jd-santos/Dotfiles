@@ -1,0 +1,77 @@
+# Dotfiles Repository .gitignore
+# This file contains sensible defaults for common unwanted files
+
+# === Operating System Files ===
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+.directory
+*~
+
+# === Editor and IDE Files ===
+# Vim
+*.swp
+*.swo
+*.swn
+.*.sw?
+*~
+.netrwhist
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# JetBrains IDEs
+.idea/
+*.iml
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Emacs
+\#*\#
+.\#*
+
+# === Temporary and Backup Files ===
+*.tmp
+*.temp
+*.bak
+*.backup
+*.orig
+*.log
+
+# === Environment and Secrets ===
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+credentials.json
+
+# === Dependencies and Build Artifacts ===
+node_modules/
+vendor/
+*.pyc
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+
+# === macOS Specific ===
+# Ignore thumbnails created by macOS
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
