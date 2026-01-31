@@ -43,6 +43,9 @@ vim/.vim/.netrwhist
 vim/.vim/*.swp
 vim/.vim/*.un~
 
+# Neovim (ignore plugin lockfile)
+nvim/.config/nvim/lazy-lock.json
+
 # ===================================================================
 # --- Generic Cache & State Files ---
 # Ignore common cache directories and specific state files.
