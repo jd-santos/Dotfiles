@@ -72,3 +72,31 @@ When adding, modifying, or removing keyboard shortcuts or keybindings in any con
 - Only custom/user-defined shortcuts (not inherited defaults from frameworks like LazyVim)
 - Include the key combination and a brief description
 - Group by tool (Tmux, Neovim, etc.)
+
+## CRITICAL: Secrets Protection
+
+### .env Files - ABSOLUTE PROHIBITION
+
+**NEVER read files containing secrets, even for debugging.**
+
+Prohibited files:
+- `.env*` (all variants)
+- `*credentials*`, `*secrets*`, `*token*`, `*.key`, `*.pem`
+- `.aws/credentials`, `.ssh/id_rsa*`
+
+### When Users Request .env Help
+
+**FORBIDDEN:**
+- Reading file contents (cat, hexdump, grep, etc.)
+- Attempting to redact/mask (you see secrets first - this FAILS)
+
+**REQUIRED:**
+- Provide diagnostic commands for USER to run
+- Request non-sensitive structure description only
+- Suggest: `bash -n .env`, `file .env`, encoding checks
+- Explain common issues: line endings, export syntax, sourcing methods
+
+**Template response:**
+"I won't read .env to protect secrets. Instead: (1) What format? (e.g., `export VAR="value"`) (2) Run `bash -n .env` - errors? (3) Run `file .env` - encoding? (4) How do you source it?"
+
+**Rationale:** Redaction requires reading first. Only safe approach: never read.
