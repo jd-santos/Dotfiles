@@ -142,6 +142,33 @@ stow --simulate nvim # Simulate (shows what would happen)
 - **Target:** Your home directory (`~/`), where symlinks are created
 - **Stow creates a tree structure:** If you have `nvim/.config/nvim/init.lua`, stow creates `~/.config/nvim/init.lua` → `dotfiles/nvim/.config/nvim/init.lua`
 
+### Understanding the Directory Structure
+
+GNU Stow works by mirroring directory structures. Each top-level directory (called a "stow package") contains the full path from your home directory to the actual config file.
+
+**Example Structure:**
+```
+Repository Layout                      → Target Location After Stowing
+────────────────────────────────────────────────────────────────────
+nvim/.config/nvim/init.lua             → ~/.config/nvim/init.lua
+zsh/.zshrc                              → ~/.zshrc
+git/.gitconfig                          → ~/.gitconfig
+tmux/.tmux.conf                         → ~/.tmux.conf
+starship/.config/starship.toml          → ~/.config/starship.toml
+```
+
+**Key Principle:** The directory structure *inside* each package mirrors the path from `$HOME`. 
+
+**When creating new config files:**
+1. Determine where the file should live in your home directory (e.g., `~/.config/foo/bar.conf`)
+2. Choose or create a package directory (usually named after the tool, e.g., `foo/`)
+3. Replicate the full path inside that package (e.g., `foo/.config/foo/bar.conf`)
+4. Run `stow foo` to symlink it
+
+**What NOT to do:**
+- ❌ `nvim/init.lua` → This would create `~/init.lua` (wrong location!)
+- ✅ `nvim/.config/nvim/init.lua` → This creates `~/.config/nvim/init.lua` (correct!)
+
 ### Common Issues
 
 **Conflict: File already exists**

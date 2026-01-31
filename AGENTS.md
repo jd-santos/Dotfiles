@@ -1,11 +1,22 @@
 # AGENTS.md
 
-This is a dotfiles repository. Each directory contains configuration for a specific tool.
+> This file provides context for AI agents working in this dotfiles repository.
+
+## Project Context
+- **Project**: Personal dotfiles managed with GNU Stow
+- **Structure**: Each top-level directory is a stow package that mirrors `$HOME` structure internally
+- **Deployment**: Files symlinked via `stow <package>` (e.g., `stow nvim`)
+
+## Critical Rules
+
+- **GNU Stow Path Structure**: Package directories mirror `$HOME` paths. To create `~/.config/foo/bar`, use `foo/.config/foo/bar` (NOT `foo/bar`)
+- **No Unified Commands**: No global build/test commands—validation happens when tools load their configs
+- **Secrets Protection**: NEVER read `.env*`, `*credentials*`, `*secrets*`, `*.key`, `*.pem` files—provide diagnostic commands instead
+- **Documentation Sync**: Update README.md keyboard shortcuts table when modifying keybindings in tmux/nvim configs
 
 ## General Guidelines
 
 - **Tool-Specific Conventions:** Each directory corresponds to a different tool (e.g., `nvim`, `zsh`, `git`). Adhere to the specific syntax, conventions, and best practices of the tool whose configuration you are modifying.
-- **No Unified Commands:** There are no global `build`, `lint`, or `test` commands for this repository. Validation, if any, is performed by the respective tool when it loads the configuration.
 - **Style Consistency:** When editing a file, maintain the existing code style, formatting, and naming conventions.
 
 ## File-Specific Notes
