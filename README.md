@@ -31,6 +31,11 @@ My Git configuration includes:
 
 The `.gitignore` patterns are applied globally across all repositories, keeping your workspace clean without cluttering individual project `.gitignore` files.
 
+**Setup:**
+```bash
+stow git  # Symlinks both .gitconfig and .gitignore to ~/
+```
+
 ### Starship (`starship.toml`)
 
 My prompt is crafted with `Starship` and inspired by the `gruvbox_dark` palette. It's not just pretty; it's functional, using Nerd Font icons and clever directory substitutions to keep things informative and clean.
@@ -54,12 +59,12 @@ Configuration for [OpenCode](https://opencode.ai/), an AI coding assistant that 
 
 ## Keyboard Shortcuts
 
-### Tmux (Prefix: `Ctrl+O`)
+### Tmux (Prefix: `` ` ``)
 
 | Shortcut | Description |
 |----------|-------------|
-| `Ctrl+O` | Tmux prefix (activates command mode) |
-| `Ctrl+O` `Ctrl+O` | Send prefix to nested session |
+| `` ` `` | Tmux prefix (activates command mode) |
+| `` ` `` `` ` `` | Send prefix to nested session |
 | `Prefix` + `h/j/k/l` | Navigate panes (vim-style) |
 | `Prefix` + `H/J/K/L` | Resize panes (repeatable) |
 | `Option+1-9` | Quick switch to window 1-9 |
@@ -92,6 +97,8 @@ Custom keybindings added on top of [LazyVim defaults](https://www.lazyvim.org/ke
 
 | Date       | Change                                                  |
 |------------|---------------------------------------------------------|
+| 2026-01-31 | Added global `.gitignore` with comprehensive defaults   |
+| 2026-01-31 | Changed tmux prefix from `Ctrl+O` to backtick (`` ` ``) |
 | 2026-01-23 | Added fzf-lua fuzzy finder plugin to Neovim            |
 | 2026-01-16 | Added `jj` mapping to escape insert mode in Neovim      |
 
