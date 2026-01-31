@@ -1,6 +1,6 @@
 # Claude Skills
 
-This directory contains Claude Code skills - reusable instruction sets that enhance Claude's capabilities for specific tasks and workflows.
+This directory contains OpenCode/Claude Code skills - reusable instruction sets that enhance AI agent capabilities for specific tasks and workflows.
 
 ## What are Skills?
 
@@ -15,35 +15,69 @@ Skills are specialized instruction modules that Claude can load to perform speci
 
 ### Skill Structure
 
-A skill typically consists of:
+Skills follow the OpenCode format:
 
 ```
 ~/.claude/skills/
-├── skill-name.md           # Individual skill definition
-└── category/
-    └── specialized-skill.md
+├── skill-name/
+│   └── SKILL.md           # Skill definition (must be named SKILL.md)
+├── another-skill/
+│   └── SKILL.md
+└── example-skill/
+    └── SKILL.md
 ```
+
+**Important**: Each skill must:
+- Have its own directory named after the skill (lowercase with hyphens)
+- Contain a file named exactly `SKILL.md` (all caps)
 
 ### Skill Definition Format
 
-Each skill file contains:
+Each `SKILL.md` file must start with YAML frontmatter:
 
-1. **Title**: Clear name describing the skill's purpose
-2. **Description**: What the skill does and when to use it
-3. **Instructions**: Detailed guidance for Claude to follow
+```yaml
+---
+name: skill-name              # Required: must match directory name
+description: Brief description # Required: 1-1024 characters
+license: MIT                   # Optional
+compatibility: opencode        # Optional
+metadata:                      # Optional: string-to-string map
+  audience: developers
+  workflow: git
+---
+```
+
+Followed by the skill content:
+
+1. **What I do**: Clear explanation of the skill's capabilities
+2. **When to use me**: Guidance on when to invoke this skill
+3. **Instructions**: Detailed step-by-step guidance
 4. **Examples**: Demonstrations of the skill in action (optional)
 5. **Prerequisites**: Required tools, context, or setup (optional)
 
 ### Example Skill Template
 
 ```markdown
-# Skill: [Name]
+---
+name: example-skill
+description: Does something useful for developers
+license: MIT
+compatibility: opencode
+metadata:
+  audience: developers
+---
 
-## Description
-[What this skill does and when to use it]
+## What I do
+- Provide clear, actionable guidance
+- Follow best practices for the domain
+- Offer concrete examples
+
+## When to use me
+Use this skill when you need to [specific use case].
+Ask clarifying questions if [conditions are unclear].
 
 ## Instructions
-[Detailed step-by-step instructions for Claude]
+[Detailed step-by-step instructions]
 
 ## Examples
 [Optional: Example scenarios and expected outputs]
@@ -56,30 +90,42 @@ Each skill file contains:
 
 ### Loading a Skill
 
-Skills are loaded automatically by Claude when available. You can reference a skill by:
+In OpenCode/Claude Code, skills are loaded on-demand via the `skill` tool. Agents see available skills and can load them when needed.
 
-```bash
-# In Claude Code CLI
-claude --skill skill-name "perform task using this skill"
+**Enable skills for an agent** by adding to the agent's frontmatter:
+
+```yaml
+---
+skills: true
+tools:
+  skill: true  # Optional: explicitly enable the skill tool
+---
 ```
 
-Or in conversation:
+Or in conversation, you can reference a skill:
 
 ```
-User: "Use the [skill-name] skill to help me with X"
-Claude: *loads skill and applies instructions*
+User: "Use the create-agents-md skill to help me with X"
+Agent: *loads skill and applies instructions*
 ```
 
 ### Creating Custom Skills
 
-1. **Create a new skill file** in `~/.claude/skills/`:
+1. **Create a skill directory** in `~/.claude/skills/`:
    ```bash
-   touch ~/.claude/skills/my-skill.md
+   mkdir -p ~/.claude/skills/my-skill
    ```
 
-2. **Define the skill** using the template format above
+2. **Create the SKILL.md file**:
+   ```bash
+   touch ~/.claude/skills/my-skill/SKILL.md
+   ```
 
-3. **Test the skill** by asking Claude to use it:
+3. **Define the skill** using the template format above with YAML frontmatter
+
+4. **Enable skills** in your agent configuration (see Usage section)
+
+5. **Test the skill** by asking the agent to use it:
    ```
    "Use the my-skill skill to help with this task"
    ```
@@ -91,10 +137,10 @@ Claude: *loads skill and applies instructions*
 ls ~/.claude/skills/
 
 # Edit a skill
-$EDITOR ~/.claude/skills/skill-name.md
+$EDITOR ~/.claude/skills/skill-name/SKILL.md
 
 # Remove a skill
-rm ~/.claude/skills/skill-name.md
+rm -rf ~/.claude/skills/skill-name/
 ```
 
 ## Skill Ideas
@@ -125,7 +171,7 @@ stow -D claude
 stow -R claude
 ```
 
-After stowing, the skills directory will be symlinked to `~/.claude/skills/`, making your skills available to Claude Code.
+After stowing, the skills directory will be symlinked to `~/.claude/skills/`, making your skills available to OpenCode/Claude Code.
 
 ## Best Practices
 
@@ -138,6 +184,8 @@ After stowing, the skills directory will be symlinked to `~/.claude/skills/`, ma
 
 ## Resources
 
+- [OpenCode Skills Documentation](https://opencode.ai/docs/skills/)
+- [OpenCode Agents Documentation](https://opencode.ai/docs/agents/)
 - [Claude Code Documentation](https://docs.anthropic.com/claude/docs/claude-code)
 - [Prompt Engineering Guide](https://docs.anthropic.com/claude/docs/prompt-engineering)
 - [GNU Stow Manual](https://www.gnu.org/software/stow/manual/stow.html)
