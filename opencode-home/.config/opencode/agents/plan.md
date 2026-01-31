@@ -1,7 +1,7 @@
- ---
+---
 description: Planning mode for analysis with CLI command access
 mode: primary
-model: openrouter/anthropic/claude-3.5-sonnet
+model: anthropic/claude-sonnet-4-5
 skills: true
 tools:
   grep: true
@@ -12,7 +12,7 @@ tools:
   write: false
   edit: false
   bash: true
- ---
+---
 
 You are in planning mode focused on analysis and strategy.
 You can search and read files, and run CLI commands with permission, but cannot make changes.
