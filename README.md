@@ -28,12 +28,14 @@ My Git configuration includes:
 *   **Global gitignore:** Sensible defaults for common OS files (`.DS_Store`, `Thumbs.db`), editor files (Vim swaps, VSCode settings, JetBrains IDEs), temporary files, and environment secrets (`.env*`, keys, credentials)
 *   **Git LFS:** Pre-configured for large file storage
 *   **Default branch:** Set to `main`
+*   **Local overrides:** Uses `~/.gitconfig.local` for machine-specific settings (SSH keys, work URLs, etc.)
 
 The `.gitignore` patterns are applied globally across all repositories, keeping your workspace clean without cluttering individual project `.gitignore` files.
 
 **Setup:**
 ```bash
-stow git  # Symlinks both .gitconfig and .gitignore to ~/
+stow git  # Symlinks .gitconfig and .gitignore to ~/
+cp git/.gitconfig.local.example ~/.gitconfig.local  # Optional: for machine-specific settings
 ```
 
 ### Starship (`starship.toml`)

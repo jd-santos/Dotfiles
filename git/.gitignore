@@ -58,6 +58,9 @@ Desktop.ini
 *.pem
 credentials.json
 
+# === Local Git Configuration ===
+.gitconfig.local
+
 # === Dependencies and Build Artifacts ===
 node_modules/
 vendor/

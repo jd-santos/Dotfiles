@@ -1,0 +1,20 @@
+# Local git configuration - copy to ~/.gitconfig.local
+# Not symlinked by stow - machine-specific settings only
+
+# SSH Signing
+#[user]
+#	signingkey = ssh-ed25519 AAAAC3Nza...YOUR_PUBLIC_KEY
+#[gpg]
+#	format = ssh
+#[gpg "ssh"]
+#	program = /Applications/1Password.app/Contents/MacOS/op-ssh-sign
+#[commit]
+#	gpgsign = true
+
+# Work URL rewrites
+#[url "git@gitlab.company.com:"]
+#	insteadOf = https://gitlab.company.com/
+
+# Personal overrides
+#[user]
+#	email = work@company.com
