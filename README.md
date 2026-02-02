@@ -1,123 +1,117 @@
 # My Dotfiles
 
-Hey there! Welcome to my personal dotfiles repository. This is where I keep all my configuration files for various tools, managed neatly with `GNU Stow`.
+Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). Each top-level directory maps to `$HOME` when stowed.
 
 ## Highlights
 
-Here are a few things you might find interesting:
-
 ### Zsh (`.zshrc`)
 
-My `zshrc` is packed with quality-of-life improvements:
+My zshrc has quality-of-life improvements:
 
-*   **Smart Aliases:** Quick navigation with `..` and `...`, enhanced `ls` commands (`lt` for sorting by date, `lk` for sorting by size), and handy process management aliases like `memHogsTop`.
-*   **Universal Extractor:** The `extract` function handles almost any archive type you throw at it.
-*   **macOS Integration:** If you're on a Mac, you'll appreciate `cdf` to `cd` directly into your frontmost Finder window.
-*   See [Aliases & Functions Reference](zsh/ALIASES_AND_FUNCTIONS.md) for the complete list and detailed documentation.
+- **Smart Aliases:** Quick navigation with `..` and `...`, enhanced `ls` commands (`lt` for sorting by date, `lk` for sorting by size), and process management aliases like `memHogsTop`
+- **Universal Extractor:** The `extract` function handles almost any archive type
+- **macOS Integration:** `cdf` to cd into your frontmost Finder window
+- See [Aliases & Functions Reference](zsh/ALIASES_AND_FUNCTIONS.md) for the complete list
 
 ### Neovim (`nvim`)
 
-My Neovim setup is built on [LazyVim](https://lazyvim.github.io/), a modern Neovim distribution powered by `lazy.nvim` for plugin management. It's designed for speed and efficiency with sensible defaults.
+Built on [LazyVim](https://lazyvim.github.io/) with `lazy.nvim` for plugin management.
 
-*   See [Neovim Documentation](docs/neovim.md) for detailed configuration info, plugin setup, and keybindings.
+- See [Neovim Documentation](docs/neovim.md) for configuration details and keybindings
 
 ### Git (`git`)
 
-My Git configuration includes:
+- **Global gitignore:** OS files (`.DS_Store`, `Thumbs.db`), editor files (Vim swaps, VSCode, JetBrains), and secrets (`.env*`, keys, credentials)
+- **Git LFS:** Pre-configured
+- **Default branch:** `main`
+- **Local overrides:** `~/.gitconfig.local` for machine-specific settings (SSH keys, work URLs)
 
-*   **Global gitignore:** Sensible defaults for common OS files (`.DS_Store`, `Thumbs.db`), editor files (Vim swaps, VSCode settings, JetBrains IDEs), temporary files, and environment secrets (`.env*`, keys, credentials)
-*   **Git LFS:** Pre-configured for large file storage
-*   **Default branch:** Set to `main`
-*   **Local overrides:** Uses `~/.gitconfig.local` for machine-specific settings (SSH keys, work URLs, etc.)
-
-The `.gitignore` patterns are applied globally across all repositories, keeping your workspace clean without cluttering individual project `.gitignore` files.
+The gitignore applies globally across all repositories.
 
 **Setup:**
+
 ```bash
 stow git  # Symlinks .gitconfig and .gitignore to ~/
-cp git/.gitconfig.local.example ~/.gitconfig.local  # Optional: for machine-specific settings
+cp git/.gitconfig.local.example ~/.gitconfig.local  # Optional: machine-specific settings
 ```
 
 ### Starship (`starship.toml`)
 
-My prompt is crafted with `Starship` and inspired by the `gruvbox_dark` palette. It's not just pretty; it's functional, using Nerd Font icons and clever directory substitutions to keep things informative and clean.
+Prompt using Starship with Nerd Font icons.
 
 ### Claude Skills (`claude`)
 
-Reusable instruction sets for Claude Code that enhance AI-assisted development:
+Reusable instruction sets for Claude Code:
 
-*   **Skills System:** Domain-specific expertise modules that Claude can load for specialized tasks
-*   **Custom Workflows:** Step-by-step processes for code review, API design, testing, and more
-*   **Extensible:** Create your own skills for project-specific patterns and best practices
-*   See [Claude Skills README](claude/README.md) for detailed documentation on creating and using skills
+- **Skills System:** Domain-specific expertise modules for specialized tasks
+- **Custom Workflows:** Processes for code review, API design, testing, and more
+- See [Claude Skills README](claude/README.md) for documentation
 
 ### OpenCode (`opencode-*`)
 
-Configuration for [OpenCode](https://opencode.ai/), an AI coding assistant that helps with planning, building, and asking questions about code:
+Configuration for [OpenCode](https://opencode.ai/), an AI coding assistant:
 
-*   **opencode-core/**: Shared base configuration settings
-*   **opencode-home/**: Personal agent prompts (plan, build, ask, plan-deep) for personal projects
-*   **opencode-work/**: Work-specific agent configurations for professional development
+- **opencode-core/**: Shared base configuration
+- **opencode-home/**: Personal agent prompts (plan, build, ask)
+- **opencode-work/**: Work-specific agent configurations
 
 ## Keyboard Shortcuts
 
 ### Tmux (Prefix: `` ` ``)
 
-| Shortcut | Description |
-|----------|-------------|
-| `` ` `` | Tmux prefix (activates command mode) |
-| `` ` `` `` ` `` | Send prefix to nested session |
-| `Prefix` + `h/j/k/l` | Navigate panes (vim-style) |
-| `Prefix` + `H/J/K/L` | Resize panes (repeatable) |
-| `Option+1-9` | Quick switch to window 1-9 |
-| `Prefix` + `\|` | Vertical split |
-| `Prefix` + `-` | Horizontal split |
-| `Prefix` + `x` | Close pane |
-| `Prefix` + `r` | Reload tmux config |
+| Shortcut             | Description                          |
+| -------------------- | ------------------------------------ |
+| `` ` ``              | Tmux prefix (activates command mode) |
+| `` ` `` `` ` ``      | Send prefix to nested session        |
+| `Prefix` + `h/j/k/l` | Navigate panes (vim-style)           |
+| `Prefix` + `H/J/K/L` | Resize panes (repeatable)            |
+| `Option+1-9`         | Quick switch to window 1-9           |
+| `Prefix` + `\|`      | Vertical split                       |
+| `Prefix` + `-`       | Horizontal split                     |
+| `Prefix` + `x`       | Close pane                           |
+| `Prefix` + `r`       | Reload tmux config                   |
 
 **Copy Mode (vi-style):** Press `Prefix` + `[` to enter, `v` to select, `y` to copy.
 
 ### Neovim (Leader: `Space`)
 
-Custom keybindings added on top of [LazyVim defaults](https://www.lazyvim.org/keymaps):
+Custom keybindings on top of [LazyVim defaults](https://www.lazyvim.org/keymaps):
 
-| Shortcut | Description |
-|----------|-------------|
-| `jj` | Exit insert mode |
-| `<leader>ff` | Find files |
-| `<leader>fg` | Find git files |
-| `<leader>fb` | Find buffers |
-| `<leader>fh` | Recent files |
+| Shortcut     | Description            |
+| ------------ | ---------------------- |
+| `jj`         | Exit insert mode       |
+| `<leader>ff` | Find files             |
+| `<leader>fg` | Find git files         |
+| `<leader>fb` | Find buffers           |
+| `<leader>fh` | Recent files           |
 | `<leader>fw` | Grep word under cursor |
-| `<leader>fs` | Live grep |
-| `<leader>fd` | Document diagnostics |
-| `<leader>fl` | LSP document symbols |
+| `<leader>fs` | Live grep              |
+| `<leader>fd` | Document diagnostics   |
+| `<leader>fl` | LSP document symbols   |
 
 **fzf-lua Navigation:** `Ctrl+d/u` for preview scroll, `Ctrl+f/b` for half-page scroll.
 
 ## Recent Changes
 
 | Date       | Change                                                  |
-|------------|---------------------------------------------------------|
+| ---------- | ------------------------------------------------------- |
 | 2026-01-31 | Added global `.gitignore` with comprehensive defaults   |
 | 2026-01-31 | Changed tmux prefix from `Ctrl+O` to backtick (`` ` ``) |
-| 2026-01-23 | Added fzf-lua fuzzy finder plugin to Neovim            |
+| 2026-01-23 | Added fzf-lua fuzzy finder plugin to Neovim             |
 | 2026-01-16 | Added `jj` mapping to escape insert mode in Neovim      |
 
 ## Installation
 
-This repository uses **GNU Stow** to manage symlinks for dotfiles. Stow makes it easy to maintain configuration files in a organized directory structure while symlinking them to your home directory.
+Uses **GNU Stow** to manage symlinks.
 
 ### Basic Usage
-
-Install a single tool's configuration:
 
 ```bash
 cd ~/Dotfiles
 stow zsh          # Creates symlinks for all files in zsh/ to ~/
 ```
 
-### Install Multiple Tools at Once
+### Install Multiple Tools
 
 ```bash
 stow nvim git starship zsh   # Install multiple configurations
@@ -129,9 +123,7 @@ stow nvim git starship zsh   # Install multiple configurations
 stow */     # Install all tool configurations
 ```
 
-### Remove/Unstow a Configuration
-
-If you want to remove symlinks for a tool:
+### Remove a Configuration
 
 ```bash
 stow -D zsh         # Delete symlinks for zsh
@@ -140,32 +132,27 @@ stow --delete nvim  # Delete symlinks for nvim
 
 ### Restow (Update Symlinks)
 
-If you modify the directory structure and need to recreate symlinks:
-
 ```bash
 stow -R zsh         # Restow (delete and reinstall) zsh
 ```
 
-### Viewing What Would Happen
-
-Before stowing, you can preview the changes:
+### Dry Run
 
 ```bash
-stow -n zsh         # Dry-run (no changes made)
-stow --simulate nvim # Simulate (shows what would happen)
+stow -n zsh         # Preview changes (nothing applied)
+stow --simulate nvim
 ```
 
 ### Key Concepts
 
-- **Source:** The tool directories in your Dotfiles repo (e.g., `nvim/`, `zsh/`)
+- **Source:** Tool directories in your Dotfiles repo (e.g., `nvim/`, `zsh/`)
 - **Target:** Your home directory (`~/`), where symlinks are created
-- **Stow creates a tree structure:** If you have `nvim/.config/nvim/init.lua`, stow creates `~/.config/nvim/init.lua` → `dotfiles/nvim/.config/nvim/init.lua`
+- **Structure:** `nvim/.config/nvim/init.lua` becomes `~/.config/nvim/init.lua`
 
-### Understanding the Directory Structure
+### Directory Structure
 
-GNU Stow works by mirroring directory structures. Each top-level directory (called a "stow package") contains the full path from your home directory to the actual config file.
+Each stow package contains the full path from `$HOME`:
 
-**Example Structure:**
 ```
 Repository Layout                      → Target Location After Stowing
 ────────────────────────────────────────────────────────────────────
@@ -176,68 +163,65 @@ tmux/.tmux.conf                         → ~/.tmux.conf
 starship/.config/starship.toml          → ~/.config/starship.toml
 ```
 
-**Key Principle:** The directory structure *inside* each package mirrors the path from `$HOME`. 
+**Key Principle:** The directory structure _inside_ each package mirrors the path from `$HOME`.
 
 **When creating new config files:**
-1. Determine where the file should live in your home directory (e.g., `~/.config/foo/bar.conf`)
-2. Choose or create a package directory (usually named after the tool, e.g., `foo/`)
+
+1. Determine where the file should live (e.g., `~/.config/foo/bar.conf`)
+2. Create a package directory (e.g., `foo/`)
 3. Replicate the full path inside that package (e.g., `foo/.config/foo/bar.conf`)
 4. Run `stow foo` to symlink it
 
 **What NOT to do:**
-- ❌ `nvim/init.lua` → This would create `~/init.lua` (wrong location!)
-- ✅ `nvim/.config/nvim/init.lua` → This creates `~/.config/nvim/init.lua` (correct!)
+
+- ❌ `nvim/init.lua` → Creates `~/init.lua` (wrong!)
+- ✅ `nvim/.config/nvim/init.lua` → Creates `~/.config/nvim/init.lua` (correct)
 
 ### Common Issues
 
 **Conflict: File already exists**
+
 ```bash
-# If a file exists at the target location:
-mv ~/.zshrc ~/.zshrc.bak    # Back up the existing file
+mv ~/.zshrc ~/.zshrc.bak    # Back up existing file
 stow zsh                     # Then stow
 ```
 
 **Stow not found**
+
 ```bash
-# Install Stow if needed:
 brew install stow           # macOS
 sudo apt install stow       # Ubuntu/Debian
 ```
 
-### Reference
+See the [GNU Stow Manual](https://www.gnu.org/software/stow/manual/) for more.
 
-For more detailed Stow documentation, see the [GNU Stow Manual](https://www.gnu.org/software/stow/manual/).
+## Docker Container
 
-## 🐳 Docker Container
-
-Docker container with Opencode and my dotfiles, plus Python, Node.js, and Go. Good for a portable dev environment.
+Docker container with Opencode and my dotfiles, plus Python, Node.js, and Go.
 
 **Quick Start:**
 
 ```bash
 cd ~/Dotfiles/docker
-cp .env.example ~/.env
-# Edit ~/.env with your API keys
+cp .env.example ~/.env      # Edit with your API keys
 docker compose up -d
 ssh -p 2222 dev@localhost
 ```
 
-See [docker/README.md](docker/README.md) for full setup, troubleshooting, and usage details.
+See [docker/README.md](docker/README.md) for full setup and troubleshooting.
 
 ## Structure
 
-- `claude/`: Claude Code skills - reusable instruction sets for AI workflows
-- `docker/`: **Docker container configuration for portable dev environment**
-- `docs/`: Additional documentation (Neovim setup guides and more)
+- `claude/`: Claude Code skills for AI workflows
+- `docker/`: Docker container for portable dev environment
+- `docs/`: Additional documentation
 - `emby/`: Emby media server configuration
 - `fzf/`: fzf fuzzy finder configuration
 - `git/`: Git configuration and global gitignore
 - `nvim/`: Neovim configuration (LazyVim-based)
-- `opencode-core/`: Core OpenCode base configuration
-- `opencode-home/`: OpenCode agent configurations for personal use
-- `opencode-work/`: OpenCode agent configurations for work
+- `opencode-core/`: Core OpenCode configuration
+- `opencode-home/`: OpenCode agents for personal use
+- `opencode-work/`: OpenCode agents for work
 - `starship/`: Starship prompt configuration
 - `vim/`: Legacy Vim configuration
 - `zsh/`: Zsh shell configuration
-
-Enjoy!
