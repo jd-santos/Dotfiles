@@ -215,18 +215,19 @@ ii() {
 # ┌───────────────────────────────────────────────────────────────────┐
 # │ AWS Profile Prompt                                                │
 # └───────────────────────────────────────────────────────────────────┘
-# Function to show AWS profile in prompt
+# Function to show AWS profile in prompt with color-coding
+# Customize the profile names and colors below for your own AWS profiles
 aws_profile_prompt() {
     if [ -n "$AWS_PROFILE" ]; then
         case "$AWS_PROFILE" in
-            "eng")
-                echo -e "\033[38;2;23;122;253m[$AWS_PROFILE]\033[0m " # Using your 177afd color
+            "production")
+                echo -e "\033[38;2;255;0;0m[$AWS_PROFILE]\033[0m " # Red for production
                 ;;
-            "eng-stage")
-                echo -e "\033[38;2;0;238;255m[$AWS_PROFILE]\033[0m " # Using your 00eeff color
+            "staging")
+                echo -e "\033[38;2;255;165;0m[$AWS_PROFILE]\033[0m " # Orange for staging
                 ;;
-            "analytics")
-                echo -e "\033[38;2;241;4;221m[$AWS_PROFILE]\033[0m " # Using your f104dd color
+            "development")
+                echo -e "\033[38;2;0;255;0m[$AWS_PROFILE]\033[0m " # Green for development
                 ;;
             *)
                 echo "[$AWS_PROFILE] "

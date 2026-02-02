@@ -25,6 +25,7 @@ Desktop.ini
 .*.sw?
 *~
 .netrwhist
+*.netrwhist
 
 # VSCode
 .vscode/
