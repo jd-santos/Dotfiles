@@ -9,7 +9,7 @@
 # - Context switching (home/work)
 # =============================================================================
 
-set -e  # Exit on error
+# Note: Not using 'set -e' to allow container to start even if dotfiles fail
 
 echo "🚀 Starting Opencode development container..."
 
@@ -19,51 +19,90 @@ echo "🚀 Starting Opencode development container..."
 
 echo "🔑 Setting up SSH keys..."
 
-# Copy SSH keys from host mount (read-only) to writable location
-if [ -d /home/dev/.ssh-host ]; then
-    # Copy all SSH files
-    cp -r /home/dev/.ssh-host/* /home/dev/.ssh/ 2>/dev/null || true
-    
-    # Fix permissions (SSH is picky about this)
-    chmod 700 /home/dev/.ssh
-    chmod 600 /home/dev/.ssh/* 2>/dev/null || true
-    chmod 644 /home/dev/.ssh/*.pub 2>/dev/null || true
-    chmod 600 /home/dev/.ssh/config 2>/dev/null || true
-    
-    # Ensure dev user owns everything
-    chown -R dev:dev /home/dev/.ssh
-    
-    echo "✅ SSH keys configured"
+# Ensure .ssh directory exists with correct permissions
+mkdir -p /home/dev/.ssh
+chmod 700 /home/dev/.ssh
+chown dev:dev /home/dev/.ssh
+
+# Generate container-specific SSH key if it doesn't exist
+SSH_KEY="/home/dev/.ssh/dev_container_ed25519"
+if [ ! -f "$SSH_KEY" ]; then
+    echo "🔐 Generating container-specific SSH key (dev_container_ed25519)..."
+    su - dev -c "ssh-keygen -t ed25519 -f $SSH_KEY -N '' -C 'docker-dev-container'"
+    echo ""
+    echo "✅ SSH key generated!"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "⚠️  ACTION REQUIRED: Add this public key to GitHub"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "1. Go to: https://github.com/settings/ssh/new"
+    echo "2. Title: Docker Dev Container"
+    echo "3. Key:"
+    echo ""
+    cat "${SSH_KEY}.pub"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "Press Enter after adding the key to GitHub..."
+    read -r
 else
-    echo "⚠️  No SSH keys found at /home/dev/.ssh-host"
-    echo "   You'll need to generate SSH keys inside the container or mount them."
+    echo "✅ Container SSH key exists: dev_container_ed25519"
+fi
+
+# Create SSH config
+cat > /home/dev/.ssh/config << 'EOF'
+# Container SSH Configuration (auto-generated)
+# This uses the container-specific SSH key for all GitHub operations
+
+Host github.com
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/dev_container_ed25519
+    IdentitiesOnly yes
+
+Host *
+    AddKeysToAgent no
+    StrictHostKeyChecking accept-new
+EOF
+
+chmod 600 /home/dev/.ssh/config
+chown dev:dev /home/dev/.ssh/config
+
+# Add GitHub to known_hosts (avoid host key verification prompt)
+su - dev -c 'ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null'
+chmod 600 /home/dev/.ssh/known_hosts 2>/dev/null || true
+chown dev:dev /home/dev/.ssh/known_hosts 2>/dev/null || true
+
+echo "✅ SSH configuration complete"
+
+# Test SSH connection to GitHub
+echo "🧪 Testing GitHub SSH connection..."
+if su - dev -c 'ssh -T git@github.com 2>&1' | grep -q "successfully authenticated"; then
+    echo "✅ GitHub SSH authentication successful!"
+else
+    echo "⚠️  GitHub SSH authentication not yet configured"
+    echo "   Make sure you've added the public key to GitHub (see above)"
 fi
 
 # =============================================================================
-# Dotfiles Update
+# Dotfiles Setup
 # =============================================================================
 
-echo "📦 Checking for dotfiles updates..."
+echo "📦 Checking for dotfiles..."
 
-# Run as dev user
-su - dev -c '
-    cd ~/Dotfiles
-    
-    # Fetch latest changes
-    git fetch origin main 2>/dev/null || true
-    
-    # Check if updates available
-    LOCAL=$(git rev-parse HEAD)
-    REMOTE=$(git rev-parse origin/main)
-    
-    if [ "$LOCAL" != "$REMOTE" ]; then
-        echo "📥 Pulling latest dotfiles..."
-        git pull origin main
-        echo "✅ Dotfiles updated"
+if [ ! -d /home/dev/Dotfiles ]; then
+    echo "🔄 Cloning dotfiles from GitHub..."
+    if su - dev -c 'git clone git@github.com:jdwork/Dotfiles.git ~/Dotfiles' 2>&1; then
+        echo "✅ Dotfiles cloned successfully"
     else
-        echo "✅ Dotfiles already up to date"
+        echo "⚠️  Failed to clone dotfiles"
+        echo "   Make sure you've added the SSH key to GitHub (see above)"
+        echo "   Or clone manually: git clone git@github.com:jdwork/Dotfiles.git ~/Dotfiles"
     fi
-'
+else
+    echo "✅ Dotfiles already present"
+fi
 
 # =============================================================================
 # Environment Variables Setup
@@ -88,28 +127,32 @@ fi
 # Context Switching (Home vs Work)
 # =============================================================================
 
-CONTEXT="${OPENCODE_CONTEXT:-home}"
-echo "🎯 Setting up OpenCode context: $CONTEXT"
+if [ -d /home/dev/Dotfiles ]; then
+    CONTEXT="${OPENCODE_CONTEXT:-home}"
+    echo "🎯 Setting up OpenCode context: $CONTEXT"
 
-su - dev -c "
-    cd ~/Dotfiles
-    
-    # Unstow both contexts first (in case switching)
-    stow -D opencode-home 2>/dev/null || true
-    stow -D opencode-work 2>/dev/null || true
-    
-    # Stow the selected context
-    if [ \"$CONTEXT\" = \"work\" ]; then
-        stow opencode-work
-        echo \"✅ Using work configuration\"
-    else
-        stow opencode-home
-        echo \"✅ Using home configuration\"
-    fi
-    
-    # Always stow core config (shared settings)
-    stow opencode-core
-"
+    su - dev -c "
+        cd ~/Dotfiles
+        
+        # Unstow both contexts first (in case switching)
+        stow -D opencode-home 2>/dev/null || true
+        stow -D opencode-work 2>/dev/null || true
+        
+        # Stow the selected context
+        if [ \"$CONTEXT\" = \"work\" ]; then
+            stow opencode-work
+            echo \"✅ Using work configuration\"
+        else
+            stow opencode-home
+            echo \"✅ Using home configuration\"
+        fi
+        
+        # Always stow core config (shared settings)
+        stow opencode-core
+    "
+else
+    echo "⚠️  Dotfiles not available - skipping configuration"
+fi
 
 # =============================================================================
 # Update Opencode Config for Container Environment
@@ -185,3 +228,5 @@ else
     # Keep container running by waiting on SSH daemon
     wait $SSHD_PID
 fi
+# Rebuilt: Mon Feb  2 13:06:18 CST 2026
+# Update 1770059308

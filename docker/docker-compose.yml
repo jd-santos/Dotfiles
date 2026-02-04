@@ -38,6 +38,10 @@ services:
       # Home directory (configs, shell history, projects, caches, etc.)
       - home:/home/dev
       
+      # SSH keys (persistent, container-specific key for GitHub)
+      # Contains dev_container_ed25519 key pair generated on first run
+      - ssh-keys:/home/dev/.ssh
+      
       # --- Bind Mounts (direct host filesystem access) ---
       
       # Environment variables (API keys, secrets)
@@ -51,10 +55,6 @@ services:
       # Example: ~/Documents/Obsidian:/home/dev/Obsidian
       # Uncomment and modify the line below:
       # - ~/Documents/Obsidian:/home/dev/Obsidian
-      
-      # SSH keys for git operations (read-only for security)
-      # This allows you to push/pull from GitHub without re-configuring SSH
-      - ~/.ssh:/home/dev/.ssh-host:ro
     
     # Restart policy
     restart: unless-stopped
@@ -92,6 +92,8 @@ services:
 
 volumes:
   home:
+    driver: local
+  ssh-keys:
     driver: local
 
 # =============================================================================

@@ -69,7 +69,9 @@ RUN ln -s $(which fdfind) /usr/local/bin/fd 2>/dev/null || true
 
 # Create non-root user 'dev' with sudo access
 # UID 1000 matches most macOS users for better volume permission handling
-RUN useradd -m -s /bin/zsh -u 1000 -G sudo dev && \
+# Remove any existing user with UID 1000 first (Ubuntu 24.04 has 'ubuntu' user)
+RUN (userdel -r $(id -un 1000) 2>/dev/null || true) && \
+    useradd -m -s /bin/zsh -u 1000 -G sudo dev && \
     echo "dev ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # Switch to dev user for remaining installations
@@ -150,11 +152,18 @@ RUN curl -sS https://starship.rs/install.sh | sh -s -- -y
 USER dev
 
 # --- Neovim (latest stable) ---
+# Use architecture-specific download (arm64 for Apple Silicon, amd64 for Intel)
 USER root
-RUN wget https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz && \
-    tar -C /opt -xzf nvim-linux64.tar.gz && \
-    rm nvim-linux64.tar.gz && \
-    ln -s /opt/nvim-linux64/bin/nvim /usr/local/bin/nvim
+RUN ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "arm64" ]; then \
+        NVIM_ARCH="linux-arm64"; \
+    else \
+        NVIM_ARCH="linux64"; \
+    fi && \
+    wget https://github.com/neovim/neovim/releases/latest/download/nvim-${NVIM_ARCH}.tar.gz && \
+    tar -C /opt -xzf nvim-${NVIM_ARCH}.tar.gz && \
+    rm nvim-${NVIM_ARCH}.tar.gz && \
+    ln -s /opt/nvim-${NVIM_ARCH}/bin/nvim /usr/local/bin/nvim
 
 USER dev
 
@@ -195,22 +204,15 @@ RUN mkdir -p /home/dev/.ssh && \
 
 USER dev
 
-# Clone dotfiles repository
-# This will be re-pulled at container startup to get latest changes
-ARG DOTFILES_REPO="https://github.com/jdwork/Dotfiles.git"
-RUN git clone ${DOTFILES_REPO} /home/dev/Dotfiles
-
-# Create projects directory
-RUN mkdir -p /home/dev/projects
+# Create directories
+RUN mkdir -p /home/dev/projects /home/dev/scripts
 
 # Copy setup scripts
 COPY --chown=dev:dev scripts/setup-dotfiles.sh /home/dev/scripts/setup-dotfiles.sh
 COPY --chown=dev:dev scripts/entrypoint.sh /home/dev/scripts/entrypoint.sh
 RUN chmod +x /home/dev/scripts/*.sh
 
-# Run initial dotfiles setup
-# Note: We skip cupertino MCP server as it's not available in container
-RUN /home/dev/scripts/setup-dotfiles.sh
+# Note: Dotfiles will be cloned at runtime in entrypoint.sh (requires SSH keys)
 
 # =============================================================================
 # Stage 7: Runtime Configuration
@@ -232,5 +234,4 @@ USER root
 # Use entrypoint script to handle startup
 ENTRYPOINT ["/home/dev/scripts/entrypoint.sh"]
 
-# Default command: keep container running and drop into shell if exec'd
-CMD ["/bin/zsh"]
+# No CMD - entrypoint will wait on SSH daemon to keep container running

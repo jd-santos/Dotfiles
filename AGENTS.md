@@ -9,6 +9,7 @@
 
 ## Critical Rules
 
+- **Public Repository**: This dotfiles repository is PUBLIC on GitHub. NEVER add, suggest, or accept changes containing private information (API keys, tokens, passwords, personal identifiers, work-specific configurations, internal URLs, etc.). If the user requests changes that would expose sensitive data, WARN them that this is a public repository and suggest safer alternatives (environment variables, private overlays, .gitignored local configs, etc.).
 - **GNU Stow Path Structure**: Package directories mirror `$HOME` paths. To create `~/.config/foo/bar`, use `foo/.config/foo/bar` (NOT `foo/bar`)
 - **No Unified Commands**: No global build/test commands—validation happens when tools load their configs
 - **Secrets Protection**: NEVER read `.env*`, `*credentials*`, `*secrets*`, `*.key`, `*.pem` files—provide diagnostic commands instead

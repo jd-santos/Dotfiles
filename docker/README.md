@@ -24,7 +24,10 @@ cd ~/Dotfiles/docker
 cp .env.example ~/.env
 vim ~/.env  # Add your real API keys
 
-# 3. Build and start the container (takes ~10 minutes first time)
+# 3. Build and start the container with SSH agent support (takes ~10 minutes first time)
+./scripts/start.sh
+
+# Alternative: Start manually without helper script
 docker compose up -d
 
 # 4. Connect via SSH
@@ -46,13 +49,16 @@ opencode
 │                                                         │
 │  ~/.env ──────────────────────▶ Environment Variables   │
 │  (API Keys - bind mounted read-only)                    │
-│  ~/.ssh ──────────────────────▶ SSH Keys (read-only)   │
-│  ~/Obsidian ◀─────bind mount─▶ /home/dev/Obsidian      │
 │                                                         │
-│  Docker Volume (persisted):                             │
+│  Docker Volumes (persisted):                            │
 │    • opencode-home ──────────▶ /home/dev                │
-│      (includes projects, caches, configs)              │
-└─────────────────────────────────────────────────────────┘
+│      (projects, caches, configs, history)               │
+│    • ssh-keys ───────────────▶ /home/dev/.ssh           │
+│      (dev_container_ed25519 key pair)                   │
+│                                                         │
+│                           GitHub ◀──SSH──┐              │
+│                           (authenticated) │             │
+└───────────────────────────────────────────┴─────────────┘
 ```
 
 ## Prerequisites
@@ -89,20 +95,26 @@ OPENROUTER_API_KEY=sk-or-your-actual-key-here
 OPENCODE_CONTEXT=home
 ```
 
-### Step 2: Optional - Configure Obsidian Sync
+### Step 2: SSH Key Setup
 
-If you use Obsidian and want it accessible from the container:
+The container uses a dedicated SSH key for GitHub operations. On first startup:
 
-```bash
-# Edit docker-compose.yml
-vim docker-compose.yml
+1. **The container generates a dedicated SSH key** (`dev_container_ed25519`) with no passphrase
+2. **You add the public key to GitHub** - the startup script will display it and pause
+3. **The key persists in a Docker volume** - survives container recreation
+4. **All git operations just work** - no agent forwarding needed
 
-# Find this line and uncomment/update it:
-# - ~/Documents/Obsidian:/home/dev/Obsidian
+**Why this approach?**
+- ✅ Simple and reliable - no complex agent forwarding
+- ✅ Secure - key is isolated to the container, not your main account key
+- ✅ Revocable - you can remove just this key from GitHub if needed
+- ✅ Works on any Docker host - no macOS-specific setup
 
-# Change to your actual Obsidian vault path, for example:
-- ~/Documents/MyVault:/home/dev/Obsidian
-```
+**Security note:** The key has no passphrase because:
+- It's stored in a Docker volume on your local machine only
+- It's purpose-specific (just for this dev container)
+- You can revoke it anytime on GitHub
+- It's essentially like having a passphrase-less key on a Linux workstation you own
 
 ### Step 3: Build the Container
 
@@ -117,10 +129,13 @@ docker compose build
 ### Step 4: Start the Container
 
 ```bash
-# Start in detached mode (runs in background)
+# Start with helper script (recommended)
+./scripts/start.sh
+
+# Or start manually
 docker compose up -d
 
-# Watch the startup logs
+# Watch the startup logs (important for first run!)
 docker compose logs -f
 
 # Look for: "Container ready! Connect via: ssh -p 2222 dev@localhost"
@@ -141,6 +156,45 @@ Host opencode
 ```
 
 Now you can connect with just: `ssh opencode`
+
+### Step 5: First-Run SSH Key Setup
+
+On first startup, the container will:
+
+1. Generate a new SSH key pair (`dev_container_ed25519`)
+2. Display the public key
+3. Pause and wait for you to add it to GitHub
+
+**Follow these steps:**
+
+```bash
+# 1. Watch the logs to see the key
+docker compose logs -f
+
+# You'll see output like:
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ⚠️  ACTION REQUIRED: Add this public key to GitHub
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 
+# 1. Go to: https://github.com/settings/ssh/new
+# 2. Title: Docker Dev Container
+# 3. Key:
+# 
+# ssh-ed25519 AAAA...your-key-here... docker-dev-container
+
+# 2. Copy the ssh-ed25519 key from the logs
+
+# 3. Go to GitHub and add it:
+# - Visit: https://github.com/settings/ssh/new
+# - Title: "Docker Dev Container"
+# - Paste the key
+# - Click "Add SSH Key"
+
+# 4. Return to terminal and press Enter
+# The container will test the connection and continue setup
+```
+
+**Important:** This is a one-time setup. The key persists in the `ssh-keys` Docker volume, so you won't need to do this again unless you delete the volume.
 
 ## Daily Usage
 
@@ -292,7 +346,35 @@ chmod 600 ~/.ssh/id_*
 chmod 644 ~/.ssh/*.pub
 ```
 
-### Git Push Fails (Permission Denied)
+### Git Operations Fail (Permission Denied)
+
+```bash
+# Test SSH connection to GitHub
+docker compose exec -u dev opencode ssh -T git@github.com
+
+# You should see: "Hi username! You've successfully authenticated..."
+
+# If it fails, check if the key is in GitHub:
+# 1. Get the public key from container:
+docker compose exec -u dev opencode cat ~/.ssh/dev_container_ed25519.pub
+
+# 2. Verify it's on GitHub: https://github.com/settings/keys
+# 3. If not, add it (see Step 5 above)
+
+# If key is there but still fails, regenerate:
+docker compose exec -u dev opencode rm ~/.ssh/dev_container_ed25519*
+docker compose restart
+# Follow the prompts to add new key to GitHub
+```
+
+### View SSH Key
+
+```bash
+# See the public key that should be on GitHub
+docker compose exec -u dev opencode cat ~/.ssh/dev_container_ed25519.pub
+```
+
+### Can't Clone/Push Private Repos
 
 Your SSH keys might not be properly mounted:
 
@@ -429,9 +511,15 @@ docker compose up -d
 
 **Disk space?** Base image is ~2GB, with language runtimes it's ~4-5GB, plus whatever projects and caches you add.
 
+**What about my host SSH key with 1Password?** The container uses its own dedicated key (`dev_container_ed25519`). Your host key with 1Password stays on the host and is used for your normal git operations there. This separation is intentional for security.
+
+**Why not forward the SSH agent?** Docker Desktop for Mac doesn't support Unix socket forwarding properly. The container-specific key approach is simpler, more reliable, and more portable.
+
+**Is the passphrase-less key secure?** Yes, for this use case. It's stored in a Docker volume on your local machine only, it's purpose-specific (just for this container), and you can revoke it anytime on GitHub. It's like having a deploy key.
+
 **Docker-in-Docker?** Not by default. If you need it, uncomment the Docker socket mount in `docker-compose.yml`.
 
-**Windows/Linux?** Should work fine. You'll need to adjust SSH key paths and bind mount paths (Windows uses different syntax).
+**Windows/Linux?** Should work fine. You'll need to adjust bind mount paths (Windows uses different syntax).
 
 **Update Python/Node/Go?** Edit the version variables in `Dockerfile`:
 ```dockerfile

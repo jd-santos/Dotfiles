@@ -91,7 +91,7 @@ Custom keybindings on top of [LazyVim defaults](https://www.lazyvim.org/keymaps)
 
 **fzf-lua Navigation:** `Ctrl+d/u` for preview scroll, `Ctrl+f/b` for half-page scroll.
 
-## Recent Changes
+## Changes
 
 | Date       | Change                                                  |
 | ---------- | ------------------------------------------------------- |
@@ -143,7 +143,7 @@ stow -n zsh         # Preview changes (nothing applied)
 stow --simulate nvim
 ```
 
-### Key Concepts
+### How It Works
 
 - **Source:** Tool directories in your Dotfiles repo (e.g., `nvim/`, `zsh/`)
 - **Target:** Your home directory (`~/`), where symlinks are created
