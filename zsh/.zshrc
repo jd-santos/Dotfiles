@@ -4,6 +4,20 @@ if [[ -f ~/.zshrc.local ]]; then
 fi
 
 # ┌───────────────────────────────────────────────────────────────────┐
+# │ Tool Dependencies                                                 │
+# └───────────────────────────────────────────────────────────────────┘
+#
+# This .zshrc uses several tools. Install what you want:
+#
+# - bat: Modern cat with syntax highlighting (brew install bat)
+# - fzf: Fuzzy finder (brew install fzf, then 'stow fzf')
+# - starship: Prompt (brew install starship, then 'stow starship')
+# - pyenv: Python version management (brew install pyenv)
+#
+# Most aliases degrade gracefully if tools aren't installed.
+#
+
+# ┌───────────────────────────────────────────────────────────────────┐
 # │ Environment Variables & Paths                                     │
 # └───────────────────────────────────────────────────────────────────┘
 
@@ -185,13 +199,13 @@ myPs() { ps $@ -u $USER -o pid,%cpu,%mem,start,time,bsdtime,command ; }
 # fp: File Preview - Interactive file search with rich preview using fzf and bat
 # Usage: fp
 # Shows files in current directory with bat preview in a side window
-# Press Enter to open the selected file in vim
+# Press Enter to open the selected file in your editor
 # Dependencies: fzf, bat
 fp() {
   local selected
   selected=$(fzf --preview 'bat --style=numbers --color=always --line-range :500 {}')
   if [[ -n "$selected" ]]; then
-    vim "$selected"
+    ${EDITOR:-nvim} "$selected"
   fi
 }
 
@@ -215,8 +229,8 @@ ii() {
 # ┌───────────────────────────────────────────────────────────────────┐
 # │ AWS Profile Prompt                                                │
 # └───────────────────────────────────────────────────────────────────┘
-# Function to show AWS profile in prompt with color-coding
-# Customize the profile names and colors below for your own AWS profiles
+# Shows AWS profile in prompt with color-coding
+# Customize these profile names and colors for your own AWS setup
 aws_profile_prompt() {
     if [ -n "$AWS_PROFILE" ]; then
         case "$AWS_PROFILE" in
@@ -289,7 +303,7 @@ fi
 # │ Application & Tool Configuration                                  │
 # └───────────────────────────────────────────────────────────────────┘
 
-# fzf
+# fzf (installed via 'stow fzf')
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
 # ┌───────────────────────────────────────────────────────────────────┐
@@ -298,11 +312,3 @@ fi
 
 # Starship
 eval "$(starship init zsh)"
-
-# Added by LM Studio CLI (lms)
-export PATH="$PATH:$HOME/.lmstudio/bin"
-# End of LM Studio CLI section
-
-
-# Added by Antigravity
-export PATH="$HOME/.antigravity/antigravity/bin:$PATH"

@@ -323,14 +323,17 @@ $ spotlight "my-document.txt"
 
 ## AWS Profile Prompt
 
-The shell prompt includes custom AWS profile indicators.
+The shell prompt shows your active AWS profile with color-coding.
 
-**Colors:**
-- `eng` profile: Blue (#177afd)
-- `eng-stage` profile: Cyan (#00eeff)
-- `analytics` profile: Purple (#f104dd)
+**Default colors:**
+- `production` profile: Red
+- `staging` profile: Orange
+- `development` profile: Green
+- Other profiles: No color
 
-The AWS profile (if set) appears before the main prompt.
+**Customize:** Edit the `aws_profile_prompt()` function in `.zshrc` to add your own profile names and colors.
+
+The AWS profile (if set via `export AWS_PROFILE=...`) appears before the main prompt.
 
 ---
 
