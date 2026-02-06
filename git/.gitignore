@@ -70,6 +70,13 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 
+# === Database CLI Tools ===
+# PostgreSQL - local history and logs contain sensitive queries
+.config/pgcli/history
+.config/pgcli/log
+.config/pgcli/casing
+.psql_history
+
 # === macOS Specific ===
 # Ignore thumbnails created by macOS
 .DocumentRevisions-V100
