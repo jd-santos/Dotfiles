@@ -21,7 +21,7 @@ Built on [LazyVim](https://lazyvim.github.io/) with `lazy.nvim` for plugin manag
 
 ### Git (`git`)
 
-- **Global gitignore:** OS files (`.DS_Store`, `Thumbs.db`), editor files (Vim swaps, VSCode, JetBrains), and secrets (`.env*`, keys, credentials)
+- **Global gitignore:** OS files (`.DS_Store`, `Thumbs.db`), editor files (Vim swaps, VSCode, JetBrains), secrets (`.env*`, keys, credentials), and database CLI history
 - **Git LFS:** Pre-configured
 - **Default branch:** `main`
 - **Local overrides:** `~/.gitconfig.local` for machine-specific settings (SSH keys, work URLs)
@@ -34,6 +34,38 @@ The gitignore applies globally across all repositories.
 stow git  # Symlinks .gitconfig and .gitignore to ~/
 cp git/.gitconfig.local.example ~/.gitconfig.local  # Optional: machine-specific settings
 ```
+
+### pgcli (`pgcli`)
+
+Modern PostgreSQL CLI with syntax highlighting, auto-completion, and smart features.
+
+- **UI Settings:** Colors, table format, editor mode (vi/emacs), pager preferences
+- **Smart Features:** Context-aware auto-completion, multi-line queries, destructive warnings
+- **Keyring Integration:** Stores passwords securely in macOS Keychain/1Password
+- **Connection Management:** Use environment variables for database connections
+
+**Setup:**
+
+```bash
+stow pgcli  # Symlinks config to ~/.config/pgcli/
+
+# Connect using environment variables:
+export PGHOST=localhost
+export PGPORT=5432
+export PGUSER=myuser
+export PGDATABASE=mydb
+pgcli  # Connects using above env vars
+
+# Or use a connection string:
+pgcli postgresql://localhost/mydb
+```
+
+**Environment Variables:**
+- `PGHOST` - Database host (default: localhost)
+- `PGPORT` - Database port (default: 5432)
+- `PGUSER` - Username
+- `PGDATABASE` - Database name
+- `PGPASSWORD` - Password (or use keyring for secure storage)
 
 ### Starship (`starship.toml`)
 
@@ -222,6 +254,7 @@ See [docker/README.md](docker/README.md) for full setup and troubleshooting.
 - `opencode-core/`: Core OpenCode configuration
 - `opencode-home/`: OpenCode agents for personal use
 - `opencode-work/`: OpenCode agents for work
+- `pgcli/`: PostgreSQL CLI (pgcli) configuration
 - `starship/`: Starship prompt configuration
 - `vim/`: Legacy Vim configuration
 - `zsh/`: Zsh shell configuration
