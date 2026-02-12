@@ -143,14 +143,26 @@ $EDITOR ~/.claude/skills/skill-name/SKILL.md
 rm -rf ~/.claude/skills/skill-name/
 ```
 
-## Skill Ideas
+## Available Skills
 
-Here are some examples of useful skills you might create:
+### Language & Framework Specific
+
+- **swift-mentor**: Mentors junior developers through Swift, SwiftUI, and SwiftData development. Provides detailed explanations of modern patterns, structured concurrency, and Apple platform best practices. Use when teaching or learning Swift.
+- **swift-code-writer**: Generates idiomatic Swift code using modern patterns (async/await, Observation, SwiftUI, SwiftData). Focuses on production-quality code for experienced developers without extensive teaching.
+
+### Development Workflows
+
+- **create-agents-md**: Creates AGENTS.md files that provide passive context for AI agents working in codebases
+- **create-claude-skill**: Creates new Claude Code skills with proper frontmatter, structure, and documentation
+- **personal-docs-editor**: Reviews and edits documentation to remove AI-generated corporate language and transform to casual personal tone
+
+### General Examples
+
+Here are some additional skill ideas you might create:
 
 - **Code Review**: Systematic code review checklist and best practices
 - **API Design**: RESTful API design principles and patterns
 - **Testing Strategy**: Comprehensive testing approach for different project types
-- **Documentation**: Technical documentation standards and structure
 - **Debugging**: Systematic debugging methodology
 - **Performance Optimization**: Performance analysis and optimization workflow
 - **Security Audit**: Security review checklist and common vulnerabilities
