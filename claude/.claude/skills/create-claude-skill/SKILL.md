@@ -1,10 +1,9 @@
 ---
 name: create-claude-skill
-description: Creates Claude Code skills for repeatable workflows and actions, with proper frontmatter metadata, searchable descriptions, pre-flight checks, error handling, and structured instructions.
+description: Creates new Claude Code skills (SKILL.md files) for repeatable workflows. Use when building a new skill, writing skill instructions, or when user says "create a skill" or "make a new skill".
 version: 1.0.0
 author: jdwork
 category: meta
-tags: [skills, authoring, templates]
 ---
 
 # Skill: Create Claude Skill
@@ -39,14 +38,15 @@ Every skill must have YAML frontmatter:
 ```yaml
 ---
 name: kebab-case-skill-name
-description: Verb-first sentence describing what the skill does, including searchable keywords and context for when it's useful.
+description: What it does + when to use it. Claude uses this to decide when to load the skill.
 version: 1.0.0
-author: [optional - creator name]
-category: [category from list below]
-tags: [optional - array of searchable keywords]
-requires: [optional - array of other skill names this depends on]
+author: [optional]
+category: [optional - category from list below]
+requires: [optional - other skill names this depends on]
 ---
 ```
+
+**Note:** Skip `tags` - they don't help retrieval. Put searchable keywords in the description instead.
 
 ### 2. Category Options
 
@@ -63,25 +63,32 @@ Use one of these standard categories:
 | `testing` | Test execution, coverage, fixtures, mocking |
 | `workflow` | Multi-step procedures that span categories |
 
-### 3. Write Searchable Descriptions
+### 3. Write Descriptions for Retrieval
 
-Descriptions help agents find the right skill. Write them for retrieval:
+**Claude uses the description to decide when to load a skill.** Descriptions need two parts:
 
-**Format:** Start with a verb, include what/why/when.
+1. **What it does** (verb-first)
+2. **When to use it** (trigger scenarios, user phrases)
 
 ```yaml
-# Good - verb-first, includes context and keywords
-description: Runs database migrations safely with backup verification, rollback support, and environment checks for PostgreSQL and MySQL databases.
+# Good - what + when
+description: Runs database migrations with backup and rollback support. Use when applying schema changes, updating database structure, or when user says "migrate" or "run migrations".
 
-# Bad - vague, no searchable terms
+# Good - includes trigger phrases
+description: Writes git commit messages using Conventional Commits format. Use when committing code, writing commit messages, or when user asks for help with commits.
+
+# Bad - no trigger context
 description: Helps with database stuff.
+
+# Bad - what only, no when
+description: Runs database migrations safely.
 ```
 
 **Tips:**
 - Start with action verb (Creates, Runs, Audits, Generates, Deploys)
-- Include the target (database, API, components, tests)
-- Add context (when useful, what problem it solves)
-- Include technology keywords (PostgreSQL, React, Docker)
+- Include technology keywords users might say (PostgreSQL, React, Docker)
+- Add "Use when..." with specific scenarios
+- Include phrases users actually type ("help me write", "how do I", etc.)
 
 ### 4. Structure the Skill Body
 
@@ -185,10 +192,9 @@ Keep individual skills under 200 lines when possible. If a skill grows too large
 ```markdown
 ---
 name: skill-name
-description: [Verb-first description with keywords]
+description: [What it does]. Use when [trigger scenarios] or when user [phrases they might say].
 version: 1.0.0
 category: [category]
-tags: [tag1, tag2]
 ---
 
 # Skill: [Human Name]

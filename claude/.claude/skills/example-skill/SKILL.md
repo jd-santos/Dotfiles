@@ -1,10 +1,9 @@
 ---
 name: example-skill
-description: Demonstrates the structure and format of Claude skills, serving as a template for creating new custom skills with proper workflow steps, examples, and documentation.
+description: Template demonstrating Claude skill structure and format. Use when learning how skills work, viewing an example skill, or as a starting point for new skills.
 version: 1.0.0
 author: jdwork
 category: meta
-tags: [template, example]
 ---
 
 # Skill: Example Skill

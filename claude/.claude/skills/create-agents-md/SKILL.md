@@ -1,10 +1,9 @@
 ---
 name: create-agents-md
-description: Creates AGENTS.md files that provide passive context for AI agents working in codebases, including project structure, coding conventions, tech stack, and compressed documentation indexes.
+description: Creates AGENTS.md files that provide context for AI agents working in codebases. Use when setting up a new project for AI assistance, documenting conventions for agents, or when user says "create an AGENTS.md" or "set up agent context".
 version: 1.0.0
 author: jdwork
 category: documentation
-tags: [agents, context, onboarding]
 ---
 
 # Skill: Create AGENTS.md

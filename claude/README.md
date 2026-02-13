@@ -155,6 +155,7 @@ rm -rf ~/.claude/skills/skill-name/
 - **create-agents-md**: Creates AGENTS.md files that provide passive context for AI agents working in codebases
 - **create-claude-skill**: Creates new Claude Code skills with proper frontmatter, structure, and documentation
 - **personal-docs-editor**: Reviews and edits documentation to remove AI-generated corporate language and transform to casual personal tone
+- **commit-message-writer**: Writes clear, concise commit messages using Conventional Commits basics with a casual tone
 
 ### General Examples
 

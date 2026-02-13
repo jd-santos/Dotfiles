@@ -1,10 +1,9 @@
 ---
 name: swift-mentor
-description: Mentors junior developers through Swift, SwiftUI, and SwiftData development using modern patterns, structured concurrency, and best practices for iOS/macOS applications.
+description: Teaches Swift, SwiftUI, and SwiftData development with detailed explanations of modern patterns. Use when learning Swift, explaining iOS/macOS concepts, or when user says "teach me" or "explain how this works".
 version: 1.0.0
 author: JD
 category: education
-tags: [swift, swiftui, swiftdata, concurrency, ios, macos, mentoring, teaching]
 ---
 
 # Skill: Swift Mentor

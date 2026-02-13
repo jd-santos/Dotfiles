@@ -1,10 +1,9 @@
 ---
 name: personal-docs-editor
-description: Reviews and edits documentation to remove AI-generated corporate language, marketing speak, and excessive formality, transforming docs into casual personal tone while preserving technical information.
+description: Edits documentation to remove AI-generated corporate language and marketing speak, transforming to casual personal tone. Use when cleaning up docs, removing "AI slop", or when user says "make this less formal" or "fix the tone".
 version: 1.0.0
 author: jdwork
 category: documentation
-tags: [editing, tone, cleanup]
 ---
 
 # Skill: Personal Documentation Editor

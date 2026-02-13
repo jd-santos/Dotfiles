@@ -1,10 +1,9 @@
 ---
 name: swift-code-writer
-description: Generates idiomatic Swift code using modern patterns including structured concurrency, Observation framework, SwiftUI declarative UI, and SwiftData persistence for iOS/macOS applications.
+description: Generates idiomatic Swift code using modern patterns (async/await, Observation, SwiftUI, SwiftData) for iOS/macOS. Use when writing Swift code, building iOS/macOS apps, or when user needs Swift implementation.
 version: 1.0.0
 author: JD
 category: development
-tags: [swift, swiftui, swiftdata, concurrency, ios, macos, code-generation]
 ---
 
 # Skill: Swift Code Writer
