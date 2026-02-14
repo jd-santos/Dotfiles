@@ -1,105 +1,222 @@
 # =============================================================================
-# Opencode Development Container - Docker Compose Configuration
+# Three-Container Development Environment
 # =============================================================================
+# This configuration runs three container types with different trust levels:
+#
+#   dev-full        (port 2222) - Full personal development, account SSH key
+#   openclaw-agent  (port 2223) - AI agent via messaging, deploy key
+#   opencode-web    (port 2224) - Web-based AI assistant, deploy key
+#
 # Usage:
-#   docker compose up -d        # Start container in background
-#   docker compose stop         # Stop container (preserves data)
-#   docker compose down         # Remove container (preserves volumes)
-#   docker compose down -v      # Remove everything including data volumes
+#   docker compose up -d                    # Start all containers
+#   docker compose up -d dev-full           # Start just dev-full
+#   docker compose logs -f                  # Watch all logs
+#   docker compose down                     # Stop all containers
+#
+# First-time setup:
+#   1. Create ~/.env with your API keys (see .env.example)
+#   2. Ensure ~/.ssh/dev_container.pub exists for SSH access into containers
+#   3. Run: docker compose up -d
+#   4. Watch logs for SSH key instructions to add to GitHub
 # =============================================================================
 
 services:
-  opencode:
+  # ---------------------------------------------------------------------------
+  # dev-full: Full Development Access
+  # ---------------------------------------------------------------------------
+  # Personal development container with account-level GitHub access.
+  # Can push to any repo, any branch (including main).
+  # Use this for hands-on development work.
+  
+  dev-full:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        # Customize the dotfiles repo if needed
-        DOTFILES_REPO: "https://github.com/jdwork/Dotfiles.git"
     
-    container_name: opencode-dev
-    hostname: opencode
+    container_name: dev-full
+    hostname: dev-full
     
-    # SSH access from host
-    ports:
-      - "2222:22"  # SSH on port 2222 to avoid conflict with host SSH
-    
-    # Additional environment variables
     environment:
-      # Set timezone to match host (optional)
+      - CONTAINER_TYPE=dev-full
       - TZ=America/New_York
-      # Ensure proper shell
       - SHELL=/bin/zsh
     
-    # Persistent storage
+    ports:
+      - "2222:22"  # SSH access
+    
     volumes:
-      # --- Named Volumes (Docker-managed, survives container removal) ---
+      # Named volumes for persistence
+      - dev-full-home:/home/dev
+      - dev-full-ssh:/home/dev/.ssh
       
-      # Home directory (configs, shell history, projects, caches, etc.)
-      - home:/home/dev
-      
-      # SSH keys (persistent, container-specific key for GitHub)
-      # Contains dev_container_ed25519 key pair generated on first run
-      - ssh-keys:/home/dev/.ssh
-      
-      # --- Bind Mounts (direct host filesystem access) ---
-      
-      # Environment variables (API keys, secrets)
-      # IMPORTANT: Create ~/.env on your host with your API keys
-      # See .env.example for the required format
-      # Keys are stored on separate device for security
+      # Bind mount for API keys (read-only)
       - ~/.env:/home/dev/.env:ro
       
-      # Obsidian vault - needs to sync with host application
-      # IMPORTANT: Update this path to your actual Obsidian vault location
-      # Example: ~/Documents/Obsidian:/home/dev/Obsidian
-      # Uncomment and modify the line below:
-      # - ~/Documents/Obsidian:/home/dev/Obsidian
+      # Bind mount host public key for SSH access into container
+      - ~/.ssh/dev_container.pub:/home/dev/.ssh/authorized_keys.d/host.pub:ro
     
-    # Restart policy
     restart: unless-stopped
     
-    # Resource limits (adjust based on your system)
     deploy:
       resources:
         limits:
-          cpus: '4'          # Max 4 CPU cores
-          memory: 8G         # Max 8GB RAM
+          cpus: '4'
+          memory: 8G
         reservations:
-          cpus: '1'          # Min 1 CPU core guaranteed
-          memory: 2G         # Min 2GB RAM guaranteed
+          cpus: '1'
+          memory: 2G
     
-    # Network configuration
-    # Uses default bridge network - suitable for most use cases
-    # For advanced networking (e.g., connecting to other containers), add custom networks here
+    networks:
+      - dev-network
+
+  # ---------------------------------------------------------------------------
+  # openclaw-agent: CLI AI Agent (Restricted)
+  # ---------------------------------------------------------------------------
+  # AI coding agent that operates via messaging apps (WhatsApp, Telegram, etc.)
+  # Can only access Dotfiles repo, cannot push to main branch.
+  # Deploy key provides limited repository access.
+  
+  openclaw-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
     
-    # Security options (optional hardening)
-    # Uncomment if you want additional security restrictions
-    # security_opt:
-    #   - no-new-privileges:true
-    # cap_drop:
-    #   - ALL
-    # cap_add:
-    #   - NET_BIND_SERVICE  # Allow binding to ports < 1024 if needed
+    container_name: openclaw-agent
+    hostname: openclaw-agent
+    
+    environment:
+      - CONTAINER_TYPE=openclaw-agent
+      - TZ=America/New_York
+      - SHELL=/bin/zsh
+    
+    ports:
+      - "2223:22"  # SSH access on different port
+    
+    volumes:
+      # Named volumes for persistence (separate from dev-full)
+      - openclaw-home:/home/dev
+      - openclaw-ssh:/home/dev/.ssh
+      
+      # Bind mount for API keys (read-only)
+      - ~/.env:/home/dev/.env:ro
+      
+      # Bind mount host public key for SSH access into container
+      - ~/.ssh/dev_container.pub:/home/dev/.ssh/authorized_keys.d/host.pub:ro
+      
+      # Mount Cedar policies (read-only, for future Leash integration)
+      - ./policies:/home/dev/policies:ro
+    
+    restart: unless-stopped
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    
+    networks:
+      - dev-network
+
+  # ---------------------------------------------------------------------------
+  # opencode-web: Web-based AI Agent (Restricted)
+  # ---------------------------------------------------------------------------
+  # Browser-based AI coding assistant.
+  # Similar restrictions to openclaw-agent.
+  # Deploy key provides limited repository access.
+  
+  opencode-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    
+    container_name: opencode-web
+    hostname: opencode-web
+    
+    environment:
+      - CONTAINER_TYPE=opencode-web
+      - TZ=America/New_York
+      - SHELL=/bin/zsh
+      # Optional: Set password for web interface security
+      # - OPENCODE_SERVER_PASSWORD=your-secure-password
+      # - OPENCODE_SERVER_USERNAME=opencode
+    
+    ports:
+      - "2224:22"   # SSH access
+      - "4096:4096" # OpenCode web UI
+    
+    volumes:
+      # Named volumes for persistence (separate from others)
+      - opencode-web-home:/home/dev
+      - opencode-web-ssh:/home/dev/.ssh
+      
+      # Bind mount for API keys (read-only)
+      - ~/.env:/home/dev/.env:ro
+      
+      # Bind mount host public key for SSH access into container
+      - ~/.ssh/dev_container.pub:/home/dev/.ssh/authorized_keys.d/host.pub:ro
+      
+      # Mount Cedar policies (read-only, for future Leash integration)
+      - ./policies:/home/dev/policies:ro
+    
+    restart: unless-stopped
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    
+    networks:
+      - dev-network
 
 # =============================================================================
 # Named Volumes
 # =============================================================================
-# These persist data between container restarts/removals
-# To backup: docker run --rm -v opencode-home:/data -v $(pwd):/backup alpine tar czf /backup/home-backup.tar.gz /data
-# To restore: docker run --rm -v opencode-home:/data -v $(pwd):/backup alpine tar xzf /backup/home-backup.tar.gz -C /
-# =============================================================================
+# Each container has its own home and SSH volumes to ensure isolation.
+# This prevents:
+#   - Agent containers from accessing dev-full's account SSH key
+#   - Cross-container data leakage
+#   - Accidental overwrites of container-specific settings
+#
+# Backup command:
+#   docker run --rm -v dev-full-home:/data -v $(pwd):/backup \
+#     alpine tar czf /backup/dev-full-backup.tar.gz /data
+#
+# Restore command:
+#   docker run --rm -v dev-full-home:/data -v $(pwd):/backup \
+#     alpine tar xzf /backup/dev-full-backup.tar.gz -C /
 
 volumes:
-  home:
+  # dev-full container
+  dev-full-home:
     driver: local
-  ssh-keys:
+  dev-full-ssh:
+    driver: local
+  
+  # openclaw-agent container
+  openclaw-home:
+    driver: local
+  openclaw-ssh:
+    driver: local
+  
+  # opencode-web container
+  opencode-web-home:
+    driver: local
+  opencode-web-ssh:
     driver: local
 
 # =============================================================================
-# Networks (optional)
+# Networks
 # =============================================================================
-# Uncomment if you need custom networking
-# networks:
-#   dev-network:
-#     driver: bridge
+# Containers share a network for potential inter-container communication
+# but are isolated from the host network.
+
+networks:
+  dev-network:
+    driver: bridge
