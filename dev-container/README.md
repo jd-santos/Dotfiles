@@ -1,321 +1,302 @@
-# 🐳 Opencode Development Container
+# Three-Container AI Development Environment
 
-Docker container with Opencode and my dotfiles. Includes Python, Node.js, and Go, with SSH access and persistent storage for projects.
+Docker-based development environment with three container personas for different trust levels. Single Fedora 42 image, multiple security profiles.
 
-## Table of Contents
+## Overview
 
-- [Quick Start](#-quick-start)
-- [Architecture](#-architecture)
-- [Prerequisites](#-prerequisites)
-- [Initial Setup](#-initial-setup)
-- [Daily Usage](#-daily-usage)
-- [Configuration](#-configuration)
-- [Troubleshooting](#-troubleshooting)
-- [Advanced Topics](#-advanced-topics)
-- [FAQ](#-faq)
+| Container | Ports | Trust Level | SSH Key Type | Status | Purpose |
+|-----------|-------|-------------|--------------|--------|---------|
+| **dev-full** | 2222 (SSH) | Full | Account key | ✅ Active | Personal hands-on development |
+| **opencode-web** | 2224 (SSH)<br>4096 (Web) | Restricted | Deploy key | ✅ Active | Browser-based AI assistant |
+| **openclaw-agent** | 2223 (SSH) | Restricted | Deploy key | ⏸️ Future | AI agent via messaging apps |
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                          YOUR HOST                                   │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  Terminal ──SSH:2222──▶ dev-full        (full GitHub access)        │
+│  Browser  ──HTTP:4096─▶ opencode-web    (web UI + restricted)       │
+│            └─SSH:2224                                                │
+│  Terminal ──SSH:2223──▶ openclaw-agent  (not yet configured)        │
+│                                                                      │
+│  ~/.env ────────────────▶ API keys (read-only bind mount)           │
+│  ~/.ssh/dev_container.pub ──▶ SSH access into containers            │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
 
 ## Quick Start
 
 ```bash
-# 1. Navigate to the docker directory
-cd ~/Dotfiles/docker
+cd ~/Dotfiles/dev-container
 
-# 2. Copy environment template to your home directory and add your API keys
+# 1. Set up API keys
 cp .env.example ~/.env
 vim ~/.env  # Add your real API keys
 
-# 3. Build and start the container with SSH agent support (takes ~10 minutes first time)
-./scripts/start.sh
+# 2. Ensure SSH key exists for container access
+# (You should already have ~/.ssh/dev_container from previous setup)
+ls ~/.ssh/dev_container.pub
 
-# Alternative: Start manually without helper script
-docker compose up -d
+# 3. Build and start containers
+docker compose build
+docker compose up -d dev-full opencode-web  # Start active containers
 
-# 4. Connect via SSH
-ssh -p 2222 dev@localhost
-# When prompted, accept the host key (type 'yes')
+# 4. Watch logs for SSH key setup instructions
+docker compose logs -f
 
-# 5. Inside container - start using Opencode!
-opencode
+# 5. Access the containers
+ssh dev-full                  # SSH to dev container
+open http://localhost:4096    # Open OpenCode web UI
 ```
 
 ## Architecture
 
+### Security Model
+
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    HOST (macOS)                         │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  Terminal ────────SSH:2222──▶ Container                │
-│                                                         │
-│  ~/.env ──────────────────────▶ Environment Variables   │
-│  (API Keys - bind mounted read-only)                    │
-│                                                         │
-│  Docker Volumes (persisted):                            │
-│    • opencode-home ──────────▶ /home/dev                │
-│      (projects, caches, configs, history)               │
-│    • ssh-keys ───────────────▶ /home/dev/.ssh           │
-│      (dev_container_ed25519 key pair)                   │
-│                                                         │
-│                           GitHub ◀──SSH──┐              │
-│                           (authenticated) │             │
-└───────────────────────────────────────────┴─────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                         SECURITY LAYERS                              │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  Layer 4: GitHub Branch Protection                                   │
+│  └── main branch requires PR + approval (deploy keys blocked)        │
+│                                                                      │
+│  Layer 3: SSH Keys                                                   │
+│  └── Account key (all repos) vs Deploy key (Dotfiles only)          │
+│                                                                      │
+│  Layer 2: Cedar Policies (future Leash integration)                  │
+│  └── File access, command execution, network allowlists             │
+│                                                                      │
+│  Layer 1: Container Isolation                                        │
+│  └── Separate volumes, limited resources, network isolation         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-## Prerequisites
+### Key Types
 
-- **Docker Desktop** - [Download](https://www.docker.com/products/docker-desktop) and make sure it's running
-- **API Keys** you'll need:
-  - Anthropic Claude (required) - [Get key](https://console.anthropic.com/)
-  - Tavily Search (required for MCP) - [Get key](https://tavily.com/)
-  - OpenRouter (optional) - [Get key](https://openrouter.ai/)
-  - Google AI (optional) - [Get key](https://makersuite.google.com/app/apikey)
+| Container | GitHub Key | What It Can Do |
+|-----------|------------|----------------|
+| dev-full | Account key | Push to any repo, any branch |
+| openclaw-agent | Deploy key | Push to Dotfiles feature branches only |
+| opencode-web | Deploy key | Push to Dotfiles feature branches only |
 
 ## Initial Setup
 
-### Step 1: Environment Configuration
+### Prerequisites
+
+- Docker Desktop installed and running
+- API keys:
+  - Anthropic Claude (required): https://console.anthropic.com/
+  - Tavily Search (required for MCP): https://tavily.com/
+  - OpenRouter (optional): https://openrouter.ai/
+
+### Step 1: Environment Variables
 
 ```bash
-cd ~/Dotfiles/docker
-
-# Copy the template to your home directory
 cp .env.example ~/.env
-
-# Edit with your API keys
 vim ~/.env
 ```
 
-Your `~/.env` file lives in your home directory (on a separate device), not in the git repo. It gets bind-mounted read-only into the container.
-
-Example `~/.env`:
-
+Required keys in `~/.env`:
 ```bash
-ANTHROPIC_API_KEY=sk-ant-your-actual-key-here
-TAVILY_API_KEY=tvly-your-actual-key-here
-OPENROUTER_API_KEY=sk-or-your-actual-key-here
-OPENCODE_CONTEXT=home
+ANTHROPIC_API_KEY=sk-ant-xxxxx
+TAVILY_API_KEY=tvly-xxxxx
 ```
 
-### Step 2: SSH Key Setup
+### Step 2: Host SSH Key
 
-The container uses a dedicated SSH key for GitHub operations. On first startup:
-
-1. **The container generates a dedicated SSH key** (`dev_container_ed25519`) with no passphrase
-2. **You add the public key to GitHub** - the startup script will display it and pause
-3. **The key persists in a Docker volume** - survives container recreation
-4. **All git operations just work** - no agent forwarding needed
-
-**Why this approach?**
-- ✅ Simple and reliable - no complex agent forwarding
-- ✅ Secure - key is isolated to the container, not your main account key
-- ✅ Revocable - you can remove just this key from GitHub if needed
-- ✅ Works on any Docker host - no macOS-specific setup
-
-**Security note:** The key has no passphrase because:
-- It's stored in a Docker volume on your local machine only
-- It's purpose-specific (just for this dev container)
-- You can revoke it anytime on GitHub
-- It's essentially like having a passphrase-less key on a Linux workstation you own
-
-### Step 3: Build the Container
+Your host needs a key to SSH into the containers:
 
 ```bash
-# This will take ~10-15 minutes on first build
-# Docker downloads Ubuntu, installs tools, language runtimes, etc.
+# If you don't have ~/.ssh/dev_container yet:
+ssh-keygen -t ed25519 -f ~/.ssh/dev_container -N '' -C 'dev-container-access'
+```
+
+### Step 3: Build and Start
+
+```bash
 docker compose build
-
-# Watch the build process - layers are cached for future rebuilds
+docker compose up -d
 ```
 
-### Step 4: Start the Container
+### Step 4: Add GitHub SSH Keys
+
+Each container generates its own key for GitHub operations. Watch the logs:
 
 ```bash
-# Start with helper script (recommended)
-./scripts/start.sh
-
-# Or start manually
-docker compose up -d
-
-# Watch the startup logs (important for first run!)
 docker compose logs -f
-
-# Look for: "Container ready! Connect via: ssh -p 2222 dev@localhost"
-# Press Ctrl+C to exit logs (container keeps running)
 ```
 
-### Step 5: SSH Configuration (optional but nice)
+For **dev-full** (first container):
+1. Copy the public key shown in logs
+2. Go to https://github.com/settings/ssh/new
+3. Add as "Dev Container (Full Access)"
 
-Add this to your `~/.ssh/config` for easier access:
+For **openclaw-agent** and **opencode-web**:
+1. Copy each container's public key from logs
+2. Go to https://github.com/YOUR_USERNAME/Dotfiles/settings/keys
+3. Add as deploy key with "Allow write access" checked
+
+### Step 5: Configure Branch Protection
+
+Protect your main branch so agents can't push directly:
+
+1. Go to: https://github.com/YOUR_USERNAME/Dotfiles/settings/branches
+2. Add rule for `main` branch
+3. Enable "Require a pull request before merging"
+
+## Daily Usage
+
+### SSH Config (Recommended)
+
+Add to `~/.ssh/config`:
 
 ```ssh-config
-Host opencode
+Host dev-full
     HostName localhost
     Port 2222
     User dev
+    IdentityFile ~/.ssh/dev_container
+    IdentityAgent none
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+
+Host openclaw-agent
+    HostName localhost
+    Port 2223
+    User dev
+    IdentityFile ~/.ssh/dev_container
+    IdentityAgent none
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+
+Host opencode-web
+    HostName localhost
+    Port 2224
+    User dev
+    IdentityFile ~/.ssh/dev_container
+    IdentityAgent none
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
 ```
 
-Now you can connect with just: `ssh opencode`
-
-### Step 5: First-Run SSH Key Setup
-
-On first startup, the container will:
-
-1. Generate a new SSH key pair (`dev_container_ed25519`)
-2. Display the public key
-3. Pause and wait for you to add it to GitHub
-
-**Follow these steps:**
-
+Then connect with:
 ```bash
-# 1. Watch the logs to see the key
-docker compose logs -f
-
-# You'll see output like:
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# ⚠️  ACTION REQUIRED: Add this public key to GitHub
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# 
-# 1. Go to: https://github.com/settings/ssh/new
-# 2. Title: Docker Dev Container
-# 3. Key:
-# 
-# ssh-ed25519 AAAA...your-key-here... docker-dev-container
-
-# 2. Copy the ssh-ed25519 key from the logs
-
-# 3. Go to GitHub and add it:
-# - Visit: https://github.com/settings/ssh/new
-# - Title: "Docker Dev Container"
-# - Paste the key
-# - Click "Add SSH Key"
-
-# 4. Return to terminal and press Enter
-# The container will test the connection and continue setup
+ssh dev-full
+ssh openclaw-agent
+ssh opencode-web
 ```
 
-**Important:** This is a one-time setup. The key persists in the `ssh-keys` Docker volume, so you won't need to do this again unless you delete the volume.
-
-## Daily Usage
-
-### Starting/Stopping
+### Container Management
 
 ```bash
-# Start container (if stopped)
-docker compose start
+# Start all containers
+docker compose up -d
 
-# Stop container (preserves all data)
+# Start specific container
+docker compose up -d dev-full
+
+# View logs
+docker compose logs -f
+docker compose logs -f dev-full
+
+# Stop all
 docker compose stop
 
-# Restart container
+# Restart
 docker compose restart
 
-# View status
-docker compose ps
+# Remove containers (keeps volumes)
+docker compose down
+
+# Remove everything including data
+docker compose down -v
 ```
 
-### Connecting
+### Inside Containers
 
 ```bash
-# Via SSH (recommended)
-ssh -p 2222 dev@localhost
+# Connect to dev-full
+ssh dev-full
 
-# Or if you configured the SSH alias:
-ssh opencode
-
-# Once connected, you're in zsh with all your dotfiles!
-```
-
-### Inside the Container
-
-```bash
-# Start Opencode
+# Start opencode CLI
 opencode
 
-# Navigate to your projects
-cd ~/projects
-
-# Clone a repo
-git clone git@github.com:username/repo.git
-cd repo
-
-# Use Opencode with the repo
-opencode
-
-# Your zsh aliases and functions work!
-ls          # Uses your custom ls alias
-cat file    # Uses bat (your cat override)
-..          # cd .. alias works
+# Your dotfiles are loaded
+nvim  # Custom config
+tmux  # Custom config
 ```
 
-### Working with Projects
+### OpenCode Web UI
+
+The `opencode-web` container provides a browser-based interface:
 
 ```bash
-# Clone repos as needed
-cd ~/projects
-git clone git@github.com:you/your-project.git
-cd your-project
+# Access the web UI
+open http://localhost:4096
 
-# Install dependencies
-npm install    # Node projects
-pip install -r requirements.txt    # Python projects
-go mod download    # Go projects
+# Or use SSH access
+ssh opencode-web
 
-# Use Opencode to work on the code
-opencode
+# Web server auto-starts on container startup
+# Check status: docker compose logs opencode-web
 ```
 
-## Configuration
+**Features:**
+- Full OpenCode functionality in your browser
+- Session management and history
+- No terminal required
+- Restricted GitHub access (deploy key, feature branches only)
 
-### Switching Context (Home vs Work)
+**Note:** Currently localhost only. See [Future Enhancements](#future-enhancements) for Tailscale integration plans.
 
-Edit `~/.env` on your host machine:
+## File Structure
+
+```
+dev-container/
+├── Dockerfile              # Fedora 42 base image (single image for all)
+├── docker-compose.yml      # Three-container configuration
+├── .env.example            # Template for API keys
+├── scripts/
+│   ├── entrypoint.sh       # Container startup (handles CONTAINER_TYPE)
+│   ├── setup-dotfiles.sh   # Dotfiles installation
+│   └── start.sh            # Helper script
+├── policies/               # Cedar policies for Leash (future)
+│   ├── schema.cedarschema  # Type definitions
+│   ├── dev-full.cedar      # Full access policy
+│   ├── openclaw-agent.cedar # Restricted agent policy
+│   └── opencode-web.cedar  # Restricted web policy
+└── docs/
+    ├── ARCHITECTURE.md     # Detailed architecture docs
+    └── TODO.md             # Implementation guide
+```
+
+## Volumes
+
+Each container has isolated storage:
+
+| Volume | Container | Contents |
+|--------|-----------|----------|
+| dev-full-home | dev-full | Projects, configs, caches |
+| dev-full-ssh | dev-full | Account SSH key for GitHub |
+| openclaw-home | openclaw-agent | Agent workspace |
+| openclaw-ssh | openclaw-agent | Deploy key for Dotfiles |
+| opencode-web-home | opencode-web | Web workspace |
+| opencode-web-ssh | opencode-web | Deploy key for Dotfiles |
+
+### Backup
 
 ```bash
-# For personal projects
-OPENCODE_CONTEXT=home
+# Backup dev-full home
+docker run --rm -v dev-full-home:/data -v $(pwd):/backup \
+  alpine tar czf /backup/dev-full-home.tar.gz -C /data .
 
-# For work projects
-OPENCODE_CONTEXT=work
-```
-
-Then restart:
-
-```bash
-docker compose restart
-```
-
-This switches which agent configurations Opencode loads from `opencode-home` or `opencode-work`.
-
-### Updating Dotfiles
-
-The container automatically checks for dotfile updates on startup. To manually update:
-
-```bash
-# Inside container
-cd ~/Dotfiles
-git pull
-stow -R git zsh fzf tmux starship nvim opencode-core opencode-home
-```
-
-Or rebuild the container to get latest:
-
-```bash
-# On host
-docker compose build --no-cache
-docker compose up -d
-```
-
-### Resource Limits
-
-Edit `docker-compose.yml` to adjust CPU/memory:
-
-```yaml
-deploy:
-  resources:
-    limits:
-      cpus: '4'      # Change this
-      memory: 8G     # Change this
+# Restore
+docker run --rm -v dev-full-home:/data -v $(pwd):/backup \
+  alpine tar xzf /backup/dev-full-home.tar.gz -C /data
 ```
 
 ## Troubleshooting
@@ -323,221 +304,92 @@ deploy:
 ### SSH Connection Refused
 
 ```bash
-# Check if container is running
+# Check container is running
 docker compose ps
 
-# If not running:
-docker compose up -d
+# Check SSH daemon
+docker compose exec dev-full pgrep sshd
 
-# Check SSH daemon is running
-docker compose exec opencode pgrep sshd
-
-# View container logs
-docker compose logs -f
+# View logs
+docker compose logs dev-full
 ```
 
-### Permission Errors
+### GitHub Authentication Failed
 
 ```bash
-# Fix SSH key permissions
-ssh -p 2222 dev@localhost
-chmod 700 ~/.ssh
-chmod 600 ~/.ssh/id_*
-chmod 644 ~/.ssh/*.pub
+# Check inside container
+ssh dev-full
+ssh -T git@github.com
+
+# Should see:
+# dev-full: "Hi YOUR_USERNAME! You've successfully authenticated..."
+# agents: "Hi YOUR_USERNAME/Dotfiles! You've successfully authenticated..."
+
+# If not, check key is added to GitHub
+cat ~/.ssh/dev_full_ed25519.pub  # or openclaw_agent_ed25519.pub
 ```
 
-### Git Operations Fail (Permission Denied)
+### Agent Can't Push to Main
+
+This is intentional! Agents should only push to feature branches:
 
 ```bash
-# Test SSH connection to GitHub
-docker compose exec -u dev opencode ssh -T git@github.com
+# This should work:
+git checkout -b feature/my-change
+git push origin feature/my-change
 
-# You should see: "Hi username! You've successfully authenticated..."
-
-# If it fails, check if the key is in GitHub:
-# 1. Get the public key from container:
-docker compose exec -u dev opencode cat ~/.ssh/dev_container_ed25519.pub
-
-# 2. Verify it's on GitHub: https://github.com/settings/keys
-# 3. If not, add it (see Step 5 above)
-
-# If key is there but still fails, regenerate:
-docker compose exec -u dev opencode rm ~/.ssh/dev_container_ed25519*
-docker compose restart
-# Follow the prompts to add new key to GitHub
+# This should fail:
+git checkout main
+git push origin main
+# Error: "protected branch hook declined"
 ```
 
-### View SSH Key
+### API Keys Not Loading
 
 ```bash
-# See the public key that should be on GitHub
-docker compose exec -u dev opencode cat ~/.ssh/dev_container_ed25519.pub
-```
-
-### Can't Clone/Push Private Repos
-
-Your SSH keys might not be properly mounted:
-
-```bash
-# On host - check SSH keys exist
-ls -la ~/.ssh/
-
-# In container - check they're accessible
-ssh -p 2222 dev@localhost
-ls -la ~/.ssh/
-ssh -T git@github.com  # Test GitHub access
-```
-
-### Opencode Can't Find API Keys
-
-```bash
-# Verify environment variables are loaded
-docker compose exec opencode env | grep API_KEY
-
-# If missing, check ~/.env exists on your host
+# Check .env exists on host
 ls -la ~/.env
 
-# Verify it's bind-mounted correctly
-docker compose exec opencode ls -la /home/dev/.env
+# Check it's mounted in container
+docker compose exec dev-full cat /home/dev/.env
 
-# Restart container to reload env vars
+# Restart to reload
 docker compose restart
 ```
 
-### Container Won't Start
+## Cedar Policies (Future)
 
-```bash
-# View detailed logs
-docker compose logs
+The `policies/` directory contains Cedar authorization policies for future Leash integration. When Leash is available:
 
-# Common issues:
-# 1. Port 2222 already in use
-#    Solution: Change port in docker-compose.yml
-# 2. Docker out of disk space
-#    Solution: docker system prune
-# 3. Invalid ~/.env syntax
-#    Solution: Check for quotes/spaces in env file
-# 4. ~/.env file missing
-#    Solution: cp ~/Dotfiles/docker/.env.example ~/.env
-```
+1. Policies will be enforced at runtime
+2. All actions are logged for audit
+3. Defense-in-depth beyond GitHub's branch protection
 
-### Neovim Plugins Not Loading
+See `docs/ARCHITECTURE.md` for detailed policy documentation.
 
-First launch triggers plugin download:
+## Future Enhancements
 
-```bash
-# Inside container
-nvim
+### Planned
 
-# Wait for lazy.nvim to install plugins (~1-2 minutes)
-# Quit and restart nvim
-```
+- **Tailscale Serve Integration**: Expose opencode-web securely over Tailscale instead of localhost-only
+  - Access web UI from anywhere on your tailnet
+  - No port forwarding or public exposure needed
+  - Automatic HTTPS with Tailscale certificates
+  - See: https://tailscale.com/kb/1242/tailscale-serve
 
-## Advanced Topics
+- **Openclaw Agent**: Configure the third container for messaging app integration
+  - WhatsApp/Telegram bot access
+  - Restricted to Dotfiles repo with deploy key
+  - Same Cedar policies as opencode-web
 
-### Backing Up Your Work
+### Under Consideration
 
-```bash
-# Backup home volume (includes projects, caches, configs)
-docker run --rm \
-  -v opencode-home:/data \
-  -v $(pwd):/backup \
-  alpine tar czf /backup/home-backup.tar.gz /data
-```
-
-### Restoring from Backup
-
-```bash
-docker run --rm \
-  -v opencode-home:/data \
-  -v $(pwd):/backup \
-  alpine tar xzf /backup/home-backup.tar.gz -C /
-```
-
-### Running Commands Without SSH
-
-```bash
-# Execute a command in the running container
-docker compose exec opencode opencode --version
-
-# Start a shell session
-docker compose exec opencode zsh
-
-# Run as root (for system changes)
-docker compose exec -u root opencode bash
-```
-
-### Installing Additional Tools
-
-```bash
-# Inside container
-sudo apt-get update
-sudo apt-get install <package>
-
-# Or add to Dockerfile for permanent install
-```
-
-### Exposing Web Application Ports
-
-Edit `docker-compose.yml`:
-
-```yaml
-ports:
-  - "2222:22"      # SSH
-  - "3000:3000"    # React/Next.js dev server
-  - "8000:8000"    # Python Flask/Django
-  - "8080:8080"    # Go web app
-```
-
-### Complete Reset
-
-```bash
-# Stop and remove container
-docker compose down
-
-# Remove all volumes (DELETES ALL DATA!)
-docker compose down -v
-
-# Remove image
-docker rmi opencode-dev
-
-# Start fresh
-docker compose up -d
-```
-
-## FAQ
-
-**VS Code?** Yes, use the "Remote - SSH" extension and connect to `localhost:2222`. The container is set up for terminal workflows though.
-
-**Disk space?** Base image is ~2GB, with language runtimes it's ~4-5GB, plus whatever projects and caches you add.
-
-**What about my host SSH key with 1Password?** The container uses its own dedicated key (`dev_container_ed25519`). Your host key with 1Password stays on the host and is used for your normal git operations there. This separation is intentional for security.
-
-**Why not forward the SSH agent?** Docker Desktop for Mac doesn't support Unix socket forwarding properly. The container-specific key approach is simpler, more reliable, and more portable.
-
-**Is the passphrase-less key secure?** Yes, for this use case. It's stored in a Docker volume on your local machine only, it's purpose-specific (just for this container), and you can revoke it anytime on GitHub. It's like having a deploy key.
-
-**Docker-in-Docker?** Not by default. If you need it, uncomment the Docker socket mount in `docker-compose.yml`.
-
-**Windows/Linux?** Should work fine. You'll need to adjust bind mount paths (Windows uses different syntax).
-
-**Update Python/Node/Go?** Edit the version variables in `Dockerfile`:
-```dockerfile
-ENV GO_VERSION="1.24.0"
-ENV NODE_VERSION="23.0.0"
-```
-Then rebuild: `docker compose build --no-cache`
-
-**Custom MCP servers?** Install them in the Dockerfile or mount as volumes, then update your Opencode config.
-
-**Skip SSH?** You can use `docker compose exec opencode zsh`, but SSH gives better terminal emulation.
+- **Leash Integration**: When available, enforce Cedar policies at runtime
+- **Multi-arch Support**: Test on AMD64 in addition to ARM64
+- **Container Orchestration**: Kubernetes deployment for Mac Mini server
 
 ## Resources
 
 - [Docker Compose docs](https://docs.docker.com/compose/)
-- [Opencode docs](https://github.com/opencodetorch/opencode)
-- [GNU Stow guide](https://www.gnu.org/software/stow/manual/stow.html)
-
-## Getting Help
-
-Check the troubleshooting section above, or review container logs with `docker compose logs`.
+- [Cedar Policy Language](https://www.cedarpolicy.com/)
+- [Leash (when available)](https://github.com/anthropics/leash)
