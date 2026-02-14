@@ -343,8 +343,10 @@ fi
 # fzf (installed via 'stow fzf')
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
-# OpenClaw Completion
-source <(openclaw completion --shell zsh)
+# OpenClaw Completion (only if installed)
+if command -v openclaw &>/dev/null; then
+  source <(openclaw completion --shell zsh)
+fi
 
 # ┌───────────────────────────────────────────────────────────────────┐
 # │ Prompt Configuration                                              │
