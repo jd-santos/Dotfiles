@@ -226,6 +226,43 @@ ii() {
   echo
 }
 
+# stowp: Stow with preview and confirmation
+# Usage: stowp <stow_arguments>
+# Example: stowp */  (preview what stowing all packages would do)
+# Shows a dry-run simulation first, then asks for confirmation before proceeding
+# Dependencies: stow
+stowp() {
+  if [[ $# -eq 0 ]]; then
+    echo "Usage: stowp <stow_arguments>"
+    echo "Example: stowp nvim zsh    (stow specific packages)"
+    echo "Example: stowp */          (stow all packages)"
+    return 1
+  fi
+
+  local YELLOW=$(tput setaf 3)
+  local GREEN=$(tput setaf 2)
+  local NC=$(tput sgr0)
+
+  echo "${YELLOW}=== Stow Simulation (dry-run) ===${NC}"
+  stow --simulate "$@"
+  local simulate_exit=$?
+
+  if [[ $simulate_exit -ne 0 ]]; then
+    echo "\n${YELLOW}Conflicts detected. Review above and fix before proceeding.${NC}"
+    return $simulate_exit
+  fi
+
+  echo "\n${GREEN}No conflicts detected.${NC}"
+  echo -n "Proceed with stow? [y/N] "
+  read -r response
+  if [[ "$response" =~ ^[Yy]$ ]]; then
+    stow "$@"
+    echo "${GREEN}✓ Stow complete${NC}"
+  else
+    echo "Cancelled."
+  fi
+}
+
 # ┌───────────────────────────────────────────────────────────────────┐
 # │ AWS Profile Prompt                                                │
 # └───────────────────────────────────────────────────────────────────┘

@@ -79,13 +79,12 @@ Reusable instruction sets for Claude Code:
 - **Custom Workflows:** Processes for code review, API design, testing, and more
 - See [Claude Skills README](claude/README.md) for documentation
 
-### OpenCode (`opencode-*`)
+### OpenCode (`opencode`)
 
 Configuration for [OpenCode](https://opencode.ai/), an AI coding assistant:
 
-- **opencode-core/**: Shared base configuration
-- **opencode-home/**: Personal agent prompts (plan, build, ask)
-- **opencode-work/**: Work-specific agent configurations
+- **Base config:** Model settings, MCP servers, formatters, permissions
+- **Custom agents:** Plan, build, ask modes with different capabilities
 
 ## Keyboard Shortcuts
 
@@ -175,6 +174,26 @@ stow -n zsh         # Preview changes (nothing applied)
 stow --simulate nvim
 ```
 
+### Stow with Confirmation (Recommended)
+
+The `stowp` function (included in `.zshrc`) provides a safer stow workflow with preview and confirmation:
+
+```bash
+stowp */           # Preview all packages, then confirm
+stowp nvim zsh     # Preview specific packages, then confirm
+```
+
+**How it works:**
+1. Runs `stow --simulate` to show what would change
+2. Detects conflicts and warns before proceeding
+3. Prompts for confirmation before executing
+4. Only proceeds if you type `y`
+
+**Especially useful when:**
+- Switching between machines
+- Stowing multiple packages at once
+- Uncertain about potential conflicts
+
 ### How It Works
 
 - **Source:** Tool directories in your Dotfiles repo (e.g., `nvim/`, `zsh/`)
@@ -245,16 +264,15 @@ See [docker/README.md](docker/README.md) for full setup and troubleshooting.
 ## Structure
 
 - `claude/`: Claude Code skills for AI workflows
-- `docker/`: Docker container for portable dev environment
+- `dev-container/`: Docker container for portable dev environment
 - `docs/`: Additional documentation
-- `emby/`: Emby media server configuration
 - `fzf/`: fzf fuzzy finder configuration
+- `ghostty/`: Ghostty terminal emulator configuration
 - `git/`: Git configuration and global gitignore
 - `nvim/`: Neovim configuration (LazyVim-based)
-- `opencode-core/`: Core OpenCode configuration
-- `opencode-home/`: OpenCode agents for personal use
-- `opencode-work/`: OpenCode agents for work
+- `opencode/`: OpenCode AI assistant configuration
 - `pgcli/`: PostgreSQL CLI (pgcli) configuration
 - `starship/`: Starship prompt configuration
 - `vim/`: Legacy Vim configuration
+- `zed/`: Zed editor configuration
 - `zsh/`: Zsh shell configuration
