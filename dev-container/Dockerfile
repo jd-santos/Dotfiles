@@ -1,19 +1,18 @@
 # =============================================================================
-# Opencode Development Container
+# Three-Container Development Environment (Fedora 42)
 # =============================================================================
-# A reproducible development environment with:
-# - Python (pyenv), Node.js (nvm), Go
-# - Opencode AI coding assistant
-# - Full dotfiles configuration
-# - SSH access for seamless terminal integration
+# A single image supporting three container personas:
+#   - dev-full: Full personal development (account SSH key)
+#   - openclaw-agent: AI agent via messaging (deploy key, restricted)
+#   - opencode-web: Web-based AI assistant (deploy key, restricted)
+#
+# The CONTAINER_TYPE environment variable determines behavior at runtime.
 # =============================================================================
 
-FROM ubuntu:24.04
+FROM fedora:42
 
-# Prevent interactive prompts during package installation
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Set timezone
+# Prevent interactive prompts
+ENV TERM=xterm-256color
 ENV TZ=UTC
 
 # =============================================================================
@@ -21,47 +20,48 @@ ENV TZ=UTC
 # =============================================================================
 
 # Update and install essential system packages
-RUN apt-get update && apt-get install -y \
+RUN dnf update -y && dnf install -y \
     # Core utilities
     curl \
     wget \
     git \
     git-lfs \
-    vim \
+    vim-enhanced \
     stow \
     zsh \
     sudo \
-    # Build essentials (needed for pyenv, nvm, etc.)
-    build-essential \
-    libssl-dev \
-    zlib1g-dev \
-    libbz2-dev \
-    libreadline-dev \
-    libsqlite3-dev \
-    libncursesw5-dev \
-    xz-utils \
-    tk-dev \
-    libxml2-dev \
-    libxmlsec1-dev \
-    libffi-dev \
-    liblzma-dev \
+    # Build essentials (Fedora uses group install)
+    @development-tools \
+    openssl-devel \
+    zlib-devel \
+    bzip2-devel \
+    readline-devel \
+    sqlite-devel \
+    ncurses-devel \
+    xz \
+    tk-devel \
+    libxml2-devel \
+    xmlsec1-devel \
+    libffi-devel \
+    xz-devel \
     # SSH server
     openssh-server \
-    # Modern CLI tools
+    # Modern CLI tools (Fedora has these in repos)
     bat \
     ripgrep \
     fd-find \
     jq \
     # Additional utilities
     less \
-    tar \
-    gzip \
     unzip \
     ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    procps-ng \
+    findutils \
+    which \
+    passwd \
+    && dnf clean all
 
-# Create symlinks for fd (installed as fdfind on Ubuntu)
-RUN ln -s $(which fdfind) /usr/local/bin/fd 2>/dev/null || true
+# Note: Fedora's fd-find installs as 'fd', no symlink needed (unlike Ubuntu's fdfind)
 
 # =============================================================================
 # Stage 2: User Setup
@@ -69,9 +69,8 @@ RUN ln -s $(which fdfind) /usr/local/bin/fd 2>/dev/null || true
 
 # Create non-root user 'dev' with sudo access
 # UID 1000 matches most macOS users for better volume permission handling
-# Remove any existing user with UID 1000 first (Ubuntu 24.04 has 'ubuntu' user)
-RUN (userdel -r $(id -un 1000) 2>/dev/null || true) && \
-    useradd -m -s /bin/zsh -u 1000 -G sudo dev && \
+# Fedora uses 'wheel' group for sudo access (not 'sudo' like Ubuntu)
+RUN useradd -m -s /bin/zsh -u 1000 -G wheel dev && \
     echo "dev ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # Switch to dev user for remaining installations
@@ -83,14 +82,12 @@ WORKDIR /home/dev
 # =============================================================================
 
 # --- Python (via pyenv) ---
-# Install pyenv
 RUN curl https://pyenv.run | bash
 
 ENV PYENV_ROOT="/home/dev/.pyenv"
 ENV PATH="$PYENV_ROOT/bin:$PATH"
 
 # Install Python 3.12 (latest stable)
-# This can take a few minutes on first build
 RUN eval "$(pyenv init -)" && \
     pyenv install 3.12.7 && \
     pyenv global 3.12.7
@@ -124,19 +121,23 @@ RUN . "$NVM_DIR/nvm.sh" && npm install -g \
 # --- Go ---
 USER root
 ENV GO_VERSION="1.23.4"
-RUN wget https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz && \
-    tar -C /usr/local -xzf go${GO_VERSION}.linux-amd64.tar.gz && \
-    rm go${GO_VERSION}.linux-amd64.tar.gz
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "aarch64" ]; then \
+        GO_ARCH="arm64"; \
+    else \
+        GO_ARCH="amd64"; \
+    fi && \
+    wget https://go.dev/dl/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz && \
+    tar -C /usr/local -xzf go${GO_VERSION}.linux-${GO_ARCH}.tar.gz && \
+    rm go${GO_VERSION}.linux-${GO_ARCH}.tar.gz
 
 ENV PATH="/usr/local/go/bin:/home/dev/go/bin:$PATH"
 ENV GOPATH="/home/dev/go"
 
 USER dev
 
-# Install gofmt and other Go tools
+# Install Go tools
 RUN go install golang.org/x/tools/cmd/goimports@latest
-
-
 
 # =============================================================================
 # Stage 4: Development Tools
@@ -152,10 +153,9 @@ RUN curl -sS https://starship.rs/install.sh | sh -s -- -y
 USER dev
 
 # --- Neovim (latest stable) ---
-# Use architecture-specific download (arm64 for Apple Silicon, amd64 for Intel)
 USER root
-RUN ARCH=$(dpkg --print-architecture) && \
-    if [ "$ARCH" = "arm64" ]; then \
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "aarch64" ]; then \
         NVIM_ARCH="linux-arm64"; \
     else \
         NVIM_ARCH="linux64"; \
@@ -168,8 +168,6 @@ RUN ARCH=$(dpkg --print-architecture) && \
 USER dev
 
 # --- Opencode ---
-# Install Opencode (Node.js package)
-# Pin to specific version for reproducibility
 ENV OPENCODE_VERSION="1.1.40"
 RUN . "$NVM_DIR/nvm.sh" && npm install -g opencode-ai@${OPENCODE_VERSION}
 
@@ -182,24 +180,27 @@ RUN . "$NVM_DIR/nvm.sh" && opencode --version
 
 USER root
 
-# Configure SSH
+# Configure SSH server
 RUN mkdir -p /var/run/sshd && \
-    # Allow SSH login for dev user
+    ssh-keygen -A && \
+    # Allow SSH login for dev user only
     echo "AllowUsers dev" >> /etc/ssh/sshd_config && \
     # Disable password authentication (key-based only for security)
     sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config && \
+    sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config && \
     # Enable pubkey authentication
     sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config && \
     # Disable root login
-    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config
+    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config && \
+    sed -i 's/PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
 
-# Create .ssh directory for dev user (will be populated at runtime)
+# Create .ssh directory for dev user
 RUN mkdir -p /home/dev/.ssh && \
     chown -R dev:dev /home/dev/.ssh && \
     chmod 700 /home/dev/.ssh
 
 # =============================================================================
-# Stage 6: Dotfiles Setup
+# Stage 6: Scripts & Configuration
 # =============================================================================
 
 USER dev
@@ -207,18 +208,19 @@ USER dev
 # Create directories
 RUN mkdir -p /home/dev/projects /home/dev/scripts
 
-# Copy setup scripts
-COPY --chown=dev:dev scripts/setup-dotfiles.sh /home/dev/scripts/setup-dotfiles.sh
-COPY --chown=dev:dev scripts/entrypoint.sh /home/dev/scripts/entrypoint.sh
-RUN chmod +x /home/dev/scripts/*.sh
-
-# Note: Dotfiles will be cloned at runtime in entrypoint.sh (requires SSH keys)
+# Copy scripts to /opt (outside home volume so they persist)
+USER root
+RUN mkdir -p /opt/dev-container
+COPY --chown=root:root scripts/setup-dotfiles.sh /opt/dev-container/setup-dotfiles.sh
+COPY --chown=root:root scripts/entrypoint.sh /opt/dev-container/entrypoint.sh
+RUN chmod +x /opt/dev-container/*.sh
+USER dev
 
 # =============================================================================
 # Stage 7: Runtime Configuration
 # =============================================================================
 
-# Expose SSH port
+# Expose SSH port (containers will map to different host ports)
 EXPOSE 22
 
 # Set default shell
@@ -228,10 +230,12 @@ ENV SHELL=/bin/zsh
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD pgrep sshd || exit 1
 
+# Container type defaults to dev-full (full access)
+# Override with CONTAINER_TYPE env var for agent containers
+ENV CONTAINER_TYPE=dev-full
+
 # Switch to root for entrypoint (needs to start sshd)
 USER root
 
 # Use entrypoint script to handle startup
-ENTRYPOINT ["/home/dev/scripts/entrypoint.sh"]
-
-# No CMD - entrypoint will wait on SSH daemon to keep container running
+ENTRYPOINT ["/opt/dev-container/entrypoint.sh"]
