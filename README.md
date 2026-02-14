@@ -246,25 +246,9 @@ sudo apt install stow       # Ubuntu/Debian
 
 See the [GNU Stow Manual](https://www.gnu.org/software/stow/manual/) for more.
 
-## Docker Container
-
-Docker container with Opencode and my dotfiles, plus Python, Node.js, and Go.
-
-**Quick Start:**
-
-```bash
-cd ~/Dotfiles/docker
-cp .env.example ~/.env      # Edit with your API keys
-docker compose up -d
-ssh -p 2222 dev@localhost
-```
-
-See [docker/README.md](docker/README.md) for full setup and troubleshooting.
-
 ## Structure
 
 - `claude/`: Claude Code skills for AI workflows
-- `dev-container/`: Docker container for portable dev environment
 - `docs/`: Additional documentation
 - `fzf/`: fzf fuzzy finder configuration
 - `ghostty/`: Ghostty terminal emulator configuration

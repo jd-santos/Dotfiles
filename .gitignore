@@ -8,15 +8,6 @@
 .bash_history
 .zsh_history
 
-# Docker secrets (CRITICAL - contains API keys!)
-# Note: API keys now live in ~/.env on host (bind-mounted into container)
-docker/.env
-docker/.env.*
-!docker/.env.example
-docker/.env.container
-docker/.env.container.*
-*.local
-
 # --- System & OS-specific Files ---
 # Ignore macOS, Windows, and local editor clutter.
 .DS_Store
