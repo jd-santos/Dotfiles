@@ -156,6 +156,7 @@ rm -rf ~/.claude/skills/skill-name/
 - **create-claude-skill**: Creates new Claude Code skills with proper frontmatter, structure, and documentation
 - **personal-docs-editor**: Reviews and edits documentation to remove AI-generated corporate language and transform to casual personal tone
 - **commit-message-writer**: Writes clear, concise commit messages using Conventional Commits basics with a casual tone
+- **todo-manager**: Creates and manages TODO.md files with In Progress, Up Next, Backlog, and Done sections for task tracking
 
 ### General Examples
 
