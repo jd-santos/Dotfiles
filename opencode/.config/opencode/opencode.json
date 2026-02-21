@@ -19,9 +19,12 @@
       "command": ["cupertino", "serve"],
       "enabled": true
     },
-    "tavily": {
-      "type": "remote",
-      "url": "https://mcp.tavily.com/mcp/?tavilyApiKey={env:TAVILY_API_KEY}",
+    "brave-search": {
+      "type": "local",
+      "command": ["npx", "-y", "@brave/brave-search-mcp-server"],
+      "env": {
+        "BRAVE_API_KEY": "{env:BRAVE_API_KEY}"
+      },
       "enabled": true
     }
   },
