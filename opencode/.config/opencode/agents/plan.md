@@ -1,7 +1,7 @@
 ---
 description: Deep planning mode for thorough analysis with CLI command access
 mode: primary
-model: anthropic/claude-opus-4-5
+model: anthropic/claude-opus-4-6:max
 skills: true
 tools:
   grep: true
