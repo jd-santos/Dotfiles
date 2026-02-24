@@ -1,7 +1,8 @@
 ---
 description: Ask mode for questions and exploration
 mode: primary
-model: anthropic/claude-sonnet-4-6:high
+model: anthropic/claude-sonnet-4-6
+variant: high
 skills: true
 tools:
   grep: true
