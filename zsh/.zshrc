@@ -33,6 +33,12 @@ if [[ -f /opt/homebrew/bin/brew ]]; then
   eval "$(/opt/homebrew/bin/brew shellenv)"
 fi
 
+# Google Cloud SDK (installed via Homebrew)
+if [[ -f "$(brew --prefix)/share/google-cloud-sdk/path.zsh.inc" ]]; then
+  source "$(brew --prefix)/share/google-cloud-sdk/path.zsh.inc"
+  source "$(brew --prefix)/share/google-cloud-sdk/completion.zsh.inc"
+fi
+
 # Go
 export PATH=$PATH:/usr/local/go/bin
 
