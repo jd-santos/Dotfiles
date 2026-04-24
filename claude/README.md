@@ -154,7 +154,7 @@ rm -rf ~/.claude/skills/skill-name/
 
 - **create-agents-md**: Creates AGENTS.md files that provide passive context for AI agents working in codebases
 - **create-claude-skill**: Creates new Claude Code skills with proper frontmatter, structure, and documentation
-- **personal-docs-editor**: Reviews and edits documentation to remove AI-generated corporate language and transform to casual personal tone
+- **technical-writing-style**: Defines voice, tone, and style for all technical writing. Casual-professional, anti-AI-slop. Use when writing or editing any documentation, README, prose, or technical content.
 - **commit-message-writer**: Writes clear, concise commit messages using Conventional Commits basics with a casual tone
 - **todo-manager**: Creates and manages TODO.md files with In Progress, Up Next, Backlog, and Done sections for task tracking
 
