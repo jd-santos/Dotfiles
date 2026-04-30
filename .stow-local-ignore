@@ -1,2 +1,27 @@
-# macOS files
+# .stow-local-ignore
+# Patterns are Perl regexes matched against each file's path relative to the stow directory.
+# NOTE: This file REPLACES stow's built-in defaults, so defaults must be re-listed here.
+
+# ── Stow defaults (re-listed since this file overrides them) ─────────────────
+RCS
+\.+,v
+CVS
+\.\#.+
+\.cvsignore
+\.svn
+_darcs
+\.hg
+\.git$
+\.gitmodules$
+.+~
+\#.*\#
+
+# ── macOS ─────────────────────────────────────────────────────────────────────
 \.DS_Store$
+
+# ── Repo meta-files (belong in the repo, not symlinked into ~) ───────────────
+^README\.md$
+^AGENTS\.md$
+^LICENSE$
+^docs$
+^\.stow-local-ignore$

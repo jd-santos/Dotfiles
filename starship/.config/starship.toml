@@ -1,3 +1,7 @@
+# Global timeout cap (ms) — prevents any single module from hanging the prompt.
+# Modules that exceed this are skipped rather than blocking the render.
+command_timeout = 500
+
 [aws]
 disabled = true
 
@@ -166,7 +170,10 @@ symbol = " "
 symbol = "󰏗 "
 
 [python]
-symbol = " "
+symbol = " "
+# Use python3 directly — avoids the slow pyenv 'python' shim which adds ~500ms via
+# timeout when no 'python' version is set in pyenv (pyenv global = system).
+python_binary = ["python3", "python"]
 
 [rlang]
 symbol = "󰟔 "
