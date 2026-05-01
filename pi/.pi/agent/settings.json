@@ -1,0 +1,19 @@
+{
+  "lastChangelogVersion": "0.71.0",
+  "defaultProvider": "anthropic",
+  "defaultModel": "claude-opus-4-7",
+  "defaultThinkingLevel": "medium",
+  "skills": [
+    "~/.claude/skills"
+  ],
+  "enableSkillCommands": true,
+  "enabledModels": [
+    "claude-sonnet-4-6",
+    "claude-opus-4-7"
+  ],
+  "quietStartup": true,
+  "packages": [
+    "npm:pi-mcp-adapter",
+    "npm:pi-lens"
+  ]
+}
