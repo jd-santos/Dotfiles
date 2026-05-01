@@ -361,6 +361,9 @@ if command -v openclaw &>/dev/null; then
   source <(openclaw completion --shell zsh)
 fi
 
+# Pi coding agent
+export PI_CACHE_RETENTION=long  # extend prompt cache to 1h (saves cost on long sessions)
+
 # ┌───────────────────────────────────────────────────────────────────┐
 # │ Prompt Configuration                                              │
 # └───────────────────────────────────────────────────────────────────┘

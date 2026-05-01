@@ -70,6 +70,14 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 
+# === Pi Coding Agent ===
+# Pi stores credentials, runtime binaries, and session history under ~/.pi/agent
+# Only settings.json (and authored skills/extensions/prompts/themes) should be tracked.
+.pi/agent/auth.json
+.pi/agent/sessions/
+.pi/agent/bin/
+*.pre-stow.bak
+
 # === Database CLI Tools ===
 # PostgreSQL - local history and logs contain sensitive queries
 .config/pgcli/history

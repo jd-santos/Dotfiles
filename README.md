@@ -86,6 +86,14 @@ Configuration for [OpenCode](https://opencode.ai/), an AI coding assistant:
 - **Base config:** Model settings, MCP servers, formatters, permissions
 - **Custom agents:** Plan, build, ask modes with different capabilities
 
+### Pi (`pi`)
+
+Configuration for [pi](https://pi.dev/), a terminal-based coding agent. Only `~/.pi/agent/settings.json` (provider, default model, theme, packages, etc.) is tracked.
+
+- **Tracked:** `pi/.pi/agent/settings.json`
+- **Never tracked:** `auth.json` (credentials), `sessions/` (chat history), `bin/` (downloaded helpers) — all excluded via `git/.gitignore`
+- **Setup:** `stow pi` (folds into the existing `~/.pi/agent/` directory, leaving secrets and runtime state untouched)
+
 ## Keyboard Shortcuts
 
 ### Tmux (Prefix: `` ` ``)
