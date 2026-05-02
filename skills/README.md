@@ -1,10 +1,10 @@
-# Claude Skills
+# Skills
 
-This directory contains OpenCode/Claude Code skills - reusable instruction sets that enhance AI agent capabilities for specific tasks and workflows.
+This directory contains OpenCode/Claude Code skills — reusable instruction sets that enhance AI agent capabilities for specific tasks and workflows.
 
 ## What are Skills?
 
-Skills are specialized instruction modules that Claude can load to perform specific tasks more effectively. Think of them as expert personas or specialized toolkits that provide:
+Skills are specialized instruction modules that agents can load to perform specific tasks more effectively. Think of them as expert personas or specialized toolkits that provide:
 
 - **Domain-specific knowledge**: Best practices, conventions, and patterns for specific technologies or workflows
 - **Structured workflows**: Step-by-step processes for complex tasks
@@ -105,7 +105,7 @@ tools:
 Or in conversation, you can reference a skill:
 
 ```
-User: "Use the create-agents-md skill to help me with X"
+User: "Use the create-skill skill to help me with X"
 Agent: *loads skill and applies instructions*
 ```
 
@@ -149,11 +149,16 @@ rm -rf ~/.claude/skills/skill-name/
 
 - **swift-mentor**: Mentors junior developers through Swift, SwiftUI, and SwiftData development. Provides detailed explanations of modern patterns, structured concurrency, and Apple platform best practices. Use when teaching or learning Swift.
 - **swift-code-writer**: Generates idiomatic Swift code using modern patterns (async/await, Observation, SwiftUI, SwiftData). Focuses on production-quality code for experienced developers without extensive teaching.
+- **marimo**: Hub skill for working with marimo reactive Python notebooks. Covers setup, core concepts, and routes to focused sub-skills for specific needs.
+  - **marimo-pair**: Live kernel access — discover running servers, execute code directly in the kernel, create/edit cells and install packages programmatically. The primary skill for agents working in an active marimo session.
+  - **marimo-notebook**: Working in the marimo editor — cell model, reactivity rules, keyboard shortcuts, common patterns.
+  - **marimo-data**: Interactive data work — `mo.ui` widgets, data tables, reactive filtering, SQL cells.
+  - **marimo-app**: Deploying marimo as apps and scripts — `marimo run`, `marimo export`, WASM, scheduling.
 
 ### Development Workflows
 
 - **create-agents-md**: Creates AGENTS.md files that provide passive context for AI agents working in codebases
-- **create-claude-skill**: Creates new Claude Code skills with proper frontmatter, structure, and documentation
+- **create-skill**: Creates new skills with proper frontmatter, structure, and documentation
 - **technical-writing-style**: Defines voice, tone, and style for all technical writing. Casual-professional, anti-AI-slop. Use when writing or editing any documentation, README, prose, or technical content.
 - **commit-message-writer**: Writes clear, concise commit messages using Conventional Commits basics with a casual tone
 - **todo-manager**: Creates and manages TODO.md files with In Progress, Up Next, Backlog, and Done sections for task tracking
@@ -172,17 +177,17 @@ Here are some additional skill ideas you might create:
 
 ## Integration with Dotfiles
 
-This Claude configuration follows the GNU Stow pattern used in this dotfiles repository:
+This skills configuration follows the GNU Stow pattern used in this dotfiles repository:
 
 ```bash
-# Install Claude configuration
-stow claude
+# Install skills configuration
+stow skills
 
 # Uninstall
-stow -D claude
+stow -D skills
 
 # Restow (useful after updates)
-stow -R claude
+stow -R skills
 ```
 
 After stowing, the skills directory will be symlinked to `~/.claude/skills/`, making your skills available to OpenCode/Claude Code.
