@@ -27,23 +27,23 @@
 - **Shell Scripts (`.zshrc`, `.fzf.zsh`):** Follow general shell scripting best practices.
 - **JSON (`.json`):** Ensure valid JSON format.
 - **XML (`.xml`):** Ensure valid XML format.
-- **Markdown (`.md`):** For Claude skills and documentation, use clear formatting with proper headers, code blocks, and examples.
+- **Markdown (`.md`):** For skills and documentation, use clear formatting with proper headers, code blocks, and examples.
 
 ## Error Handling
 
 - Since these are configuration files, error handling is generally not applicable in the traditional sense.
 - Errors will typically be reported by the respective tool upon loading the configuration. Ensure your changes are syntactically correct to avoid breaking the tool's functionality.
 
-## Claude Skills (`claude/` directory)
+## Skills (`agents/` directory)
 
-The `claude/` directory contains reusable instruction sets (skills) for Claude Code that enhance AI-assisted development workflows.
+The `agents/` directory contains reusable instruction sets for AI agents that enhance development workflows.
 
 ### Working with Skills
 
 **Skill Structure:**
-- Location: `claude/.claude/skills/`
+- Location: `agents/.agents/skills/`
 - Format: Markdown files with structured sections (Title, Description, Instructions, Examples, Prerequisites)
-- See [claude/README.md](claude/README.md) for detailed documentation
+- See [agents/README.md](agents/README.md) for detailed documentation
 
 **When to reference skills:**
 - Check existing skills before starting complex tasks
@@ -51,11 +51,11 @@ The `claude/` directory contains reusable instruction sets (skills) for Claude C
 - Suggest creating new skills for recurring workflows
 
 **Creating or modifying skills:**
-- Follow the skill template format (see `claude/.claude/skills/example-skill.md`)
+- Follow the skill template format (see `agents/.agents/skills/example-skill/SKILL.md`)
 - Be specific and actionable in instructions
 - Include concrete examples when helpful
 - Keep each skill focused on one primary task or workflow
-- Update `claude/README.md` if adding new skill categories
+- Update `agents/README.md` if adding new skill categories
 
 **Style guidelines for skills:**
 - Use clear, imperative language ("Do X", not "You should do X")
