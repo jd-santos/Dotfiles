@@ -56,6 +56,19 @@ interface SessionRules {
 	deny: PermissionRule[];
 }
 
+function getDirChain(path?: string): string[] {
+	if (!path) return [];
+	const dirs: string[] = [];
+	let d = dirname(path);
+	for (let i = 0; i < 3 && d && d !== "." && d !== "/"; i++) {
+		dirs.push(d);
+		const next = dirname(d);
+		if (next === d) break; // reached root
+		d = next;
+	}
+	return dirs;
+}
+
 function pathStartsWith(path: string, prefix: string): boolean {
 	const n = path.replace(/\/$/, "");
 	const p = prefix.replace(/\/$/, "");
@@ -199,9 +212,6 @@ export default function (pi: ExtensionAPI) {
 
 	// ─── Two-step prompt ──────────────────────────────────────────────
 
-	type PrimaryChoice = "allow-once" | "always-allow" | "deny";
-	type ScopeChoice = "directory" | "tool" | "pattern" | "yolo";
-
 	async function twoStepPrompt(
 		ctx: ExtensionContext,
 		title: string,
@@ -227,16 +237,25 @@ export default function (pi: ExtensionAPI) {
 		}
 
 		// Step 2: scope selector for "always allow"
-		const dir = path ? dirname(path) : undefined;
 		const base = command?.split(/\s+/)[0];
 		const isBash = toolName === "bash";
 
 		const scopeOptions: { label: string; rule: PermissionRule }[] = [];
 
-		if (dir) {
+		// Add directory hierarchy: current, parent, grandparent
+		const dirChain = getDirChain(path);
+		const dirIcons = ["📁", "📂", "📂📂"];
+		const dirLabels = [
+			"This directory",
+			"Parent directory",
+			"Grandparent directory",
+		];
+
+		for (let i = 0; i < dirChain.length; i++) {
+			const d = dirChain[i];
 			scopeOptions.push({
-				label: `📁 This directory (${dir}/)`,
-				rule: { type: "directory", prefix: dir },
+				label: `${dirIcons[i]} ${dirLabels[i]} (${d}/)`,
+				rule: { type: "directory", prefix: d },
 			});
 		}
 
@@ -289,8 +308,16 @@ export default function (pi: ExtensionAPI) {
 
 		const scopeOptions: string[] = ["Just this once"];
 
-		if (dir) {
-			scopeOptions.push(`📁 This directory (${dir}/)`);
+		const dirChain = getDirChain(path);
+		const dirIcons = ["📁", "📂", "📂📂"];
+		const dirLabels = [
+			"This directory",
+			"Parent directory",
+			"Grandparent directory",
+		];
+
+		for (let i = 0; i < dirChain.length; i++) {
+			scopeOptions.push(`${dirIcons[i]} ${dirLabels[i]} (${dirChain[i]}/)`);
 		}
 
 		scopeOptions.push(`🔧 This tool type (${toolName})`);
@@ -311,6 +338,20 @@ export default function (pi: ExtensionAPI) {
 			ctx.ui.notify(`🔴 ${dir}/ (dir) — blocked from now on.`, "warning");
 			updateStatus(ctx);
 			return;
+		} else if (dir) {
+			for (let i = 0; i < dirChain.length; i++) {
+				if (
+					scopeChoice === `${dirIcons[i]} ${dirLabels[i]} (${dirChain[i]}/)`
+				) {
+					rules.deny.push({ type: "directory", prefix: dirChain[i] });
+					ctx.ui.notify(
+						`🔴 ${dirChain[i]}/ (dir) — blocked from now on.`,
+						"warning",
+					);
+					updateStatus(ctx);
+					return;
+				}
+			}
 		}
 	}
 
