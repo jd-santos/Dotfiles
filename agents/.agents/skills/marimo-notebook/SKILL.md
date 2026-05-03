@@ -1,6 +1,6 @@
 ---
 name: marimo-notebook
-description: Guides working in the marimo notebook editor. Covers the reactive cell model, execution order, disabling cells, mo.stop, keyboard shortcuts, and handling expensive notebooks. Use when editing marimo notebooks, debugging reactivity, or asking about cell behavior.
+description: Guides working in the marimo notebook editor. Covers the reactive cell model, execution order, disabling cells, mo.stop, keyboard shortcuts, and handling expensive notebooks. Load the marimo hub skill first. Use when editing marimo notebooks, debugging reactivity, or asking about cell behavior.
 version: 1.0.0
 author: jdwork
 category: workflow

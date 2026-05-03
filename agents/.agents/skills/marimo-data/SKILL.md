@@ -1,6 +1,6 @@
 ---
 name: marimo-data
-description: Guides interactive data work in marimo. Covers mo.ui widgets (slider, dropdown, table, dataframe), reactive filtering, SQL cells, plotting integration, and layout elements. Use when building interactive UIs, working with dataframes, querying data, or visualizing results in marimo.
+description: Guides interactive data work in marimo. Covers mo.ui widgets (slider, dropdown, table, dataframe), reactive filtering, SQL cells, plotting integration, and layout elements. Load the marimo hub skill first. Use when building interactive UIs, working with dataframes, querying data, or visualizing results in marimo.
 version: 1.0.0
 author: jdwork
 category: workflow

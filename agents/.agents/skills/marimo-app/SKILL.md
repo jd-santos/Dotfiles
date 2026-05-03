@@ -1,6 +1,6 @@
 ---
 name: marimo-app
-description: Guides deploying marimo notebooks as apps, scripts, and exports. Covers marimo run, marimo export (HTML/PDF/IPYNB), WASM static deployment, script execution, CLI arguments, scheduled runs, and sharing via molab. Use when deploying marimo, sharing a notebook, exporting output, or running as a web app.
+description: Guides deploying marimo notebooks as apps, scripts, and exports. Covers marimo run, marimo export (HTML/PDF/IPYNB), WASM static deployment, script execution, CLI arguments, scheduled runs, and sharing via molab. Load the marimo hub skill first. Use when deploying marimo, sharing a notebook, exporting output, or running as a web app.
 version: 1.0.0
 author: jdwork
 category: automation

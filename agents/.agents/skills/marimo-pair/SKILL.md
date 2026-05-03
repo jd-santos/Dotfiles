@@ -2,8 +2,13 @@
 name: marimo-pair
 description: >-
   Work inside a running marimo notebook's kernel — execute code, create cells,
-  and build a notebook as an artifact. Use when the user wants to start a
-  marimo notebook or work in an active marimo session.
+  and build a notebook as an artifact. Load the marimo hub skill first. Use
+  when the user wants to start a marimo notebook or work in an active marimo
+  session.
+version: 1.0.0
+author: jdwork
+category: workflow
+requires: [marimo]
 allowed-tools: Bash(bash **/scripts/discover-servers.sh *), Bash(bash **/scripts/execute-code.sh *), Read
 ---
 
@@ -247,7 +252,14 @@ Read [rich-representations.md](reference/rich-representations.md) before wiring 
 - **Installing packages changes the project.** `ctx.packages.add()` adds
   real dependencies — confirm when it's not obvious from context.
 
-## References
+## Cross-Reference
+
+- **marimo** — hub skill with core concepts and reactive model
+- **marimo-notebook** — cell model, editor shortcuts, execution control
+- **marimo-data** — UI widgets, dataframes, SQL
+- **marimo-app** — deploying notebooks as apps and scripts
+
+### Bundled references
 
 - [finding-marimo.md](reference/finding-marimo.md) — how to find and invoke the right marimo
 - [gotchas.md](reference/gotchas.md) — cached module proxies and other traps
