@@ -9,6 +9,9 @@
  *
  * Default mode: prompts for write/edit and unrecognized bash commands.
  * Two-step prompt: first choose once/always/deny, then pick the scope.
+ *
+ * Chained bash commands (cd && ls) are split, each part checked, and all
+ * command patterns (cd, ls) listed in the allow/deny UI.
  */
 
 import { dirname } from "node:path";
@@ -56,6 +59,23 @@ interface SessionRules {
 	deny: PermissionRule[];
 }
 
+function splitCommandParts(command: string): string[] {
+	return command
+		.split(/;|&&|\|\||\||\n/)
+		.map((s) => s.trim())
+		.filter(Boolean);
+}
+
+function extractCommandPatterns(command: string): string[] {
+	const parts = splitCommandParts(command);
+	const patterns = new Set<string>();
+	for (const part of parts) {
+		const token = part.split(/\s+/)[0];
+		if (token) patterns.add(token);
+	}
+	return Array.from(patterns).sort();
+}
+
 function getDirChain(path?: string): string[] {
 	if (!path) return [];
 	const dirs: string[] = [];
@@ -63,7 +83,7 @@ function getDirChain(path?: string): string[] {
 	for (let i = 0; i < 3 && d && d !== "." && d !== "/"; i++) {
 		dirs.push(d);
 		const next = dirname(d);
-		if (next === d) break; // reached root
+		if (next === d) break;
 		d = next;
 	}
 	return dirs;
@@ -162,17 +182,17 @@ export default function (pi: ExtensionAPI) {
 	function isAllowed(
 		toolName: string,
 		path?: string,
-		command?: string,
+		patterns?: string[],
 	): { allowed: boolean; matchedRule?: string } {
 		if (yolo) return { allowed: true };
 
 		for (const rule of rules.deny) {
-			if (matchRule(rule, toolName, path, command)) {
+			if (matchRule(rule, toolName, path, patterns)) {
 				return { allowed: false, matchedRule: formatRule(rule) };
 			}
 		}
 		for (const rule of rules.allow) {
-			if (matchRule(rule, toolName, path, command)) {
+			if (matchRule(rule, toolName, path, patterns)) {
 				return { allowed: true, matchedRule: formatRule(rule) };
 			}
 		}
@@ -183,7 +203,7 @@ export default function (pi: ExtensionAPI) {
 		rule: PermissionRule,
 		toolName: string,
 		path?: string,
-		command?: string,
+		patterns?: string[],
 	): boolean {
 		switch (rule.type) {
 			case "yolo":
@@ -193,7 +213,7 @@ export default function (pi: ExtensionAPI) {
 			case "directory":
 				return path ? pathStartsWith(path, rule.prefix) : false;
 			case "bash":
-				return command ? rule.pattern.test(command) : false;
+				return patterns ? patterns.some((p) => rule.pattern.test(p)) : false;
 		}
 	}
 
@@ -210,6 +230,17 @@ export default function (pi: ExtensionAPI) {
 		}
 	}
 
+	function makePatternRule(token: string): PermissionRule {
+		return { type: "bash", pattern: new RegExp(`^${token}(\\s|$)`) };
+	}
+
+	function makeMultiPatternRule(tokens: string[]): PermissionRule {
+		return {
+			type: "bash",
+			pattern: new RegExp(`^(?:${tokens.join("|")})(\\s|$)`),
+		};
+	}
+
 	// ─── Two-step prompt ──────────────────────────────────────────────
 
 	async function twoStepPrompt(
@@ -217,11 +248,10 @@ export default function (pi: ExtensionAPI) {
 		title: string,
 		toolName: string,
 		path?: string,
-		command?: string,
+		patterns?: string[],
 	): Promise<{ allow: boolean; rule?: PermissionRule }> {
 		if (!ctx.hasUI) return { allow: true };
 
-		// Step 1: once / always / deny
 		const primaryChoice = await ctx.ui.select(title, [
 			"▶ Allow this once",
 			"✓ Always allow…",
@@ -236,13 +266,10 @@ export default function (pi: ExtensionAPI) {
 			return { allow: true };
 		}
 
-		// Step 2: scope selector for "always allow"
-		const base = command?.split(/\s+/)[0];
 		const isBash = toolName === "bash";
-
 		const scopeOptions: { label: string; rule: PermissionRule }[] = [];
 
-		// Add directory hierarchy: current, parent, grandparent
+		// Directory hierarchy
 		const dirChain = getDirChain(path);
 		const dirIcons = ["📁", "📂", "📂📂"];
 		const dirLabels = [
@@ -252,25 +279,35 @@ export default function (pi: ExtensionAPI) {
 		];
 
 		for (let i = 0; i < dirChain.length; i++) {
-			const d = dirChain[i];
 			scopeOptions.push({
-				label: `${dirIcons[i]} ${dirLabels[i]} (${d}/)`,
-				rule: { type: "directory", prefix: d },
+				label: `${dirIcons[i]} ${dirLabels[i]} (${dirChain[i]}/)`,
+				rule: { type: "directory", prefix: dirChain[i] },
 			});
 		}
 
+		// Tool type
 		scopeOptions.push({
 			label: `🔧 This tool type (${toolName})`,
 			rule: { type: "tool", tool: toolName },
 		});
 
-		if (isBash && base) {
-			scopeOptions.push({
-				label: `⌨️  This command pattern (${base} …)`,
-				rule: { type: "bash", pattern: new RegExp(`^${base}(\\s|$)`) },
-			});
+		// Command patterns
+		if (isBash && patterns && patterns.length > 0) {
+			for (const p of patterns) {
+				scopeOptions.push({
+					label: `⌨️  ${p} …`,
+					rule: makePatternRule(p),
+				});
+			}
+			if (patterns.length > 1) {
+				scopeOptions.push({
+					label: `⌨️  All command patterns (${patterns.join(", ")})`,
+					rule: makeMultiPatternRule(patterns),
+				});
+			}
 		}
 
+		// Yolo
 		scopeOptions.push({
 			label: "⚡ Everything (full yolo)",
 			rule: { type: "yolo" },
@@ -301,13 +338,11 @@ export default function (pi: ExtensionAPI) {
 		ctx: ExtensionContext,
 		toolName: string,
 		path?: string,
+		patterns?: string[],
 	): Promise<void> {
 		if (!ctx.hasUI) return;
 
-		const dir = path ? dirname(path) : undefined;
-
 		const scopeOptions: string[] = ["Just this once"];
-
 		const dirChain = getDirChain(path);
 		const dirIcons = ["📁", "📂", "📂📂"];
 		const dirLabels = [
@@ -318,6 +353,15 @@ export default function (pi: ExtensionAPI) {
 
 		for (let i = 0; i < dirChain.length; i++) {
 			scopeOptions.push(`${dirIcons[i]} ${dirLabels[i]} (${dirChain[i]}/)`);
+		}
+
+		if (toolName === "bash" && patterns && patterns.length > 0) {
+			for (const p of patterns) {
+				scopeOptions.push(`⌨️  ${p} …`);
+			}
+			if (patterns.length > 1) {
+				scopeOptions.push(`⌨️  All command patterns (${patterns.join(", ")})`);
+			}
 		}
 
 		scopeOptions.push(`🔧 This tool type (${toolName})`);
@@ -333,24 +377,37 @@ export default function (pi: ExtensionAPI) {
 			return;
 		}
 
-		if (dir && scopeChoice === `📁 This directory (${dir}/)`) {
-			rules.deny.push({ type: "directory", prefix: dir });
-			ctx.ui.notify(`🔴 ${dir}/ (dir) — blocked from now on.`, "warning");
-			updateStatus(ctx);
-			return;
-		} else if (dir) {
-			for (let i = 0; i < dirChain.length; i++) {
-				if (
-					scopeChoice === `${dirIcons[i]} ${dirLabels[i]} (${dirChain[i]}/)`
-				) {
-					rules.deny.push({ type: "directory", prefix: dirChain[i] });
-					ctx.ui.notify(
-						`🔴 ${dirChain[i]}/ (dir) — blocked from now on.`,
-						"warning",
-					);
+		// Directory deny
+		for (let i = 0; i < dirChain.length; i++) {
+			if (scopeChoice === `${dirIcons[i]} ${dirLabels[i]} (${dirChain[i]}/)`) {
+				rules.deny.push({ type: "directory", prefix: dirChain[i] });
+				ctx.ui.notify(
+					`🔴 ${dirChain[i]}/ (dir) — blocked from now on.`,
+					"warning",
+				);
+				updateStatus(ctx);
+				return;
+			}
+		}
+
+		// Pattern deny
+		if (toolName === "bash" && patterns) {
+			for (const p of patterns) {
+				if (scopeChoice === `⌨️  ${p} …`) {
+					rules.deny.push(makePatternRule(p));
+					ctx.ui.notify(`🔴 ${p} (pattern) — blocked from now on.`, "warning");
 					updateStatus(ctx);
 					return;
 				}
+			}
+			if (
+				patterns.length > 1 &&
+				scopeChoice === `⌨️  All command patterns (${patterns.join(", ")})`
+			) {
+				rules.deny.push(makeMultiPatternRule(patterns));
+				ctx.ui.notify(`🔴 All patterns — blocked from now on.`, "warning");
+				updateStatus(ctx);
+				return;
 			}
 		}
 	}
@@ -371,14 +428,9 @@ export default function (pi: ExtensionAPI) {
 			}
 
 			const path = String(input.path ?? input.file_path ?? "unknown path");
-
-			// Session rule match?
 			const check = isAllowed(toolName, path);
 			if (check.allowed) return undefined;
-
-			if (!ctx.hasUI) {
-				return undefined;
-			}
+			if (!ctx.hasUI) return undefined;
 
 			const result = await twoStepPrompt(
 				ctx,
@@ -398,22 +450,26 @@ export default function (pi: ExtensionAPI) {
 		// ── Bash ─────────────────────────────────────────────────────
 		if (toolName === "bash") {
 			const command = String(input.command ?? "").trim();
+			const parts = splitCommandParts(command);
 
-			// Sensitive files: always block
-			if (DENY_PATTERNS.some((p) => p.test(command))) {
-				if (ctx.hasUI) {
-					ctx.ui.notify("Blocked: sensitive file access.", "warning");
+			// Sensitive files: check each part individually, block whole chain
+			for (const part of parts) {
+				if (DENY_PATTERNS.some((p) => p.test(part))) {
+					if (ctx.hasUI) {
+						ctx.ui.notify("Blocked: sensitive file access.", "warning");
+					}
+					return {
+						block: true,
+						reason: "Access to sensitive files is not allowed.",
+					};
 				}
-				return {
-					block: true,
-					reason: "Access to sensitive files is not allowed.",
-				};
 			}
 
-			// Read-only safe-list: always pass
-			if (ALLOW_PATTERNS.some((p) => p.test(command))) {
-				return undefined;
-			}
+			// Read-only safe-list: ALL parts must be safe
+			const allSafe = parts.every((part) =>
+				ALLOW_PATTERNS.some((p) => p.test(part)),
+			);
+			if (allSafe) return undefined;
 
 			if (readonly) {
 				return {
@@ -422,27 +478,28 @@ export default function (pi: ExtensionAPI) {
 				};
 			}
 
-			// Session rule match?
-			const check = isAllowed(toolName, undefined, command);
+			// Session rules
+			const patterns = extractCommandPatterns(command);
+			const check = isAllowed(toolName, undefined, patterns);
 			if (check.allowed) return undefined;
 
-			if (!ctx.hasUI) {
-				return undefined;
-			}
+			if (!ctx.hasUI) return undefined;
 
 			const preview =
 				command.length > 80 ? command.slice(0, 80) + "…" : command;
+			const patternsSummary =
+				patterns.length > 1 ? `\n  Commands: ${patterns.join(", ")}` : "";
 
 			const result = await twoStepPrompt(
 				ctx,
-				`Allow bash command?\n\n  ${preview}`,
+				`Allow bash command?\n\n  ${preview}${patternsSummary}`,
 				toolName,
 				undefined,
-				command,
+				patterns,
 			);
 
 			if (!result.allow) {
-				await denyPrompt(ctx, toolName);
+				await denyPrompt(ctx, toolName, undefined, patterns);
 				return { block: true, reason: "Blocked by user." };
 			}
 
