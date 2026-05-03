@@ -1,16 +1,17 @@
 {
-  "lastChangelogVersion": "0.71.0",
-  "defaultProvider": "anthropic",
-  "defaultModel": "claude-opus-4-7",
+  "lastChangelogVersion": "0.72.1",
+  "defaultProvider": "openrouter",
+  "defaultModel": "z-ai/glm-5.1",
   "defaultThinkingLevel": "medium",
   "skills": [
-    "~/.claude/skills"
+    "~/.agents/skills"
   ],
   "enableSkillCommands": true,
   "enabledModels": [
     "claude-sonnet-4-6",
     "claude-opus-4-7"
   ],
+  "theme": "dracula",
   "quietStartup": true,
   "packages": [
     "npm:pi-mcp-adapter",
