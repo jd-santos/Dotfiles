@@ -66,7 +66,12 @@ Planning is a first-class file operation, not a separate mode. There is no plan/
 The `permission-gate` extension controls tool access:
 
 - **Default**: write/edit prompt for confirmation. Safe bash commands (ls, cat, git status, etc.) auto-allow. Sensitive file access always blocked.
-- **`/readonly`**: blocks all writes and restricts bash to the read-only allowlist. Use when you want a strict look-but-don't-touch session.
+- **`/readonly`**: blocks all writes and restricts bash to the read-only allowlist.
+- **`/yolo`**: toggles skip-all-prompts mode. All write/edit/bash auto-allow. Sensitive files still blocked.
+- **`/rules`**: shows active session permission rules (allow/deny rules set during the session).
+- **`/reset-rules`**: clears all session rules and resets to default mode.
+
+**Session rules**: after each prompt, a TUI selector asks whether to continue the pattern for the rest of the session: by tool type, directory, command pattern, or full yolo.
 
 ## Auto-Formatting
 
