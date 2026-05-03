@@ -2,14 +2,13 @@
  * Permission gate for file writes and bash commands.
  *
  * Commands:
- *   /readonly   — Toggle hard block on all writes + restrict bash to allowlist
- *   /yolo       — Toggle skip-all-prompts mode (sensitive files still blocked)
- *   /rules      — Show active session permission rules
- *   /reset-rules — Clear all session permission rules
+ *   /readonly    Toggle hard block on all writes + restrict bash to allowlist
+ *   /yolo        Toggle skip-all-prompts mode (sensitive files still blocked)
+ *   /rules       Show active session permission rules
+ *   /reset-rules Clear all session permission rules
  *
  * Default mode: prompts for write/edit and unrecognized bash commands.
- * After each prompt, asks whether to remember the decision for the rest
- * of the session (tool type, directory, command pattern, or full yolo).
+ * Two-step prompt: first choose once/always/deny, then pick the scope.
  */
 
 import { dirname } from "node:path";
@@ -198,119 +197,118 @@ export default function (pi: ExtensionAPI) {
 		}
 	}
 
-	// ─── Prompt helpers ───────────────────────────────────────────────
+	// ─── Two-step prompt ──────────────────────────────────────────────
 
-	async function promptContinue(
+	type PrimaryChoice = "allow-once" | "always-allow" | "deny";
+	type ScopeChoice = "directory" | "tool" | "pattern" | "yolo";
+
+	async function twoStepPrompt(
 		ctx: ExtensionContext,
+		title: string,
 		toolName: string,
 		path?: string,
 		command?: string,
-	): Promise<void> {
-		if (!ctx.hasUI) return;
+	): Promise<{ allow: boolean; rule?: PermissionRule }> {
+		if (!ctx.hasUI) return { allow: true };
 
+		// Step 1: once / always / deny
+		const primaryChoice = await ctx.ui.select(title, [
+			"▶ Allow this once",
+			"✓ Always allow…",
+			"✕ Deny",
+		]);
+
+		if (!primaryChoice || primaryChoice === "✕ Deny") {
+			return { allow: false };
+		}
+
+		if (primaryChoice === "▶ Allow this once") {
+			return { allow: true };
+		}
+
+		// Step 2: scope selector for "always allow"
 		const dir = path ? dirname(path) : undefined;
-		const options: string[] = [];
+		const base = command?.split(/\s+/)[0];
+		const isBash = toolName === "bash";
 
-		if (command && toolName === "bash") {
-			// Use first token as the "pattern" for bash commands
-			const base = command.split(/\s+/)[0];
-			if (base) options.push(`Pattern: ${base} …`);
-		}
+		const scopeOptions: { label: string; rule: PermissionRule }[] = [];
+
 		if (dir) {
-			options.push(`Directory: ${dir}/`);
+			scopeOptions.push({
+				label: `📁 This directory (${dir}/)`,
+				rule: { type: "directory", prefix: dir },
+			});
 		}
-		options.push(`Tool type: ${toolName}`);
-		options.push("⚡ Full yolo (everything)");
-		options.push("Just this once");
 
-		const choice = await ctx.ui.select(
-			"💡 Continue this pattern for the rest of the session?",
-			options,
+		scopeOptions.push({
+			label: `🔧 This tool type (${toolName})`,
+			rule: { type: "tool", tool: toolName },
+		});
+
+		if (isBash && base) {
+			scopeOptions.push({
+				label: `⌨️  This command pattern (${base} …)`,
+				rule: { type: "bash", pattern: new RegExp(`^${base}(\\s|$)`) },
+			});
+		}
+
+		scopeOptions.push({
+			label: "⚡ Everything (full yolo)",
+			rule: { type: "yolo" },
+		});
+
+		const scopeChoice = await ctx.ui.select(
+			"Scope for always allow:",
+			scopeOptions.map((o) => o.label),
 		);
 
-		if (!choice || choice === "Just this once") return;
+		if (!scopeChoice) return { allow: true };
 
-		if (choice === "⚡ Full yolo (everything)") {
-			rules.allow.push({ type: "yolo" });
-			yolo = true;
-			ctx.ui.notify("Yolo mode activated for this session.", "info");
-			updateStatus(ctx);
-			return;
-		}
-
-		if (choice === `Tool type: ${toolName}`) {
-			rules.allow.push({ type: "tool", tool: toolName });
+		const selected = scopeOptions.find((o) => o.label === scopeChoice);
+		if (selected) {
+			rules.allow.push(selected.rule);
+			if (selected.rule.type === "yolo") yolo = true;
 			ctx.ui.notify(
-				`All ${toolName} operations will auto-allow from now on.`,
+				`🟢 ${formatRule(selected.rule)} — auto-allowed from now on.`,
 				"info",
 			);
 			updateStatus(ctx);
-			return;
 		}
 
-		if (dir && choice === `Directory: ${dir}/`) {
-			rules.allow.push({ type: "directory", prefix: dir });
-			ctx.ui.notify(
-				`Operations under ${dir}/ will auto-allow from now on.`,
-				"info",
-			);
-			updateStatus(ctx);
-			return;
-		}
-
-		if (command && choice.startsWith("Pattern: ")) {
-			const base = command.split(/\s+/)[0];
-			rules.allow.push({
-				type: "bash",
-				pattern: new RegExp(`^${base}(\\s|$)`),
-			});
-			ctx.ui.notify(
-				`"${base} …" commands will auto-allow from now on.`,
-				"info",
-			);
-			updateStatus(ctx);
-			return;
-		}
+		return { allow: true };
 	}
 
-	async function promptBlockContinue(
+	async function denyPrompt(
 		ctx: ExtensionContext,
 		toolName: string,
 		path?: string,
-		_command?: string, // unused, but kept for call-site compatibility
 	): Promise<void> {
 		if (!ctx.hasUI) return;
 
 		const dir = path ? dirname(path) : undefined;
-		const options: string[] = [];
 
-		if (dir) options.push(`Directory: ${dir}/`);
-		options.push(`Tool type: ${toolName}`);
-		options.push("Just this time");
+		const scopeOptions: string[] = ["Just this once"];
 
-		const choice = await ctx.ui.select(
-			"🚫 Block this pattern for the rest of the session?",
-			options,
-		);
+		if (dir) {
+			scopeOptions.push(`📁 This directory (${dir}/)`);
+		}
 
-		if (!choice || choice === "Just this time") return;
+		scopeOptions.push(`🔧 This tool type (${toolName})`);
 
-		if (choice === `Tool type: ${toolName}`) {
+		const scopeChoice = await ctx.ui.select("Scope for deny:", scopeOptions);
+
+		if (!scopeChoice || scopeChoice === "Just this once") return;
+
+		if (scopeChoice === `🔧 This tool type (${toolName})`) {
 			rules.deny.push({ type: "tool", tool: toolName });
-			ctx.ui.notify(
-				`All ${toolName} operations will be blocked from now on.`,
-				"warning",
-			);
+			ctx.ui.notify(`🔴 ${toolName} (tool) — blocked from now on.`, "warning");
 			updateStatus(ctx);
 			return;
 		}
 
-		if (dir && choice === `Directory: ${dir}/`) {
+		if (dir && scopeChoice === `📁 This directory (${dir}/)`) {
 			rules.deny.push({ type: "directory", prefix: dir });
-			ctx.ui.notify(
-				`Operations under ${dir}/ will be blocked from now on.`,
-				"warning",
-			);
+			ctx.ui.notify(`🔴 ${dir}/ (dir) — blocked from now on.`, "warning");
 			updateStatus(ctx);
 			return;
 		}
@@ -338,20 +336,21 @@ export default function (pi: ExtensionAPI) {
 			if (check.allowed) return undefined;
 
 			if (!ctx.hasUI) {
-				return undefined; // non-interactive: allow (unless readonly)
+				return undefined;
 			}
 
-			const choice = await ctx.ui.select(`Allow ${toolName}?\n\n  ${path}`, [
-				"Allow",
-				"Deny",
-			]);
+			const result = await twoStepPrompt(
+				ctx,
+				`Allow ${toolName}?\n\n  ${path}`,
+				toolName,
+				path,
+			);
 
-			if (choice !== "Allow") {
-				await promptBlockContinue(ctx, toolName, path);
+			if (!result.allow) {
+				await denyPrompt(ctx, toolName, path);
 				return { block: true, reason: "Blocked by user." };
 			}
 
-			await promptContinue(ctx, toolName, path);
 			return undefined;
 		}
 
@@ -392,17 +391,20 @@ export default function (pi: ExtensionAPI) {
 
 			const preview =
 				command.length > 80 ? command.slice(0, 80) + "…" : command;
-			const choice = await ctx.ui.select(
+
+			const result = await twoStepPrompt(
+				ctx,
 				`Allow bash command?\n\n  ${preview}`,
-				["Allow", "Deny"],
+				toolName,
+				undefined,
+				command,
 			);
 
-			if (choice !== "Allow") {
-				await promptBlockContinue(ctx, toolName, undefined, command);
+			if (!result.allow) {
+				await denyPrompt(ctx, toolName);
 				return { block: true, reason: "Blocked by user." };
 			}
 
-			await promptContinue(ctx, toolName, undefined, command);
 			return undefined;
 		}
 
