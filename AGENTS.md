@@ -34,16 +34,16 @@
 - Since these are configuration files, error handling is generally not applicable in the traditional sense.
 - Errors will typically be reported by the respective tool upon loading the configuration. Ensure your changes are syntactically correct to avoid breaking the tool's functionality.
 
-## Skills (`skills/` directory)
+## Skills (`agents/` directory)
 
-The `skills/` directory contains reusable instruction sets for AI agents that enhance development workflows.
+The `agents/` directory contains reusable instruction sets for AI agents that enhance development workflows.
 
 ### Working with Skills
 
 **Skill Structure:**
-- Location: `skills/.claude/skills/`
+- Location: `agents/.agents/skills/`
 - Format: Markdown files with structured sections (Title, Description, Instructions, Examples, Prerequisites)
-- See [skills/README.md](skills/README.md) for detailed documentation
+- See [agents/README.md](agents/README.md) for detailed documentation
 
 **When to reference skills:**
 - Check existing skills before starting complex tasks
@@ -51,11 +51,11 @@ The `skills/` directory contains reusable instruction sets for AI agents that en
 - Suggest creating new skills for recurring workflows
 
 **Creating or modifying skills:**
-- Follow the skill template format (see `skills/.claude/skills/example-skill/SKILL.md`)
+- Follow the skill template format (see `agents/.agents/skills/example-skill/SKILL.md`)
 - Be specific and actionable in instructions
 - Include concrete examples when helpful
 - Keep each skill focused on one primary task or workflow
-- Update `skills/README.md` if adding new skill categories
+- Update `agents/README.md` if adding new skill categories
 
 **Style guidelines for skills:**
 - Use clear, imperative language ("Do X", not "You should do X")

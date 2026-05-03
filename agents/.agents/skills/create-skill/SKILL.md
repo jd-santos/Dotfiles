@@ -1,12 +1,12 @@
 ---
-name: create-claude-skill
-description: Creates new Claude Code skills (SKILL.md files) for repeatable workflows. Use when building a new skill, writing skill instructions, or when user says "create a skill" or "make a new skill".
-version: 1.0.0
+name: create-skill
+description: Creates new skills (SKILL.md files) for repeatable workflows. Use when building a new skill, writing skill instructions, or when user says "create a skill" or "make a new skill".
+version: 1.1.0
 author: jdwork
 category: meta
 ---
 
-# Skill: Create Claude Skill
+# Skill: Create Skill
 
 ## Description
 
