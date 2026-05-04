@@ -10,12 +10,12 @@ An interactive gate that prompts before writes, edits, and unrecognized bash com
 
 ### Commands
 
-| Command | Effect |
-|---------|--------|
-| `/readonly` | Toggle read-only mode — blocks all writes, restricts bash to safe list |
-| `/yolo` | Toggle full auto-allow mode. Sensitive files still blocked. Clears session rules on toggle |
-| `/rules` | Show active session rules |
-| `/reset-rules` | Clear all session rules — start fresh |
+| Command        | Effect                                                                                     |
+| -------------- | ------------------------------------------------------------------------------------------ |
+| `/readonly`    | Toggle read-only mode — blocks all writes, restricts bash to safe list                     |
+| `/yolo`        | Toggle full auto-allow mode. Sensitive files still blocked. Clears session rules on toggle |
+| `/rules`       | Show active session rules                                                                  |
+| `/reset-rules` | Clear all session rules — start fresh                                                      |
 
 ### Auto-allow rules
 
