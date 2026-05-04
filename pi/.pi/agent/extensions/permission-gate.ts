@@ -1,14 +1,31 @@
 /**
  * Permission gate for file writes and bash commands.
  *
- * /readonly (or the command) toggles a hard block on all writes and
- * restricts bash to the read-only allowlist. When readonly is off,
- * write/edit calls prompt for confirmation and unrecognized bash
- * commands prompt too. Sensitive file access is always blocked.
+ * Commands:
+ *   /readonly    Toggle hard block on all writes + restrict bash to allowlist
+ *   /yolo        Toggle skip-all-prompts mode (sensitive files still blocked)
+ *   /rules       Show active session permission rules
+ *   /reset-rules Clear all session permission rules
+ *
+ * Default mode: prompts for write/edit and unrecognized bash commands.
+ * Two-step prompt: first choose once/always/deny, then pick the scope.
+ *
+ * Chained bash commands (cd && ls) are split, each part checked, and all
+ * command patterns (cd, ls) listed in the allow/deny UI.
+ *
+ * SECURITY NOTE: This is a convenience gate, not a security sandbox.
+ * Command splitting is naive (no quoting/subshell awareness), and wrapped
+ * commands like `sh -c "cat .env"` bypass pattern checks. The LLM already
+ * has full shell access; this extension only surfaces risky operations.
  */
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-// Bash commands that auto-allow without prompting.
+import { dirname } from "node:path";
+import type {
+	ExtensionAPI,
+	ExtensionContext,
+} from "@mariozechner/pi-coding-agent";
+
+// Bash commands that auto-allow without prompting (read-only safe list).
 const ALLOW_PATTERNS: RegExp[] = [
 	/^ls(\s|$)/,
 	/^pwd$/,
@@ -36,66 +53,473 @@ const DENY_PATTERNS: RegExp[] = [
 	/^(cat|head|tail)\s+.*\.ssh\/id_/,
 ];
 
+type PermissionRule =
+	| { type: "tool"; tool: string }
+	| { type: "directory"; prefix: string }
+	| { type: "bash"; pattern: RegExp }
+	| { type: "yolo" };
+
+interface SessionRules {
+	allow: PermissionRule[];
+	deny: PermissionRule[];
+}
+
+// Naive command splitting — does not understand quoting, subshells,
+// command substitution, or eval. Used for hint/pattern generation.
+// Security-sensitive checks (sensitive file deny) check both raw
+// command and split parts, but neither catches wrapped commands
+// like `sh -c "cat .env"`. This gate is a convenience layer, not a
+// security sandbox.
+function splitCommandParts(command: string): string[] {
+	return command
+		.split(/;|&&|\|\||\||\n/)
+		.map((s) => s.trim())
+		.filter(Boolean);
+}
+
+function extractCommandPatterns(command: string): string[] {
+	const parts = splitCommandParts(command);
+	const patterns = new Set<string>();
+	for (const part of parts) {
+		const token = part.split(/\s+/)[0];
+		if (token) patterns.add(token);
+	}
+	return Array.from(patterns).sort();
+}
+
+function getDirChain(path?: string): string[] {
+	if (!path) return [];
+	const dirs: string[] = [];
+	let d = dirname(path);
+	for (let i = 0; i < 3 && d && d !== "." && d !== "/"; i++) {
+		dirs.push(d);
+		const next = dirname(d);
+		if (next === d) break;
+		d = next;
+	}
+	return dirs;
+}
+
+function pathStartsWith(path: string, prefix: string): boolean {
+	const n = path.replace(/\/$/, "");
+	const p = prefix.replace(/\/$/, "");
+	return n === p || n.startsWith(p + "/");
+}
+
 export default function (pi: ExtensionAPI) {
 	let readonly = false;
+	let yolo = false;
+	// Session rules are intentionally ephemeral — they reset between Pi sessions.
+	let rules: SessionRules = { allow: [], deny: [] };
 
-	// Toggle /readonly command.
+	// ─── Commands ─────────────────────────────────────────────────────
+
 	pi.registerCommand("readonly", {
 		description: "Toggle read-only mode — blocks all file writes",
 		handler: async (_args, ctx) => {
 			readonly = !readonly;
-			ctx.ui.setStatus("permission-gate", readonly ? "🔒 readonly" : undefined);
+			if (readonly && yolo) yolo = false;
+			updateStatus(ctx);
 			ctx.ui.notify(
 				readonly
 					? "Read-only mode on. Writes and edits are blocked."
 					: "Read-only mode off. Writes will prompt for confirmation.",
-				"info"
+				"info",
 			);
 		},
 	});
+
+	pi.registerCommand("yolo", {
+		description: "Toggle yolo mode — skip all permission prompts",
+		handler: async (_args, ctx) => {
+			yolo = !yolo;
+			if (yolo) {
+				// Wipe session rules before toggling — avoids confusing
+				// overlap between yolo and granular rules.
+				rules = { allow: [], deny: [] };
+				readonly = false;
+			}
+			updateStatus(ctx);
+			ctx.ui.notify(
+				yolo
+					? "Yolo mode on. All write/edit/bash operations will auto-allow."
+					: "Yolo mode off. Prompts restored.",
+				"info",
+			);
+		},
+	});
+
+	pi.registerCommand("rules", {
+		description: "Show active session permission rules",
+		handler: async (_args, ctx) => {
+			const lines: string[] = [];
+			if (readonly) lines.push("🔒 Read-only mode: ON");
+			if (yolo) lines.push("⚡ Yolo mode: ON");
+			if (rules.allow.length > 0) {
+				lines.push("Allow rules:");
+				for (const r of rules.allow) lines.push(`  • ${formatRule(r)}`);
+			}
+			if (rules.deny.length > 0) {
+				lines.push("Deny rules:");
+				for (const r of rules.deny) lines.push(`  • ${formatRule(r)}`);
+			}
+			if (lines.length === 0) {
+				ctx.ui.notify("No session rules active.", "info");
+				return;
+			}
+			ctx.ui.notify(lines.join("\n"), "info");
+		},
+	});
+
+	pi.registerCommand("reset-rules", {
+		description: "Clear all session permission rules",
+		handler: async (_args, ctx) => {
+			yolo = false;
+			readonly = false;
+			rules = { allow: [], deny: [] };
+			updateStatus(ctx);
+			ctx.ui.notify(
+				"Session permission rules cleared. Rules are ephemeral and reset between sessions.",
+				"info",
+			);
+		},
+	});
+
+	function updateStatus(ctx: ExtensionContext) {
+		const parts: string[] = [];
+		if (readonly) parts.push("readonly");
+		if (yolo) parts.push("yolo");
+		if (rules.allow.length > 0) parts.push(`+${rules.allow.length}`);
+		if (rules.deny.length > 0) parts.push(`-${rules.deny.length}`);
+		ctx.ui.setStatus(
+			"permission-gate",
+			parts.length ? parts.join(" | ") : undefined,
+		);
+	}
+
+	// ─── Rule helpers ─────────────────────────────────────────────────
+
+	function isAllowed(
+		toolName: string,
+		path?: string,
+		patterns?: string[],
+	): { allowed: boolean; matchedRule?: string } {
+		if (yolo) return { allowed: true };
+
+		for (const rule of rules.deny) {
+			if (matchRule(rule, toolName, path, patterns)) {
+				return { allowed: false, matchedRule: formatRule(rule) };
+			}
+		}
+		for (const rule of rules.allow) {
+			if (matchRule(rule, toolName, path, patterns)) {
+				return { allowed: true, matchedRule: formatRule(rule) };
+			}
+		}
+		return { allowed: false };
+	}
+
+	function matchRule(
+		rule: PermissionRule,
+		toolName: string,
+		path?: string,
+		patterns?: string[],
+	): boolean {
+		switch (rule.type) {
+			case "yolo":
+				return true;
+			case "tool":
+				return toolName === rule.tool;
+			case "directory":
+				return path ? pathStartsWith(path, rule.prefix) : false;
+			case "bash":
+				return patterns ? patterns.some((p) => rule.pattern.test(p)) : false;
+			default: {
+				const _: never = rule;
+				return false;
+			}
+		}
+	}
+
+	function formatRule(rule: PermissionRule): string {
+		switch (rule.type) {
+			case "yolo":
+				return "yolo (all)";
+			case "tool":
+				return `${rule.tool} (tool)`;
+			case "directory":
+				return `${rule.prefix} (dir)`;
+			case "bash":
+				return `${rule.pattern.source} (pattern)`;
+			default: {
+				const _: never = rule;
+				return "unknown";
+			}
+		}
+	}
+
+	function makePatternRule(token: string): PermissionRule {
+		return { type: "bash", pattern: new RegExp(`^${token}(\\s|$)`) };
+	}
+
+	function makeMultiPatternRule(tokens: string[]): PermissionRule {
+		return {
+			type: "bash",
+			pattern: new RegExp(`^(?:${tokens.join("|")})(\\s|$)`),
+		};
+	}
+
+	function pushRule(target: PermissionRule[], rule: PermissionRule): void {
+		const key = formatRule(rule);
+		for (const existing of target) {
+			if (formatRule(existing) === key) return;
+		}
+		target.push(rule);
+	}
+
+	// ─── Two-step prompt ──────────────────────────────────────────────
+
+	async function twoStepPrompt(
+		ctx: ExtensionContext,
+		title: string,
+		toolName: string,
+		path?: string,
+		patterns?: string[],
+	): Promise<{ allow: boolean; rule?: PermissionRule }> {
+		if (!ctx.hasUI) return { allow: true };
+
+		const primaryChoice = await ctx.ui.select(title, [
+			"▶ Allow this once",
+			"✓ Always allow…",
+			"✕ Deny",
+		]);
+
+		if (!primaryChoice || primaryChoice === "✕ Deny") {
+			return { allow: false };
+		}
+
+		if (primaryChoice === "▶ Allow this once") {
+			return { allow: true };
+		}
+
+		const isBash = toolName === "bash";
+		const scopeOptions: { label: string; rule: PermissionRule }[] = [];
+
+		// Directory hierarchy
+		const dirChain = getDirChain(path);
+		const dirIcons = ["📁", "📂", "📂📂"];
+		const dirLabels = [
+			"This directory",
+			"Parent directory",
+			"Grandparent directory",
+		];
+
+		for (let i = 0; i < dirChain.length; i++) {
+			scopeOptions.push({
+				label: `${dirIcons[i]} ${dirLabels[i]} (${dirChain[i]}/)`,
+				rule: { type: "directory", prefix: dirChain[i] },
+			});
+		}
+
+		// Tool type
+		scopeOptions.push({
+			label: `🔧 This tool type (${toolName})`,
+			rule: { type: "tool", tool: toolName },
+		});
+
+		// Command patterns
+		if (isBash && patterns && patterns.length > 0) {
+			for (const p of patterns) {
+				scopeOptions.push({
+					label: `⌨️  ${p} …`,
+					rule: makePatternRule(p),
+				});
+			}
+			if (patterns.length > 1) {
+				scopeOptions.push({
+					label: `⌨️  All command patterns (${patterns.join(", ")})`,
+					rule: makeMultiPatternRule(patterns),
+				});
+			}
+		}
+
+		// Yolo
+		scopeOptions.push({
+			label: "⚡ Everything (full yolo)",
+			rule: { type: "yolo" },
+		});
+
+		const scopeChoice = await ctx.ui.select(
+			"Scope for always allow:",
+			scopeOptions.map((o) => o.label),
+		);
+
+		if (!scopeChoice) return { allow: true };
+
+		const selected = scopeOptions.find((o) => o.label === scopeChoice);
+		if (selected) {
+			pushRule(rules.allow, selected.rule);
+			if (selected.rule.type === "yolo") yolo = true;
+			ctx.ui.notify(
+				`🟢 ${formatRule(selected.rule)} — auto-allowed from now on.`,
+				"info",
+			);
+			updateStatus(ctx);
+		}
+
+		return { allow: true };
+	}
+
+	async function denyPrompt(
+		ctx: ExtensionContext,
+		toolName: string,
+		path?: string,
+		patterns?: string[],
+	): Promise<void> {
+		if (!ctx.hasUI) return;
+
+		const scopeOptions: string[] = ["Just this once"];
+		const dirChain = getDirChain(path);
+		const dirIcons = ["📁", "📂", "📂📂"];
+		const dirLabels = [
+			"This directory",
+			"Parent directory",
+			"Grandparent directory",
+		];
+
+		for (let i = 0; i < dirChain.length; i++) {
+			scopeOptions.push(`${dirIcons[i]} ${dirLabels[i]} (${dirChain[i]}/)`);
+		}
+
+		if (toolName === "bash" && patterns && patterns.length > 0) {
+			for (const p of patterns) {
+				scopeOptions.push(`⌨️  ${p} …`);
+			}
+			if (patterns.length > 1) {
+				scopeOptions.push(`⌨️  All command patterns (${patterns.join(", ")})`);
+			}
+		}
+
+		scopeOptions.push(`🔧 This tool type (${toolName})`);
+
+		const scopeChoice = await ctx.ui.select("Scope for deny:", scopeOptions);
+
+		if (!scopeChoice || scopeChoice === "Just this once") return;
+
+		if (scopeChoice === `🔧 This tool type (${toolName})`) {
+			pushRule(rules.deny, { type: "tool", tool: toolName });
+			ctx.ui.notify(`🔴 ${toolName} (tool) — blocked from now on.`, "warning");
+			updateStatus(ctx);
+			return;
+		}
+
+		// Directory deny
+		for (let i = 0; i < dirChain.length; i++) {
+			if (scopeChoice === `${dirIcons[i]} ${dirLabels[i]} (${dirChain[i]}/)`) {
+				pushRule(rules.deny, { type: "directory", prefix: dirChain[i] });
+				ctx.ui.notify(
+					`🔴 ${dirChain[i]}/ (dir) — blocked from now on.`,
+					"warning",
+				);
+				updateStatus(ctx);
+				return;
+			}
+		}
+
+		// Pattern deny
+		if (toolName === "bash" && patterns) {
+			for (const p of patterns) {
+				if (scopeChoice === `⌨️  ${p} …`) {
+					pushRule(rules.deny, makePatternRule(p));
+					ctx.ui.notify(`🔴 ${p} (pattern) — blocked from now on.`, "warning");
+					updateStatus(ctx);
+					return;
+				}
+			}
+			if (
+				patterns.length > 1 &&
+				scopeChoice === `⌨️  All command patterns (${patterns.join(", ")})`
+			) {
+				pushRule(rules.deny, makeMultiPatternRule(patterns));
+				ctx.ui.notify(`🔴 All patterns — blocked from now on.`, "warning");
+				updateStatus(ctx);
+				return;
+			}
+		}
+	}
+
+	// ─── Tool call handler ────────────────────────────────────────────
 
 	pi.on("tool_call", async (event, ctx) => {
 		const toolName = event.toolName as string;
 		const input = event.input as Record<string, unknown>;
 
-		// Write / edit gate.
+		// ── Write / Edit ─────────────────────────────────────────────
 		if (toolName === "write" || toolName === "edit") {
 			if (readonly) {
-				return { block: true, reason: "Read-only mode is active. Use /readonly to disable." };
-			}
-
-			if (!ctx.hasUI) {
-				return undefined;
+				return {
+					block: true,
+					reason: "Read-only mode is active. Use /readonly to disable.",
+				};
 			}
 
 			const path = String(input.path ?? input.file_path ?? "unknown path");
-			const choice = await ctx.ui.select(`Allow ${toolName}?\n\n  ${path}`, ["Allow", "Deny"]);
+			const check = isAllowed(toolName, path);
+			if (check.allowed) return undefined;
+			if (!ctx.hasUI) return undefined;
 
-			if (choice !== "Allow") {
+			const result = await twoStepPrompt(
+				ctx,
+				`Allow ${toolName}?\n\n  ${path}`,
+				toolName,
+				path,
+			);
+
+			if (!result.allow) {
+				await denyPrompt(ctx, toolName, path);
 				return { block: true, reason: "Blocked by user." };
 			}
 
 			return undefined;
 		}
 
-		// Bash gate.
+		// ── Bash ─────────────────────────────────────────────────────
 		if (toolName === "bash") {
 			const command = String(input.command ?? "").trim();
+			const parts = splitCommandParts(command);
 
-			// Sensitive file access: always block.
+			// Sensitive files: check raw command first, then each split part.
+			// Neither catches wrapped commands (sh -c, eval), but together they
+			// catch more cases than either alone.
 			if (DENY_PATTERNS.some((p) => p.test(command))) {
 				if (ctx.hasUI) {
 					ctx.ui.notify("Blocked: sensitive file access.", "warning");
 				}
-				return { block: true, reason: "Access to sensitive files is not allowed." };
+				return {
+					block: true,
+					reason: "Access to sensitive files is not allowed.",
+				};
 			}
 
-			// Read-only allowlist: always pass through.
-			if (ALLOW_PATTERNS.some((p) => p.test(command))) {
-				return undefined;
+			// Check each split part, block whole chain
+			for (const part of parts) {
+				if (DENY_PATTERNS.some((p) => p.test(part))) {
+					if (ctx.hasUI) {
+						ctx.ui.notify("Blocked: sensitive file access.", "warning");
+					}
+					return {
+						block: true,
+						reason: "Access to sensitive files is not allowed.",
+					};
+				}
 			}
 
-			// Hard block everything else in readonly mode.
+			// Read-only safe-list: ALL parts must be safe
+			const allSafe = parts.every((part) =>
+				ALLOW_PATTERNS.some((p) => p.test(part)),
+			);
+			if (allSafe) return undefined;
+
 			if (readonly) {
 				return {
 					block: true,
@@ -103,17 +527,32 @@ export default function (pi: ExtensionAPI) {
 				};
 			}
 
-			// Otherwise prompt.
-			if (!ctx.hasUI) {
-				return undefined;
+			// Session rules
+			const patterns = extractCommandPatterns(command);
+			const check = isAllowed(toolName, undefined, patterns);
+			if (check.allowed) return undefined;
+
+			if (!ctx.hasUI) return undefined;
+
+			const preview =
+				command.length > 80 ? command.slice(0, 80) + "…" : command;
+			const patternsSummary =
+				patterns.length > 1 ? `\n  Commands: ${patterns.join(", ")}` : "";
+
+			const result = await twoStepPrompt(
+				ctx,
+				`Allow bash command?\n\n  ${preview}${patternsSummary}`,
+				toolName,
+				undefined,
+				patterns,
+			);
+
+			if (!result.allow) {
+				await denyPrompt(ctx, toolName, undefined, patterns);
+				return { block: true, reason: "Blocked by user." };
 			}
 
-			const preview = command.length > 80 ? command.slice(0, 80) + "…" : command;
-			const choice = await ctx.ui.select(`Allow bash command?\n\n  ${preview}`, ["Allow", "Deny"]);
-
-			return choice === "Allow"
-				? undefined
-				: { block: true, reason: "Blocked by user." };
+			return undefined;
 		}
 
 		return undefined;
