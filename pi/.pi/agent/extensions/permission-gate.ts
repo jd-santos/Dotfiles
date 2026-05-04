@@ -12,6 +12,11 @@
  *
  * Chained bash commands (cd && ls) are split, each part checked, and all
  * command patterns (cd, ls) listed in the allow/deny UI.
+ *
+ * SECURITY NOTE: This is a convenience gate, not a security sandbox.
+ * Command splitting is naive (no quoting/subshell awareness), and wrapped
+ * commands like `sh -c "cat .env"` bypass pattern checks. The LLM already
+ * has full shell access; this extension only surfaces risky operations.
  */
 
 import { dirname } from "node:path";
@@ -59,6 +64,12 @@ interface SessionRules {
 	deny: PermissionRule[];
 }
 
+// Naive command splitting — does not understand quoting, subshells,
+// command substitution, or eval. Used for hint/pattern generation.
+// Security-sensitive checks (sensitive file deny) check both raw
+// command and split parts, but neither catches wrapped commands
+// like `sh -c "cat .env"`. This gate is a convenience layer, not a
+// security sandbox.
 function splitCommandParts(command: string): string[] {
 	return command
 		.split(/;|&&|\|\||\||\n/)
@@ -98,6 +109,7 @@ function pathStartsWith(path: string, prefix: string): boolean {
 export default function (pi: ExtensionAPI) {
 	let readonly = false;
 	let yolo = false;
+	// Session rules are intentionally ephemeral — they reset between Pi sessions.
 	let rules: SessionRules = { allow: [], deny: [] };
 
 	// ─── Commands ─────────────────────────────────────────────────────
@@ -121,7 +133,12 @@ export default function (pi: ExtensionAPI) {
 		description: "Toggle yolo mode — skip all permission prompts",
 		handler: async (_args, ctx) => {
 			yolo = !yolo;
-			if (yolo && readonly) readonly = false;
+			if (yolo) {
+				// Wipe session rules before toggling — avoids confusing
+				// overlap between yolo and granular rules.
+				rules = { allow: [], deny: [] };
+				readonly = false;
+			}
 			updateStatus(ctx);
 			ctx.ui.notify(
 				yolo
@@ -161,7 +178,10 @@ export default function (pi: ExtensionAPI) {
 			readonly = false;
 			rules = { allow: [], deny: [] };
 			updateStatus(ctx);
-			ctx.ui.notify("Session permission rules cleared.", "info");
+			ctx.ui.notify(
+				"Session permission rules cleared. Rules are ephemeral and reset between sessions.",
+				"info",
+			);
 		},
 	});
 
@@ -214,6 +234,10 @@ export default function (pi: ExtensionAPI) {
 				return path ? pathStartsWith(path, rule.prefix) : false;
 			case "bash":
 				return patterns ? patterns.some((p) => rule.pattern.test(p)) : false;
+			default: {
+				const _: never = rule;
+				return false;
+			}
 		}
 	}
 
@@ -227,6 +251,10 @@ export default function (pi: ExtensionAPI) {
 				return `${rule.prefix} (dir)`;
 			case "bash":
 				return `${rule.pattern.source} (pattern)`;
+			default: {
+				const _: never = rule;
+				return "unknown";
+			}
 		}
 	}
 
@@ -452,7 +480,20 @@ export default function (pi: ExtensionAPI) {
 			const command = String(input.command ?? "").trim();
 			const parts = splitCommandParts(command);
 
-			// Sensitive files: check each part individually, block whole chain
+			// Sensitive files: check raw command first, then each split part.
+			// Neither catches wrapped commands (sh -c, eval), but together they
+			// catch more cases than either alone.
+			if (DENY_PATTERNS.some((p) => p.test(command))) {
+				if (ctx.hasUI) {
+					ctx.ui.notify("Blocked: sensitive file access.", "warning");
+				}
+				return {
+					block: true,
+					reason: "Access to sensitive files is not allowed.",
+				};
+			}
+
+			// Check each split part, block whole chain
 			for (const part of parts) {
 				if (DENY_PATTERNS.some((p) => p.test(part))) {
 					if (ctx.hasUI) {
