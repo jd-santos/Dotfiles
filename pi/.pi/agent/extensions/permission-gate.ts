@@ -269,6 +269,14 @@ export default function (pi: ExtensionAPI) {
 		};
 	}
 
+	function pushRule(target: PermissionRule[], rule: PermissionRule): void {
+		const key = formatRule(rule);
+		for (const existing of target) {
+			if (formatRule(existing) === key) return;
+		}
+		target.push(rule);
+	}
+
 	// ─── Two-step prompt ──────────────────────────────────────────────
 
 	async function twoStepPrompt(
@@ -350,7 +358,7 @@ export default function (pi: ExtensionAPI) {
 
 		const selected = scopeOptions.find((o) => o.label === scopeChoice);
 		if (selected) {
-			rules.allow.push(selected.rule);
+			pushRule(rules.allow, selected.rule);
 			if (selected.rule.type === "yolo") yolo = true;
 			ctx.ui.notify(
 				`🟢 ${formatRule(selected.rule)} — auto-allowed from now on.`,
@@ -399,7 +407,7 @@ export default function (pi: ExtensionAPI) {
 		if (!scopeChoice || scopeChoice === "Just this once") return;
 
 		if (scopeChoice === `🔧 This tool type (${toolName})`) {
-			rules.deny.push({ type: "tool", tool: toolName });
+			pushRule(rules.deny, { type: "tool", tool: toolName });
 			ctx.ui.notify(`🔴 ${toolName} (tool) — blocked from now on.`, "warning");
 			updateStatus(ctx);
 			return;
@@ -408,7 +416,7 @@ export default function (pi: ExtensionAPI) {
 		// Directory deny
 		for (let i = 0; i < dirChain.length; i++) {
 			if (scopeChoice === `${dirIcons[i]} ${dirLabels[i]} (${dirChain[i]}/)`) {
-				rules.deny.push({ type: "directory", prefix: dirChain[i] });
+				pushRule(rules.deny, { type: "directory", prefix: dirChain[i] });
 				ctx.ui.notify(
 					`🔴 ${dirChain[i]}/ (dir) — blocked from now on.`,
 					"warning",
@@ -422,7 +430,7 @@ export default function (pi: ExtensionAPI) {
 		if (toolName === "bash" && patterns) {
 			for (const p of patterns) {
 				if (scopeChoice === `⌨️  ${p} …`) {
-					rules.deny.push(makePatternRule(p));
+					pushRule(rules.deny, makePatternRule(p));
 					ctx.ui.notify(`🔴 ${p} (pattern) — blocked from now on.`, "warning");
 					updateStatus(ctx);
 					return;
@@ -432,7 +440,7 @@ export default function (pi: ExtensionAPI) {
 				patterns.length > 1 &&
 				scopeChoice === `⌨️  All command patterns (${patterns.join(", ")})`
 			) {
-				rules.deny.push(makeMultiPatternRule(patterns));
+				pushRule(rules.deny, makeMultiPatternRule(patterns));
 				ctx.ui.notify(`🔴 All patterns — blocked from now on.`, "warning");
 				updateStatus(ctx);
 				return;
