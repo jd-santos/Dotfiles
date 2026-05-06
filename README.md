@@ -88,11 +88,18 @@ Configuration for [OpenCode](https://opencode.ai/), an AI coding assistant:
 
 ### Pi (`pi`)
 
-Configuration for [pi](https://pi.dev/), a terminal-based coding agent. Only `~/.pi/agent/settings.json` (provider, default model, theme, packages, etc.) is tracked.
+Configuration for [pi](https://pi.dev/), a terminal-based coding agent.
 
-- **Tracked:** `pi/.pi/agent/settings.json`
-- **Never tracked:** `auth.json` (credentials), `sessions/` (chat history), `bin/` (downloaded helpers) — all excluded via `git/.gitignore`
-- **Setup:** `stow pi` (folds into the existing `~/.pi/agent/` directory, leaving secrets and runtime state untouched)
+- **`settings.json`** — provider, default model, enabled models, packages, skills path
+- **`AGENTS.md`** — global agent instructions (Build Mode workflow, secrets protection, formatting rules)
+- **`extensions/permission-gate.ts`** — write confirmation + `/readonly` toggle; sensitive file access always blocked
+- **`extensions/format-on-save.ts`** — auto-format on write (Prettier, Ruff, gofmt, gdformat)
+- **`extensions/cost-tracker.ts`** — `/costs` command for session token usage and spend
+- **`.config/mcp/mcp.json`** — MCP servers (Brave Search, Svelte)
+
+**Never tracked:** `auth.json` (credentials), `sessions/` (chat history), `bin/` (downloaded helpers) — excluded via `git/.gitignore`.
+
+**Setup:** `stow pi` (folds into `~/.pi/agent/`, leaving secrets and runtime state untouched)
 
 ## Keyboard Shortcuts
 
@@ -256,7 +263,7 @@ See the [GNU Stow Manual](https://www.gnu.org/software/stow/manual/) for more.
 
 ## Structure
 
-- `claude/`: Claude Code skills for AI workflows
+- `agents/`: AI agent skills (Agent Skills standard)
 - `docs/`: Additional documentation
 - `fzf/`: fzf fuzzy finder configuration
 - `ghostty/`: Ghostty terminal emulator configuration
@@ -264,6 +271,7 @@ See the [GNU Stow Manual](https://www.gnu.org/software/stow/manual/) for more.
 - `nvim/`: Neovim configuration (LazyVim-based)
 - `opencode/`: OpenCode AI assistant configuration
 - `pgcli/`: PostgreSQL CLI (pgcli) configuration
+- `pi/`: Pi coding agent configuration
 - `starship/`: Starship prompt configuration
 - `vim/`: Legacy Vim configuration
 - `zed/`: Zed editor configuration

@@ -6,6 +6,7 @@ Reusable instruction sets for AI agents, managed as a GNU Stow package. Skills a
 
 Skills in this package land at `~/.agents/skills/`, which is picked up by:
 
+- **Pi** — via the `skills` path in `~/.pi/agent/settings.json`
 - **OpenCode** — global agent-compatible path
 - **Claude Code** — via the `.agents/` compat layer
 - Any tool implementing the Agent Skills standard
@@ -39,7 +40,7 @@ category: workflow        # optional
 
 ## Usage
 
-Skills are loaded on-demand. In OpenCode or Claude Code, the agent sees available skills and loads them as needed. You can also ask directly:
+Skills are loaded on-demand. In Pi, OpenCode, or Claude Code, the agent sees available skills and loads them as needed. You can also ask directly:
 
 ```
 "Use the marimo skill to help me build this notebook"
@@ -103,6 +104,7 @@ stow -R agents # restow after changes
 
 ## Resources
 
+- [Pi docs](https://pi.dev/docs)
 - [OpenCode Skills docs](https://opencode.ai/docs/skills/)
 - [Agent Skills standard](https://agentskills.io)
 - [GNU Stow manual](https://www.gnu.org/software/stow/manual/stow.html)

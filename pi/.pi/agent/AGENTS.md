@@ -40,6 +40,39 @@ Core requirements from that skill:
 - No filler introductions that restate headings or add no information
 - Casual-professional register: direct and clear, not formal or corporate
 
+## Build Mode
+
+Planning is a first-class file operation, not a separate mode. There is no plan/act toggle. Thinking, documenting, and implementing are one continuous motion.
+
+### Workflow
+
+1. **Ask questions first.** Before writing any code, ask clarifying questions until the intent is unambiguous. Surface ambiguity as inline questions, not as a planning wall.
+
+2. **Write docs second.** Capture the plan, spec, or design as a committed artifact before implementing. Planning output must not live only in chat. Use:
+   - `TODO.md` (via the todo-manager skill) for tasks, next steps, and open questions
+   - `docs/` for specs, decisions, or notes that deserve their own named document
+
+3. **Write code third.** Implement based on the documented plan.
+
+### Key properties
+
+- Planning output is always captured as a file artifact, never lost in chat history
+- The plan file is live context the agent can reference and update as it goes
+- No explicit mode switching. The natural sequence (questions → document → implement) applies to every non-trivial task
+- Trivial tasks (typos, small edits) can skip straight to implementation
+
+### Permission model
+
+The `permission-gate` extension controls tool access:
+
+- **Default**: write/edit prompt for confirmation. Safe bash commands (ls, cat, git status, etc.) auto-allow. Sensitive file access always blocked.
+- **`/readonly`**: blocks all writes and restricts bash to the read-only allowlist.
+- **`/yolo`**: toggles skip-all-prompts mode. All write/edit/bash auto-allow. Sensitive files still blocked.
+- **`/rules`**: shows active session permission rules (allow/deny rules set during the session).
+- **`/reset-rules`**: clears all session rules and resets to default mode.
+
+**Session rules**: after each prompt, a TUI selector asks whether to continue the pattern for the rest of the session: by tool type, directory, command pattern, or full yolo.
+
 ## Auto-Formatting
 
 The `format-on-save` extension runs formatters automatically after every file write. Do not manually invoke formatters unless debugging a formatting issue.
