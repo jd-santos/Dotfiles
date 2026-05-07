@@ -1,6 +1,12 @@
-# Permission Gate Extension - Complete
+# Permission Gate Extension
 
-All work finished. 7 commits on `pi` branch.
+## In Progress
+
+- **feat(pi): louder permission prompts** — banner header (`━━━ 🔔 PERMISSION REQUIRED ━━━`) prepended to every prompt title plus a warning-level `notify` fired immediately before each `ui.select`. Applied to both steps of `twoStepPrompt` and to `denyPrompt`. Needs commit + manual smoke test.
+
+## Done
+
+Original 7 commits on `pi` branch.
 
 ## Commits
 

@@ -279,6 +279,19 @@ export default function (pi: ExtensionAPI) {
 
 	// ─── Two-step prompt ──────────────────────────────────────────────
 
+	// Loud banner prepended to every prompt title so it's obvious the agent
+	// is waiting on user input rather than continuing on its own.
+	const PROMPT_BANNER =
+		"━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+		"🔔 PERMISSION REQUIRED\n" +
+		"━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+
+	function announce(ctx: ExtensionContext, message: string): void {
+		// Warning level renders in the attention color and lingers above the
+		// editor, giving a second visual cue alongside the banner.
+		ctx.ui.notify(message, "warning");
+	}
+
 	async function twoStepPrompt(
 		ctx: ExtensionContext,
 		title: string,
@@ -288,7 +301,9 @@ export default function (pi: ExtensionAPI) {
 	): Promise<{ allow: boolean; rule?: PermissionRule }> {
 		if (!ctx.hasUI) return { allow: true };
 
-		const primaryChoice = await ctx.ui.select(title, [
+		announce(ctx, `⚠️  Permission required: ${toolName}`);
+
+		const primaryChoice = await ctx.ui.select(PROMPT_BANNER + title, [
 			"▶ Allow this once",
 			"✓ Always allow…",
 			"✕ Deny",
@@ -350,7 +365,7 @@ export default function (pi: ExtensionAPI) {
 		});
 
 		const scopeChoice = await ctx.ui.select(
-			"Scope for always allow:",
+			PROMPT_BANNER + "Scope for always allow:",
 			scopeOptions.map((o) => o.label),
 		);
 
@@ -402,7 +417,12 @@ export default function (pi: ExtensionAPI) {
 
 		scopeOptions.push(`🔧 This tool type (${toolName})`);
 
-		const scopeChoice = await ctx.ui.select("Scope for deny:", scopeOptions);
+		announce(ctx, `🚫 Denied: ${toolName} — choose deny scope`);
+
+		const scopeChoice = await ctx.ui.select(
+			PROMPT_BANNER + "Scope for deny:",
+			scopeOptions,
+		);
 
 		if (!scopeChoice || scopeChoice === "Just this once") return;
 
