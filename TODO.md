@@ -1,12 +1,18 @@
-# Permission Gate Extension
+# TODO
 
 ## In Progress
 
-- **feat(pi): louder permission prompts** — banner header (`━━━ 🔔 PERMISSION REQUIRED ━━━`) prepended to every prompt title plus a warning-level `notify` fired immediately before each `ui.select`. Applied to both steps of `twoStepPrompt` and to `denyPrompt`. Needs commit + manual smoke test.
+- **feat(pi): louder permission prompts** — banner header (`━━━ 🔔 PERMISSION REQUIRED ━━━`) prepended to every prompt title plus a warning-level `notify` fired immediately before each `ui.select`. Applied to both steps of `twoStepPrompt` and to `denyPrompt`. Needs manual smoke test.
+
+## Up Next
+
+## Backlog
 
 ## Done
 
-Original 7 commits on `pi` branch.
+- [x] Add Pi UI extension for read display and slash-command shortcut hints (read background, 5-line preview, configured keybinding hints)
+- [x] Permission Gate Extension - Complete
+- Original 7 commits on `pi` branch.
 
 ## Commits
 
