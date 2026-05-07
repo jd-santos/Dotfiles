@@ -1,7 +1,7 @@
 {
-  "lastChangelogVersion": "0.72.1",
-  "defaultProvider": "openrouter",
-  "defaultModel": "z-ai/glm-5.1",
+  "lastChangelogVersion": "0.73.1",
+  "defaultProvider": "openai-codex",
+  "defaultModel": "gpt-5.5",
   "defaultThinkingLevel": "medium",
   "skills": [
     "~/.agents/skills"
@@ -9,12 +9,16 @@
   "enableSkillCommands": true,
   "enabledModels": [
     "claude-sonnet-4-6",
-    "claude-opus-4-7"
+    "claude-opus-4-7",
+    "codex",
+    "moonshotai/kimi-k2.6",
+    "z-ai/glm-5.1"
   ],
   "theme": "dracula",
   "quietStartup": true,
   "packages": [
     "npm:pi-mcp-adapter",
     "npm:pi-lens"
-  ]
+  ],
+  "hideThinkingBlock": true
 }
