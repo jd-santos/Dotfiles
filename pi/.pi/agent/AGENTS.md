@@ -54,6 +54,16 @@ Planning is a first-class file operation, not a separate mode. There is no plan/
 
 3. **Write code third.** Implement based on the documented plan.
 
+### Two-round planning for non-trivial tasks
+
+For anything beyond a trivial edit, run the `planning-first` skill or the `/plan` prompt template before step 2:
+
+- **Round 1 — Clarify**: ask 3–7 questions about intent, scope, constraints, and success criteria. No solutions yet. Read-only exploration is fine.
+- **Round 2 — Propose**: restate the problem, offer 2–3 approaches with tradeoffs, surface assumptions, ask follow-up questions.
+- **Commit** the plan to `TODO.md` or `docs/` only on explicit user authorization. **Build** only on explicit go-ahead.
+
+Pair with `/readonly` when the user wants the permission gate to enforce no-writes during the rounds.
+
 ### Key properties
 
 - Planning output is always captured as a file artifact, never lost in chat history
