@@ -6,11 +6,10 @@ Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). E
 
 ### Zsh (`.zshrc`)
 
-My zshrc has quality-of-life improvements:
-
-- **Smart Aliases:** Quick navigation with `..` and `...`, enhanced `ls` commands (`lt` for sorting by date, `lk` for sorting by size), and process management aliases like `memHogsTop`
-- **Universal Extractor:** The `extract` function handles almost any archive type
-- **macOS Integration:** `cdf` to cd into your frontmost Finder window
+- **Aliases:** Quick navigation with `..` and `...`, enhanced `ls` commands (`lt` for sorting by date, `lk` for sorting by size), and process management aliases like `memHogsTop`
+- **`extract`:** Unpacks almost any archive type
+- **`cdf`:** `cd` into your frontmost Finder window
+- **gcloud SDK:** Sourced from Homebrew if installed (`google-cloud-sdk`)
 - See [Aliases & Functions Reference](zsh/ALIASES_AND_FUNCTIONS.md) for the complete list
 
 ### Neovim (`nvim`)
@@ -37,12 +36,12 @@ cp git/.gitconfig.local.example ~/.gitconfig.local  # Optional: machine-specific
 
 ### pgcli (`pgcli`)
 
-Modern PostgreSQL CLI with syntax highlighting, auto-completion, and smart features.
+PostgreSQL CLI with syntax highlighting, auto-completion, and vi/emacs editor mode.
 
-- **UI Settings:** Colors, table format, editor mode (vi/emacs), pager preferences
-- **Smart Features:** Context-aware auto-completion, multi-line queries, destructive warnings
-- **Keyring Integration:** Stores passwords securely in macOS Keychain/1Password
-- **Connection Management:** Use environment variables for database connections
+- Colors, table format, and pager preferences configured
+- Context-aware auto-completion, multi-line queries, destructive warnings enabled
+- Passwords stored in macOS Keychain/1Password via keyring integration
+- Connect using environment variables or a connection string
 
 **Setup:**
 
@@ -90,14 +89,17 @@ Configuration for [OpenCode](https://opencode.ai/), an AI coding assistant:
 
 Configuration for [pi](https://pi.dev/), a terminal-based coding agent.
 
-- **`settings.json`** — provider, default model, enabled models, packages, skills path
-- **`AGENTS.md`** — global agent instructions (Build Mode workflow, secrets protection, formatting rules)
-- **`extensions/permission-gate.ts`** — write confirmation + `/readonly` toggle; sensitive file access always blocked
-- **`extensions/format-on-save.ts`** — auto-format on write (Prettier, Ruff, gofmt, gdformat)
-- **`extensions/cost-tracker.ts`** — `/costs` command for session token usage and spend
-- **`.config/mcp/mcp.json`** — MCP servers (Brave Search, Svelte)
+- **`settings.json`**: provider, default model, enabled models (including codex, kimi-k2.6, glm-5.1), packages, skills path
+- **`AGENTS.md`**: global agent instructions (Build Mode workflow, secrets protection, formatting rules)
+- **`extensions/permission-gate.ts`**: write confirmation + `/readonly` toggle; sensitive file access always blocked
+- **`extensions/format-on-save.ts`**: auto-format on write (Prettier, Ruff, gofmt, gdformat)
+- **`extensions/cost-tracker.ts`**: `/costs` command for session token usage and spend
+- **`extensions/ui-read-and-shortcuts.ts`**: read tool preview (5 lines, expandable) and slash command keybinding hints in autocomplete
+- **`themes/dracula.json`**: Dracula community theme, set as default
+- **`prompts/plan.md`**: `/plan` template for two-round planning (clarify, then propose)
+- **`.config/mcp/mcp.json`**: MCP servers (Brave Search, Svelte)
 
-**Never tracked:** `auth.json` (credentials), `sessions/` (chat history), `bin/` (downloaded helpers) — excluded via `git/.gitignore`.
+**Not tracked:** `auth.json` (credentials), `sessions/` (chat history), `bin/` (downloaded helpers). Excluded via `git/.gitignore`.
 
 **Setup:** `stow pi` (folds into `~/.pi/agent/`, leaving secrets and runtime state untouched)
 
@@ -141,10 +143,15 @@ Custom keybindings on top of [LazyVim defaults](https://www.lazyvim.org/keymaps)
 
 | Date       | Change                                                  |
 | ---------- | ------------------------------------------------------- |
-| 2026-01-31 | Added global `.gitignore` with comprehensive defaults   |
-| 2026-01-31 | Changed tmux prefix from `Ctrl+O` to backtick (`` ` ``) |
-| 2026-01-23 | Added fzf-lua fuzzy finder plugin to Neovim             |
-| 2026-01-16 | Added `jj` mapping to escape insert mode in Neovim      |
+| 2026-05-07 | Added `ui-read-and-shortcuts` Pi extension (read preview, slash command hints) |
+| 2026-05-04 | Added codex, kimi-k2.6, glm-5.1 to Pi enabled models                          |
+| 2026-05-03 | Added Build Mode workflow, Dracula theme, and `/plan` template to Pi           |
+| 2026-04-30 | Fixed prompt lag from stow misconfig and pyenv shim; added `command_timeout`   |
+| 2026-04-22 | Added gcloud SDK PATH sourcing to zsh                                          |
+| 2026-01-31 | Added global `.gitignore` with comprehensive defaults                          |
+| 2026-01-31 | Changed tmux prefix from `Ctrl+O` to backtick (`` ` ``)                        |
+| 2026-01-23 | Added fzf-lua fuzzy finder plugin to Neovim                                    |
+| 2026-01-16 | Added `jj` mapping to escape insert mode in Neovim                             |
 
 ## Installation
 
@@ -189,25 +196,20 @@ stow -n zsh         # Preview changes (nothing applied)
 stow --simulate nvim
 ```
 
-### Stow with Confirmation (Recommended)
+### Stow with Confirmation
 
-The `stowp` function (included in `.zshrc`) provides a safer stow workflow with preview and confirmation:
+The `stowp` function (included in `.zshrc`) previews changes and prompts before applying:
 
 ```bash
 stowp */           # Preview all packages, then confirm
 stowp nvim zsh     # Preview specific packages, then confirm
 ```
 
-**How it works:**
 1. Runs `stow --simulate` to show what would change
-2. Detects conflicts and warns before proceeding
-3. Prompts for confirmation before executing
-4. Only proceeds if you type `y`
+2. Warns on conflicts
+3. Prompts for `y` before executing
 
-**Especially useful when:**
-- Switching between machines
-- Stowing multiple packages at once
-- Uncertain about potential conflicts
+Useful when switching machines or stowing multiple packages at once.
 
 ### How It Works
 

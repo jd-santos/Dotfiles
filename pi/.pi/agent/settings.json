@@ -1,7 +1,4 @@
 {
-  "lastChangelogVersion": "0.73.1",
-  "defaultProvider": "openai-codex",
-  "defaultModel": "gpt-5.5",
   "defaultThinkingLevel": "medium",
   "skills": [
     "~/.agents/skills"
@@ -20,5 +17,8 @@
     "npm:pi-mcp-adapter",
     "npm:pi-lens"
   ],
-  "hideThinkingBlock": true
+  "hideThinkingBlock": true,
+  "lastChangelogVersion": "0.73.0",
+  "defaultProvider": "anthropic",
+  "defaultModel": "claude-sonnet-4-6"
 }
