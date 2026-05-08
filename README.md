@@ -103,6 +103,8 @@ Configuration for [pi](https://pi.dev/), a terminal-based coding agent.
 
 **Setup:** `stow pi` (folds into `~/.pi/agent/`, leaving secrets and runtime state untouched)
 
+See [Pi Documentation](pi/README.md) for details on each extension, the `/plan` template, and AGENTS.md.
+
 ## Keyboard Shortcuts
 
 ### Tmux (Prefix: `` ` ``)
