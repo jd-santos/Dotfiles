@@ -6,6 +6,7 @@ import type {
 	ToolRenderResultOptions,
 } from "@mariozechner/pi-coding-agent";
 import {
+	CustomEditor,
 	createReadToolDefinition,
 	getLanguageFromPath,
 	highlightCode,
@@ -24,6 +25,8 @@ type ThemeLike = {
 	fg(color: string, text: string): string;
 	bold(text: string): string;
 };
+
+type ModelSource = "default" | "set" | "cycle" | "restore";
 
 // Slash command -> keybinding IDs. The IDs are stable Pi config keys. The
 // displayed shortcuts come from the active keybinding config via keyText().
@@ -70,6 +73,30 @@ function formatLineRange(args: Record<string, unknown>): string {
 	const startLine = offset ?? 1;
 	const endLine = limit !== undefined ? startLine + limit - 1 : undefined;
 	return endLine ? `:${startLine}-${endLine}` : `:${startLine}`;
+}
+
+function truncatePlain(text: string, max: number): string {
+	if (max <= 0) return "";
+	if (text.length <= max) return text;
+	if (max === 1) return "…";
+	return `${text.slice(0, max - 1)}…`;
+}
+
+function describeModelSource(source: ModelSource): string {
+	switch (source) {
+		case "default":
+			return "default";
+		case "set":
+			return "selected";
+		case "cycle":
+			return "scoped";
+		case "restore":
+			return "restored";
+	}
+}
+
+function formatModelBanner(modelLabel: string, source: ModelSource): string {
+	return ` model: ${modelLabel || "none"} · ${describeModelSource(source)} `;
 }
 
 class EmptyComponent implements Component {
@@ -210,6 +237,63 @@ function appendShortcut(
 
 export default function (pi: ExtensionAPI) {
 	const readTool = createReadToolDefinition(process.cwd());
+	let activeTui: { requestRender(): void } | undefined;
+	let activeModelLabel = "";
+	let activeModelSource: ModelSource = "default";
+
+	const syncModelState = (
+		ctx: { model?: { provider?: string; id?: string }; ui: any },
+		next?: { provider?: string; id?: string },
+		source?: ModelSource,
+	) => {
+		const model = next ?? ctx.model;
+		activeModelLabel = model?.id ? `${model.provider}/${model.id}` : "";
+		if (source) activeModelSource = source;
+
+		if (!activeModelLabel) return;
+		const color = activeModelSource === "restore" ? "warning" : "accent";
+		ctx.ui.setStatus(
+			"model-source",
+			ctx.ui.theme.fg(
+				color,
+				`model ${describeModelSource(activeModelSource)}: ${activeModelLabel}`,
+			),
+		);
+	};
+
+	class ConversationEditor extends CustomEditor {
+		private uiTheme: ThemeLike;
+
+		constructor(tui: any, theme: any, keybindings: any, uiTheme: ThemeLike) {
+			super(tui, theme, keybindings, { paddingX: 0 });
+			this.uiTheme = uiTheme;
+			activeTui = tui;
+		}
+
+		render(width: number): string[] {
+			const lines = super.render(width);
+			if (lines.length < 2 || width < 2) return lines;
+
+			const borderColor = (text: string) => this.borderColor(text);
+			const topLabel = " YOU ";
+			const topFill = Math.max(0, width - 2 - topLabel.length);
+			lines[0] = `${borderColor("─")}${this.uiTheme.fg("accent", topLabel)}${borderColor(
+				"─".repeat(topFill),
+			)}${borderColor("─")}`;
+
+			const bottomLabel = truncatePlain(
+				formatModelBanner(activeModelLabel, activeModelSource),
+				Math.max(0, width - 2),
+			);
+			const bottomFill = Math.max(0, width - 2 - bottomLabel.length);
+			const bottomColor = activeModelSource === "restore" ? "warning" : "muted";
+			lines[lines.length - 1] =
+				`${borderColor("─")}${this.uiTheme.fg(bottomColor, bottomLabel)}${borderColor(
+					"─".repeat(bottomFill),
+				)}${borderColor("─")}`;
+			return lines;
+		}
+	}
 
 	pi.registerTool({
 		...readTool,
@@ -244,6 +328,11 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.on("session_start", (_event, ctx) => {
+		syncModelState(ctx);
+		ctx.ui.setEditorComponent(
+			(tui, theme, keybindings) =>
+				new ConversationEditor(tui, theme, keybindings, ctx.ui.theme),
+		);
 		ctx.ui.addAutocompleteProvider((current) => ({
 			async getSuggestions(lines, cursorLine, cursorCol, options) {
 				const suggestions = await current.getSuggestions(
@@ -283,5 +372,21 @@ export default function (pi: ExtensionAPI) {
 				);
 			},
 		}));
+	});
+
+	pi.on("model_select", async (event, ctx) => {
+		syncModelState(ctx, event.model, event.source);
+		activeTui?.requestRender();
+
+		if (event.source === "restore") {
+			ctx.ui.notify(
+				`Restored ${event.model.provider}/${event.model.id} from this session. Use /new for the configured default model.`,
+				"info",
+			);
+		}
+	});
+
+	pi.on("session_shutdown", () => {
+		activeTui = undefined;
 	});
 }

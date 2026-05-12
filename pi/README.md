@@ -4,26 +4,40 @@ Personal Pi configuration with extensions for write gating, auto-formatting, cos
 
 ## Files
 
-| File | Purpose |
-| ---- | ------- |
-| `settings.json` | Provider, model, theme, packages, skills path |
-| `AGENTS.md` | Global agent instructions loaded each session |
-| `extensions/permission-gate.ts` | Interactive gate for writes and shell commands |
-| `extensions/format-on-save.ts` | Auto-format files after write/edit |
-| `extensions/cost-tracker.ts` | Token and cost tracking (`/costs`) |
-| `extensions/ui-read-and-shortcuts.ts` | Read previews and slash command keybinding hints |
-| `themes/dracula.json` | Dracula community theme |
-| `prompts/plan.md` | `/plan` template for two-round planning |
+| File                                  | Purpose                                                                               |
+| ------------------------------------- | ------------------------------------------------------------------------------------- |
+| `settings.json`                       | Provider, model, theme, packages, skills path                                         |
+| `AGENTS.md`                           | Global agent instructions loaded each session                                         |
+| `extensions/permission-gate.ts`       | Interactive gate for writes and shell commands                                        |
+| `extensions/format-on-save.ts`        | Auto-format files after write/edit                                                    |
+| `extensions/cost-tracker.ts`          | Token and cost tracking (`/costs`)                                                    |
+| `extensions/ui-read-and-shortcuts.ts` | Read previews, slash command keybinding hints, editor banner, and model source status |
+| `themes/dracula.json`                 | Dracula community theme                                                               |
+| `prompts/plan.md`                     | `/plan` template for two-round planning                                               |
 
 **Not tracked:** `auth.json`, `sessions/`, `bin/` — excluded via the global `.gitignore`.
 
 ## Settings
 
-Default provider: `anthropic`. Default model: `claude-sonnet-4-6`.
+Default provider: `openai-codex`. Default model: `gpt-5.4`.
 
-Enabled models: `claude-sonnet-4-6`, `claude-opus-4-7`, `codex`, `moonshotai/kimi-k2.6`, `z-ai/glm-5.1`.
+Scoped model cycle (`Ctrl+P`) comes from `enabledModels` in `settings.json`:
 
-Other settings: Dracula theme, thinking level medium, thinking block hidden on output, `pi-mcp-adapter` and `pi-lens` packages loaded, skills path `~/.agents/skills`.
+- `openai-codex/gpt-5.5`
+- `openai-codex/gpt-5.4`
+- `openrouter/deepseek/deepseek-v4-pro`
+- `openrouter/deepseek/deepseek-v4-flash`
+
+Other settings: Dracula theme, thinking level high, thinking block visible on output, quiet startup, `pi-mcp-adapter` and `pi-lens` packages loaded, skills path `~/.agents/skills`.
+
+### Changing models
+
+- Change the startup default with `defaultProvider` and `defaultModel` in `settings.json`.
+- Change the scoped `Ctrl+P` shortlist with `enabledModels`.
+- Use `/model` for the full selector.
+- Use `/scoped-models` to toggle the scoped list interactively.
+
+If Pi opens on a different model during a resumed session, that session's restored model wins for that session. Start a fresh session with `/new` or `pi --no-session` to use the configured default.
 
 ## Extensions
 
@@ -35,12 +49,12 @@ Prompts before writes, edits, and unrecognized shell commands. Two-step TUI flow
 
 #### Commands
 
-| Command | Effect |
-| ------- | ------ |
-| `/readonly` | Toggle read-only mode. Blocks all writes, restricts bash to the safe list |
-| `/yolo` | Toggle full auto-allow mode. Sensitive files still blocked. Clears session rules on toggle |
-| `/rules` | Show active session rules |
-| `/reset-rules` | Clear all session rules and start fresh |
+| Command        | Effect                                                                                     |
+| -------------- | ------------------------------------------------------------------------------------------ |
+| `/readonly`    | Toggle read-only mode. Blocks all writes, restricts bash to the safe list                  |
+| `/yolo`        | Toggle full auto-allow mode. Sensitive files still blocked. Clears session rules on toggle |
+| `/rules`       | Show active session rules                                                                  |
+| `/reset-rules` | Clear all session rules and start fresh                                                    |
 
 #### Auto-allow rules
 
@@ -85,12 +99,12 @@ Location: `extensions/format-on-save.ts`
 
 Runs a formatter after every `write` or `edit` tool call. Failures are reported as warnings but don't interrupt the session.
 
-| Extension | Formatter |
-| --------- | --------- |
-| `.js`, `.jsx`, `.ts`, `.tsx`, `.json`, `.css`, `.scss`, `.html`, `.md`, `.svelte` | Prettier |
-| `.py`, `.pyi` | Ruff |
-| `.go` | gofmt |
-| `.gd` | gdformat |
+| Extension                                                                         | Formatter |
+| --------------------------------------------------------------------------------- | --------- |
+| `.js`, `.jsx`, `.ts`, `.tsx`, `.json`, `.css`, `.scss`, `.html`, `.md`, `.svelte` | Prettier  |
+| `.py`, `.pyi`                                                                     | Ruff      |
+| `.go`                                                                             | gofmt     |
+| `.gd`                                                                             | gdformat  |
 
 Formatters must be on `$PATH`. Files with unrecognized extensions are skipped silently.
 
@@ -112,11 +126,15 @@ Output includes: tokens in/out, estimated cost, and a per-tool call count table.
 
 Location: `extensions/ui-read-and-shortcuts.ts`
 
-Two interface tweaks:
+Four interface tweaks:
 
 **Read preview.** `read` tool results show a 5-line preview by default instead of the full output. Use the normal expand shortcut to see more. The preview renders on a distinct background so it doesn't blend into write/edit results.
 
-**Slash command hints.** Slash command autocomplete appends the bound keybinding next to commands that have one (e.g., `/model`, `/new`, `/fork`). Key text comes from the active keybinding config, so custom values from `~/.pi/agent/keybindings.json` show up automatically.
+**Slash command hints.** Slash command autocomplete appends the bound keybinding next to commands that have one (for example `/model`, `/new`, `/fork`). Key text comes from the active keybinding config, so custom values from `~/.pi/agent/keybindings.json` show up automatically.
+
+**Editor banner.** The input editor gets a louder top border with a `YOU` label, plus a bottom border that shows the active model and whether it came from the default config, scoped cycling, manual selection, or session restore.
+
+**Restore hint.** If a resumed session restores an older model, Pi shows a notification so it's obvious why the configured default did not win.
 
 The extension overrides the built-in `read` tool using Pi's exported `createReadToolDefinition()`, so execution is unchanged.
 
@@ -124,7 +142,7 @@ The extension overrides the built-in `read` tool using Pi's exported `createRead
 
 Location: `themes/dracula.json`
 
-Dracula community theme. Set as default via `"theme": "dracula"` in `settings.json`. The theme file is committed here so it survives `stow` reinstalls without needing to re-download.
+Dracula-based custom theme. Set as default via `"theme": "dracula"` in `settings.json`. User messages use a darker purple card so they stand out more clearly in conversation history. The theme file is committed here so it survives `stow` reinstalls without needing to re-download.
 
 ## Prompts
 

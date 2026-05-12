@@ -1,15 +1,14 @@
 {
-  "defaultThinkingLevel": "medium",
+  "defaultThinkingLevel": "high",
   "skills": [
     "~/.agents/skills"
   ],
   "enableSkillCommands": true,
   "enabledModels": [
-    "claude-sonnet-4-6",
-    "claude-opus-4-7",
-    "codex",
-    "moonshotai/kimi-k2.6",
-    "z-ai/glm-5.1"
+    "openai-codex/gpt-5.5",
+    "openai-codex/gpt-5.4",
+    "openrouter/deepseek/deepseek-v4-pro",
+    "openrouter/deepseek/deepseek-v4-flash"
   ],
   "theme": "dracula",
   "quietStartup": true,
@@ -17,8 +16,8 @@
     "npm:pi-mcp-adapter",
     "npm:pi-lens"
   ],
-  "hideThinkingBlock": true,
-  "lastChangelogVersion": "0.73.0",
-  "defaultProvider": "anthropic",
-  "defaultModel": "claude-sonnet-4-6"
+  "hideThinkingBlock": false,
+  "lastChangelogVersion": "0.74.0",
+  "defaultProvider": "openai-codex",
+  "defaultModel": "gpt-5.4"
 }

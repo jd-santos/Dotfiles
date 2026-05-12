@@ -10,6 +10,7 @@
 
 ## Done
 
+- [x] Tune Pi message contrast and model selection behavior (stronger user message card, editor banner, scoped model list, restore notice)
 - [x] Add Pi UI extension for read display and slash-command shortcut hints (read background, 5-line preview, configured keybinding hints)
 - [x] Permission Gate Extension - Complete
 - Original 7 commits on `pi` branch.
