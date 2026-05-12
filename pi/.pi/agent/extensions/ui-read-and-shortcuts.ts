@@ -262,8 +262,11 @@ export default function (pi: ExtensionAPI) {
 	};
 
 	class ConversationEditor extends CustomEditor {
-		constructor(tui: any, theme: any, keybindings: any) {
+		private uiTheme: ThemeLike;
+
+		constructor(tui: any, theme: any, keybindings: any, uiTheme: ThemeLike) {
 			super(tui, theme, keybindings, { paddingX: 0 });
+			this.uiTheme = uiTheme;
 			activeTui = tui;
 		}
 
@@ -274,7 +277,7 @@ export default function (pi: ExtensionAPI) {
 			const borderColor = (text: string) => this.borderColor(text);
 			const topLabel = " YOU ";
 			const topFill = Math.max(0, width - 2 - topLabel.length);
-			lines[0] = `${borderColor("─")}${this.theme.fg("accent", this.theme.bold(topLabel))}${borderColor(
+			lines[0] = `${borderColor("─")}${this.uiTheme.fg("accent", topLabel)}${borderColor(
 				"─".repeat(topFill),
 			)}${borderColor("─")}`;
 
@@ -285,7 +288,7 @@ export default function (pi: ExtensionAPI) {
 			const bottomFill = Math.max(0, width - 2 - bottomLabel.length);
 			const bottomColor = activeModelSource === "restore" ? "warning" : "muted";
 			lines[lines.length - 1] =
-				`${borderColor("─")}${this.theme.fg(bottomColor, bottomLabel)}${borderColor(
+				`${borderColor("─")}${this.uiTheme.fg(bottomColor, bottomLabel)}${borderColor(
 					"─".repeat(bottomFill),
 				)}${borderColor("─")}`;
 			return lines;
@@ -328,7 +331,7 @@ export default function (pi: ExtensionAPI) {
 		syncModelState(ctx);
 		ctx.ui.setEditorComponent(
 			(tui, theme, keybindings) =>
-				new ConversationEditor(tui, theme, keybindings),
+				new ConversationEditor(tui, theme, keybindings, ctx.ui.theme),
 		);
 		ctx.ui.addAutocompleteProvider((current) => ({
 			async getSuggestions(lines, cursorLine, cursorCol, options) {
