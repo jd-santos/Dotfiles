@@ -65,6 +65,18 @@ if [ -f ~/.env-local ]; then
 fi
 
 # ┌───────────────────────────────────────────────────────────────────┐
+# │ API Keys                                                          │
+# └───────────────────────────────────────────────────────────────────┘
+
+# 1Password: code
+export OPENROUTER_API_KEY="op://code/openrouter-api-key/credential"
+export DEEPSEEK_API_KEY="op://code/deepseek-api-key/credential"
+export ANTHROPIC_PI_API_KEY="op://code/anthropic-pi-api-key/credential"
+export BRAVE_SEARCH_API_KEY="op://code/brave-search-api-key/credential"
+export BRAVE_ANSWERS_API_KEY="op://code/brave-answers-api-key/credential"
+export ANTHROPIC_OPENCODE_API_KEY="op://code/anthropic-opencode-api-key/credential"
+
+# ┌───────────────────────────────────────────────────────────────────┐
 # │ Aliases                                                           │
 # └───────────────────────────────────────────────────────────────────┘
 
