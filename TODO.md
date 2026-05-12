@@ -3,6 +3,16 @@
 ## In Progress
 
 - **feat(pi): louder permission prompts** — banner header (`━━━ 🔔 PERMISSION REQUIRED ━━━`) prepended to every prompt title plus a warning-level `notify` fired immediately before each `ui.select`. Applied to both steps of `twoStepPrompt` and to `denyPrompt`. Needs manual smoke test.
+- [ ] Tune Pi message contrast and model selection behavior
+  - [x] Update `pi/.pi/agent/themes/dracula.json` so user messages are much more distinct
+  - [x] Add a small Pi UI extension tweak for extra editor/model-state cues and easy visual verification
+  - [x] Replace scoped model list in `pi/.pi/agent/settings.json` with:
+    - [x] `gpt-5.5`
+    - [x] `gpt-5.4`
+    - [x] `deepseek/deepseek-v4-pro`
+    - [x] `deepseek/deepseek-v4-flash`
+  - [x] Document that session restore can override the configured default model in resumed sessions
+  - [ ] Manual Pi TUI smoke test for message contrast, editor banner, and restored-model notice
 
 ## Up Next
 
