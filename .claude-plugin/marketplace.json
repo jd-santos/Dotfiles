@@ -1,0 +1,27 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "informed-patient",
+  "owner": {
+    "name": "Dr. Cat Hicks",
+    "email": "dr.cat.hicks@gmail.com"
+  },
+  "metadata": {
+    "description": "A Claude Skill to create an evidence review to inform specific health questions",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "informed-patient",
+      "source": "./informed-patient",
+      "description": "Guides users through a structured symptom interview, literature search, and evidence evaluation to prepare for medical appointments",
+      "version": "1.0.0",
+      "author": {
+        "name": "Dr. Cat Hicks",
+        "email": "dr.cat.hicks@gmail.com"
+      },
+      "license": "CC-BY-4.0",
+      "keywords": ["health", "medical", "evidence", "patient", "appointments", "symptoms", "research"],
+      "category": "health"
+    }
+  ]
+}
