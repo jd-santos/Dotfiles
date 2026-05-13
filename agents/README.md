@@ -74,13 +74,15 @@ Third-party skills can be tracked in two layers:
 - `.agents/tracking/` for the upstream repo snapshot
 - `.agents/skills/` for the exposed skill that agents discover
 
-Sync a tracked skill into the exposed skills directory with:
+Review and update tracked skills with:
 
 ```bash
-bash agents/.agents/skills/tracked-skills/scripts/sync-tracked-skill.sh <tracking-repo> <source-path> [skill-name]
+bash agents/.agents/skills/tracked-skills/scripts/tracked-skills.sh
 ```
 
-For the full workflow, see `agents/.agents/docs/tracked-skills.md` and `agents/.agents/TRACKED-SKILLS.md`.
+That script reads `agents/.agents/tracked-skills.json`, fetches upstream changes, shows reviewable diffs, asks before pulling subtree updates, then syncs the exposed skills.
+
+For the full workflow, see `agents/.agents/docs/tracked-skills.md`.
 
 ## Integration with dotfiles
 
@@ -109,7 +111,7 @@ stow -R agents # restow after changes
 
 - **create-agents-md** — creates AGENTS.md files for AI agent context in codebases
 - **create-skill** — creates new SKILL.md files with proper structure and frontmatter
-- **tracked-skills** — syncs third-party skills from `.agents/tracking/` into `.agents/skills/`
+- **tracked-skills** — reviews upstream tracked skills, pulls subtree updates after approval, and syncs exposed skills
 - **technical-writing-style** — casual-professional tone guide; anti-AI-slop
 - **commit-message-writer** — Conventional Commits format with a casual tone
 - **todo-manager** — creates and manages TODO.md files
