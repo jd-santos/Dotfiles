@@ -30,11 +30,11 @@ Each skill is a directory with a single `SKILL.md`:
 
 ```yaml
 ---
-name: skill-name          # required; must match directory name
-description: What it does and when to use it  # required; 1-1024 chars
-version: 1.0.0            # optional
-author: you               # optional
-category: workflow        # optional
+name: skill-name # required; must match directory name
+description: What it does and when to use it # required; 1-1024 chars
+version: 1.0.0 # optional
+author: you # optional
+category: workflow # optional
 ---
 ```
 
@@ -67,6 +67,21 @@ $EDITOR ~/.agents/skills/skill-name/SKILL.md
 rm -rf agents/.agents/skills/skill-name/ && stow -R agents
 ```
 
+## Tracked upstream skills
+
+Third-party skills can be tracked in two layers:
+
+- `.agents/tracking/` for the upstream repo snapshot
+- `.agents/skills/` for the exposed skill that agents discover
+
+Sync a tracked skill into the exposed skills directory with:
+
+```bash
+bash agents/.agents/skills/tracked-skills/scripts/sync-tracked-skill.sh <tracking-repo> <source-path> [skill-name]
+```
+
+For the full workflow, see `agents/.agents/docs/tracked-skills.md` and `agents/.agents/TRACKED-SKILLS.md`.
+
 ## Integration with dotfiles
 
 ```bash
@@ -94,6 +109,7 @@ stow -R agents # restow after changes
 
 - **create-agents-md** — creates AGENTS.md files for AI agent context in codebases
 - **create-skill** — creates new SKILL.md files with proper structure and frontmatter
+- **tracked-skills** — syncs third-party skills from `.agents/tracking/` into `.agents/skills/`
 - **technical-writing-style** — casual-professional tone guide; anti-AI-slop
 - **commit-message-writer** — Conventional Commits format with a casual tone
 - **todo-manager** — creates and manages TODO.md files
