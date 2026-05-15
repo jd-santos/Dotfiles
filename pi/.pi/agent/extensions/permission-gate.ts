@@ -298,23 +298,43 @@ export default function (pi: ExtensionAPI) {
 		toolName: string,
 		path?: string,
 		patterns?: string[],
-	): Promise<{ allow: boolean; rule?: PermissionRule }> {
+	): Promise<{ allow: boolean; rule?: PermissionRule; message?: string }> {
 		if (!ctx.hasUI) return { allow: true };
 
 		announce(ctx, `⚠️  Permission required: ${toolName}`);
 
-		const primaryChoice = await ctx.ui.select(PROMPT_BANNER + title, [
-			"▶ Allow this once",
-			"✓ Always allow…",
-			"✕ Deny",
-		]);
+		let message: string | undefined;
 
-		if (!primaryChoice || primaryChoice === "✕ Deny") {
-			return { allow: false };
-		}
+		while (true) {
+			const noteLabel = message
+				? `✏️  Edit note: “${message.length > 40 ? message.slice(0, 40) + "…" : message}”`
+				: "✏️  Add note…";
 
-		if (primaryChoice === "▶ Allow this once") {
-			return { allow: true };
+			const primaryChoice = await ctx.ui.select(PROMPT_BANNER + title + "\n", [
+				"✅  Allow this once",
+				"🔁  Always allow…",
+				"🚫  Deny",
+				noteLabel,
+			]);
+
+			if (!primaryChoice || primaryChoice === "🚫  Deny") {
+				return { allow: false, message };
+			}
+
+			if (primaryChoice === "✅  Allow this once") {
+				return { allow: true, message };
+			}
+
+			if (primaryChoice === noteLabel) {
+				const input = await ctx.ui.input(
+					PROMPT_BANNER + "Note to model (optional)",
+					"denial reason, or guidance for the model…",
+				);
+				message = input || undefined;
+				continue;
+			}
+
+			break; // “✓ Always allow…” — fall through to scope picker
 		}
 
 		const isBash = toolName === "bash";
@@ -369,7 +389,7 @@ export default function (pi: ExtensionAPI) {
 			scopeOptions.map((o) => o.label),
 		);
 
-		if (!scopeChoice) return { allow: true };
+		if (!scopeChoice) return { allow: true, message };
 
 		const selected = scopeOptions.find((o) => o.label === scopeChoice);
 		if (selected) {
@@ -382,7 +402,7 @@ export default function (pi: ExtensionAPI) {
 			updateStatus(ctx);
 		}
 
-		return { allow: true };
+		return { allow: true, message: message || undefined };
 	}
 
 	async function denyPrompt(
@@ -497,9 +517,15 @@ export default function (pi: ExtensionAPI) {
 
 			if (!result.allow) {
 				await denyPrompt(ctx, toolName, path);
-				return { block: true, reason: "Blocked by user." };
+				const reason = result.message
+					? `Blocked by user: ${result.message}`
+					: "Blocked by user.";
+				return { block: true, reason };
 			}
 
+			if (result.message) {
+				pi.sendUserMessage(result.message, { deliverAs: "steer" });
+			}
 			return undefined;
 		}
 
@@ -569,9 +595,15 @@ export default function (pi: ExtensionAPI) {
 
 			if (!result.allow) {
 				await denyPrompt(ctx, toolName, undefined, patterns);
-				return { block: true, reason: "Blocked by user." };
+				const reason = result.message
+					? `Blocked by user: ${result.message}`
+					: "Blocked by user.";
+				return { block: true, reason };
 			}
 
+			if (result.message) {
+				pi.sendUserMessage(result.message, { deliverAs: "steer" });
+			}
 			return undefined;
 		}
 
