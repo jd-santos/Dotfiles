@@ -312,7 +312,7 @@ export default function (pi: ExtensionAPI) {
 
 			const primaryChoice = await ctx.ui.select(PROMPT_BANNER + title + "\n", [
 				"✅  Allow this once",
-				"🟢  Always allow…",
+				"🔁  Always allow…",
 				"🚫  Deny",
 				noteLabel,
 			]);

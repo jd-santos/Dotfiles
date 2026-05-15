@@ -47,7 +47,7 @@ If Pi opens on a different model during a resumed session, that session's restor
 
 Location: `extensions/permission-gate.ts`
 
-Prompts before writes, edits, and unrecognized shell commands. Each prompt shows an optional note field first (sent to the model as a reason or guidance), then the allow/deny choice, then a scope picker for always-allow rules.
+Prompts before writes, edits, and unrecognized shell commands. Each prompt shows allow/deny choices plus an optional note option. The note is sent to the model as a denial reason or inline guidance.
 
 #### Commands
 
@@ -60,7 +60,7 @@ Prompts before writes, edits, and unrecognized shell commands. Each prompt shows
 
 #### Auto-allow rules
 
-The gate builds session rules as you work. When you see a prompt, pick **✓ Always allow…** and choose the scope:
+The gate builds session rules as you work. When you see a prompt, pick **🔁 Always allow…** and choose the scope:
 
 - **📁 📂 📂📂 Directory scope**: current, parent, or grandparent directory
 - **🔧 Tool type**: all `write`, `edit`, or `bash` operations
