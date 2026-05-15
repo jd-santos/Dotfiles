@@ -311,17 +311,17 @@ export default function (pi: ExtensionAPI) {
 				: "✏️  Add note…";
 
 			const primaryChoice = await ctx.ui.select(PROMPT_BANNER + title + "\n", [
-				"▶ Allow this once",
-				"✓ Always allow…",
-				"✕ Deny",
+				"✅  Allow this once",
+				"🟢  Always allow…",
+				"🚫  Deny",
 				noteLabel,
 			]);
 
-			if (!primaryChoice || primaryChoice === "✕ Deny") {
+			if (!primaryChoice || primaryChoice === "🚫  Deny") {
 				return { allow: false, message };
 			}
 
-			if (primaryChoice === "▶ Allow this once") {
+			if (primaryChoice === "✅  Allow this once") {
 				return { allow: true, message };
 			}
 
