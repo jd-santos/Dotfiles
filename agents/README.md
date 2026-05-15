@@ -6,9 +6,9 @@ Reusable instruction sets for AI agents, managed as a GNU Stow package. Skills a
 
 Skills in this package land at `~/.agents/skills/`, which is picked up by:
 
-- **Pi** — via the `skills` path in `~/.pi/agent/settings.json`
-- **OpenCode** — global agent-compatible path
-- **Claude Code** — via the `.agents/` compat layer
+- **Pi**: via the `skills` path in `~/.pi/agent/settings.json`
+- **OpenCode**: global agent-compatible path
+- **Claude Code**: via the `.agents/` compat layer
 - Any tool implementing the Agent Skills standard
 
 ## Skill structure
@@ -85,13 +85,13 @@ This means the skill content exists in both places. That's intentional: the trac
 The main script lives at `agents/.agents/skills/tracked-skills/scripts/tracked-skills.sh`.
 
 ```bash
-# Add a new upstream repo — scans for SKILL.md files, lets you pick which to track
+# Add a new upstream repo: scans for SKILL.md files, lets you pick which to track
 bash agents/.agents/skills/tracked-skills/scripts/tracked-skills.sh add <repo-url> [ref]
 
-# Review and update — fetches upstream, shows diffs, asks before pulling
+# Review and update: fetches upstream, shows diffs, asks before pulling
 bash agents/.agents/skills/tracked-skills/scripts/tracked-skills.sh
 
-# Sync only — refresh exposed skills from current tracking/ snapshots
+# Sync only: refresh exposed skills from current tracking/ snapshots
 bash agents/.agents/skills/tracked-skills/scripts/tracked-skills.sh sync all
 ```
 
@@ -115,37 +115,37 @@ stow -R agents # restow after changes
 
 ### Language & Framework
 
-- **swift-mentor** — teaches Swift/SwiftUI/SwiftData; explains patterns and trade-offs for learners
-- **swift-code-writer** — generates idiomatic Swift code for experienced developers without hand-holding
+- **swift-mentor**: teaches Swift/SwiftUI/SwiftData; explains patterns and trade-offs for learners
+- **swift-code-writer**: generates idiomatic Swift code for experienced developers without hand-holding
 
 ### Marimo (reactive Python notebooks)
 
-- **marimo** — hub skill; reactive model basics, routing table to sub-skills
-  - **marimo-pair** — live kernel access: discover servers, execute code, create/edit cells programmatically via `code_mode`; includes bundled `scripts/` and `reference/`
-  - **marimo-notebook** — editor workflow; cell DAG, disabling cells, `mo.stop`, lazy mode, keyboard shortcuts
-  - **marimo-data** — interactive data: `mo.ui` widgets, dataframe viewer, reactive filtering, SQL cells, Altair/Plotly
-  - **marimo-app** — deployment: `marimo run`, `marimo export`, WASM, scripts, CLI args, scheduling
+- **marimo**: hub skill; reactive model basics, routing table to sub-skills
+  - **marimo-pair**: live kernel access; discover servers, execute code, create/edit cells programmatically via `code_mode`; includes bundled `scripts/` and `reference/`
+  - **marimo-notebook**: editor workflow; cell DAG, disabling cells, `mo.stop`, lazy mode, keyboard shortcuts
+  - **marimo-data**: interactive data; `mo.ui` widgets, dataframe viewer, reactive filtering, SQL cells, Altair/Plotly
+  - **marimo-app**: deployment; `marimo run`, `marimo export`, WASM, scripts, CLI args, scheduling
 
 ### Learning
 
-- **learning-opportunities** — facilitates deliberate skill development during AI-assisted coding; offers interactive exercises (prediction, teach-it-back, trace the path) after architectural work
-- **orient** — generates a repo-specific `orientation.md` for a codebase, used by the learning-opportunities skill for guided orientation exercises
-- **planning-first** — two-round planning protocol before non-trivial work; clarifies intent first, then proposes approaches with tradeoffs
-- **informed-patient** — structured symptom interview and evidence-based literature review to prepare for medical appointments; only activate on explicit request
+- **learning-opportunities**: facilitates deliberate skill development during AI-assisted coding; offers interactive exercises (prediction, teach-it-back, trace the path) after architectural work
+- **orient**: generates a repo-specific `orientation.md` for a codebase, used by the learning-opportunities skill for guided orientation exercises
+- **planning-first**: two-round planning protocol before non-trivial work; clarifies intent first, then proposes approaches with tradeoffs
+- **informed-patient**: structured symptom interview and evidence-based literature review to prepare for medical appointments; only activate on explicit request
 
 ### Development workflows
 
-- **add-pi-feature** — adds pi coding agent features: skills, extensions, prompt templates, themes, custom tools, commands, and flags
-- **create-agents-md** — creates AGENTS.md files for AI agent context in codebases
-- **create-skill** — creates new SKILL.md files with proper structure and frontmatter
-- **tracked-skills** — adds new tracked repos, reviews upstream tracked skills, pulls subtree updates after approval, and syncs exposed skills
-- **technical-writing-style** — casual-professional tone guide; anti-AI-slop
-- **commit-message-writer** — Conventional Commits format with a casual tone
-- **todo-manager** — creates and manages TODO.md files
+- **add-pi-feature**: adds pi coding agent features: skills, extensions, prompt templates, themes, custom tools, commands, and flags
+- **create-agents-md**: creates AGENTS.md files for AI agent context in codebases
+- **create-skill**: creates new SKILL.md files with proper structure and frontmatter
+- **tracked-skills**: adds new tracked repos, reviews upstream tracked skills, pulls subtree updates after approval, and syncs exposed skills
+- **technical-writing-style**: casual-professional tone guide; anti-AI-slop
+- **commit-message-writer**: Conventional Commits format with a casual tone
+- **todo-manager**: creates and manages TODO.md files
 
 ### Meta
 
-- **example-skill** — template demonstrating skill structure and format
+- **example-skill**: template demonstrating skill structure and format
 
 ## Resources
 
