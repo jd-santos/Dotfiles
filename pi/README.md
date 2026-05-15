@@ -39,13 +39,15 @@ Other settings: Dracula theme, thinking level high, thinking block visible on ou
 
 If Pi opens on a different model during a resumed session, that session's restored model wins for that session. Start a fresh session with `/new` or `pi --no-session` to use the configured default.
 
+> **`defaultProvider` and `defaultModel` are machine-specific.** Different machines intentionally use different providers to avoid mixing home and work API keys. Do not change these fields in a commit just because they drifted — leave them set to whatever is correct for the machine you last worked on, and update locally after pulling.
+
 ## Extensions
 
 ### Permission Gate
 
 Location: `extensions/permission-gate.ts`
 
-Prompts before writes, edits, and unrecognized shell commands. Two-step TUI flow: choose once/always/deny, then pick the scope.
+Prompts before writes, edits, and unrecognized shell commands. Each prompt shows an optional note field first (sent to the model as a reason or guidance), then the allow/deny choice, then a scope picker for always-allow rules.
 
 #### Commands
 
