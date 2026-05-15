@@ -9,6 +9,26 @@
       "skill_name": "informed-patient",
       "last_synced_commit": "4ec9c1e87804e70a7d53e0fb852a4fdb5646da9f",
       "last_synced_at": "2026-05-13"
+    },
+    {
+      "name": "learning-opportunities",
+      "repo": "https://github.com/DrCatHicks/learning-opportunities",
+      "ref": "main",
+      "tracking_repo": "learning-opportunities",
+      "source_path": "learning-opportunities/skills/learning-opportunities",
+      "skill_name": "learning-opportunities",
+      "last_synced_commit": "ae8412fb1b9118bfb2fad9872048f9384f797098",
+      "last_synced_at": "2026-05-15"
+    },
+    {
+      "name": "orient",
+      "repo": "https://github.com/DrCatHicks/learning-opportunities",
+      "ref": "main",
+      "tracking_repo": "learning-opportunities",
+      "source_path": "orient/skills/orient",
+      "skill_name": "orient",
+      "last_synced_commit": "ae8412fb1b9118bfb2fad9872048f9384f797098",
+      "last_synced_at": "2026-05-15"
     }
   ]
 }

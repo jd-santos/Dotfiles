@@ -126,8 +126,16 @@ stow -R agents # restow after changes
   - **marimo-data** — interactive data: `mo.ui` widgets, dataframe viewer, reactive filtering, SQL cells, Altair/Plotly
   - **marimo-app** — deployment: `marimo run`, `marimo export`, WASM, scripts, CLI args, scheduling
 
+### Learning
+
+- **learning-opportunities** — facilitates deliberate skill development during AI-assisted coding; offers interactive exercises (prediction, teach-it-back, trace the path) after architectural work
+- **orient** — generates a repo-specific `orientation.md` for a codebase, used by the learning-opportunities skill for guided orientation exercises
+- **planning-first** — two-round planning protocol before non-trivial work; clarifies intent first, then proposes approaches with tradeoffs
+- **informed-patient** — structured symptom interview and evidence-based literature review to prepare for medical appointments; only activate on explicit request
+
 ### Development workflows
 
+- **add-pi-feature** — adds pi coding agent features: skills, extensions, prompt templates, themes, custom tools, commands, and flags
 - **create-agents-md** — creates AGENTS.md files for AI agent context in codebases
 - **create-skill** — creates new SKILL.md files with proper structure and frontmatter
 - **tracked-skills** — adds new tracked repos, reviews upstream tracked skills, pulls subtree updates after approval, and syncs exposed skills
