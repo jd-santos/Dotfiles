@@ -1,0 +1,14 @@
+{
+  "tracked_skills": [
+    {
+      "name": "informed-patient",
+      "repo": "https://github.com/DrCatHicks/informed-patient.git",
+      "ref": "main",
+      "tracking_repo": "informed-patient",
+      "source_path": "informed-patient/skills/informed-patient",
+      "skill_name": "informed-patient",
+      "last_synced_commit": "4ec9c1e87804e70a7d53e0fb852a4fdb5646da9f",
+      "last_synced_at": "2026-05-13"
+    }
+  ]
+}

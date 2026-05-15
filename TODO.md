@@ -10,6 +10,9 @@
 
 ## Done
 
+- [x] Add interactive tracked-skills add flow with multi-skill repo support
+- [x] Add tracked skills review-and-update script with manifest-driven sync
+- [x] Add tracked skills workflow for `agents/` (tracking layout, sync script, docs, `informed-patient` import)
 - [x] Tune Pi message contrast and model selection behavior (stronger user message card, editor banner, scoped model list, restore notice)
 - [x] Add Pi UI extension for read display and slash-command shortcut hints (read background, 5-line preview, configured keybinding hints)
 - [x] Permission Gate Extension - Complete
