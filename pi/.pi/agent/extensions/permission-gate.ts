@@ -303,6 +303,11 @@ export default function (pi: ExtensionAPI) {
 
 		announce(ctx, `⚠️  Permission required: ${toolName}`);
 
+		const message = await ctx.ui.input(
+			PROMPT_BANNER + "Add a note? (optional — sent to model)",
+			"denial reason, or guidance for the model…",
+		);
+
 		const primaryChoice = await ctx.ui.select(PROMPT_BANNER + title, [
 			"▶ Allow this once",
 			"✓ Always allow…",
@@ -310,18 +315,10 @@ export default function (pi: ExtensionAPI) {
 		]);
 
 		if (!primaryChoice || primaryChoice === "✕ Deny") {
-			const message = await ctx.ui.input(
-				"Reason for denial (optional — sent to model)",
-				"e.g. wrong file, try a different approach…",
-			);
 			return { allow: false, message: message || undefined };
 		}
 
 		if (primaryChoice === "▶ Allow this once") {
-			const message = await ctx.ui.input(
-				"Message to model (optional)",
-				"e.g. proceed but watch out for X…",
-			);
 			return { allow: true, message: message || undefined };
 		}
 
@@ -390,10 +387,6 @@ export default function (pi: ExtensionAPI) {
 			updateStatus(ctx);
 		}
 
-		const message = await ctx.ui.input(
-			"Message to model (optional)",
-			"e.g. proceed but watch out for X…",
-		);
 		return { allow: true, message: message || undefined };
 	}
 
