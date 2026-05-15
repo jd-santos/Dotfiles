@@ -310,7 +310,7 @@ export default function (pi: ExtensionAPI) {
 				? `✏️  Edit note: “${message.length > 40 ? message.slice(0, 40) + "…" : message}”`
 				: "✏️  Add note…";
 
-			const primaryChoice = await ctx.ui.select(PROMPT_BANNER + title, [
+			const primaryChoice = await ctx.ui.select(PROMPT_BANNER + title + "\n", [
 				"▶ Allow this once",
 				"✓ Always allow…",
 				"✕ Deny",
