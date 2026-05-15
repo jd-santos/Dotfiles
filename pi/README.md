@@ -47,7 +47,7 @@ If Pi opens on a different model during a resumed session, that session's restor
 
 Location: `extensions/permission-gate.ts`
 
-Prompts before writes, edits, and unrecognized shell commands. Two-step TUI flow: choose once/always/deny, then pick the scope.
+Prompts before writes, edits, and unrecognized shell commands. Each prompt shows an optional note field first (sent to the model as a reason or guidance), then the allow/deny choice, then a scope picker for always-allow rules.
 
 #### Commands
 
