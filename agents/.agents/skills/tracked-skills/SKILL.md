@@ -1,6 +1,6 @@
 ---
 name: tracked-skills
-description: Reviews and updates third-party agent skills tracked in `.agents/tracking/`, then syncs exposed copies into `.agents/skills/`. Use when importing an upstream skill, checking for upstream changes, or when the user asks to sync, update, or review a tracked skill.
+description: Adds, reviews, and updates third-party agent skills tracked in `.agents/tracking/`, then syncs exposed copies into `.agents/skills/`. Use when importing an upstream skill, checking for upstream changes, or when the user asks to sync, add, update, or review a tracked skill.
 version: 1.0.0
 author: jdwork
 category: workflow
@@ -10,7 +10,7 @@ category: workflow
 
 ## Description
 
-Manages the two-layer tracked skill workflow used by this agents package. Use it to review upstream changes in `.agents/tracking/`, approve subtree pulls, sync the exposed copy into `.agents/skills/`, and keep `tracked-skills.json` up to date.
+Manages the two-layer tracked skill workflow used by this agents package. Use it to add new tracked repos, review upstream changes in `.agents/tracking/`, approve subtree pulls, sync the exposed copy into `.agents/skills/`, and keep `tracked-skills.json` up to date.
 
 ## Instructions
 
@@ -23,9 +23,19 @@ Before syncing:
 3. Inspect the upstream snapshot in `../../tracking/<repo>/` before copying anything into `../../skills/`.
 4. Confirm the source directory contains a `SKILL.md` file.
 
-### 2. Review and update workflow
+### 2. Add a new tracked repo
 
-Run the main script from this skill directory:
+To add a new upstream repo and choose which skills to expose:
+
+```bash
+bash scripts/tracked-skills.sh add <repo-url> [ref]
+```
+
+The add flow scans the upstream repo for `SKILL.md` files, lets you choose one or more skills, adds the repo as a subtree under `../../tracking/`, updates `../../tracked-skills.json`, and syncs the selected skills into `../../skills/`.
+
+### 3. Review and update workflow
+
+To review upstream changes for already-tracked repos:
 
 ```bash
 bash scripts/tracked-skills.sh
@@ -41,13 +51,13 @@ bash scripts/tracked-skills.sh sync all
 
 The sync flow copies one upstream skill directory from `tracking/` into `skills/`. If the upstream skill points at shared docs outside its own folder, the script localizes those paths into the exposed skill directory.
 
-### 3. After syncing
+### 4. After syncing
 
 1. Review the copied skill in `../../skills/<skill-name>/`.
 2. Confirm that `../../tracked-skills.json` reflects the latest upstream commit and sync date.
 3. Restow with `stow -R agents` if you want the installed `~/.agents/` tree updated right away.
 
-### 4. Error handling
+### 5. Error handling
 
 - If the tracking repo directory is missing, stop and ask whether the upstream repo still needs to be imported.
 - If the source path does not contain `SKILL.md`, stop and confirm the correct upstream skill path.

@@ -43,7 +43,7 @@ Tracking and exposed skills solve different problems.
 
 - `tracking/` preserves where a skill came from and gives you a place to review upstream changes.
 - `skills/` stays clean, predictable, and easy for agent harnesses to scan.
-- `tracked-skills.sh` is the main entry point. It can review upstream changes, pull subtree updates after confirmation, sync exposed skills, and update the manifest.
+- `tracked-skills.sh` is the main entry point. It can add new tracked repos, review upstream changes, pull subtree updates after confirmation, sync exposed skills, and update the manifest.
 - The sync flow copies one skill directory from `tracking/` into `skills/`.
 - If the upstream skill stores shared docs outside the skill directory, the script copies those into the exposed skill and rewrites the paths to stay local.
 
@@ -55,7 +55,13 @@ Use the bundled script from the repo root:
 bash agents/.agents/skills/tracked-skills/scripts/tracked-skills.sh
 ```
 
-That command reads `.agents/tracked-skills.json`, fetches every tracked upstream repo, shows commit history and diff stats, offers a full patch view in context, then asks before applying subtree pulls. After you confirm, it syncs the exposed skills and updates the JSON manifest.
+The main commands are:
+
+- `tracked-skills.sh add <repo-url> [ref]` to add a new upstream repo, scan it for `SKILL.md` directories, let you choose one or more skills, then sync them into `.agents/skills/`
+- `tracked-skills.sh` to review and update already-tracked repos
+- `tracked-skills.sh sync all` to refresh exposed skills from the current tracked snapshots
+
+The update command reads `.agents/tracked-skills.json`, fetches every tracked upstream repo, shows commit history and diff stats, offers a full patch view in context, then asks before applying subtree pulls. After you confirm, it syncs the exposed skills and updates the JSON manifest.
 
 ### Sync only
 
@@ -67,7 +73,15 @@ bash agents/.agents/skills/tracked-skills/scripts/tracked-skills.sh sync all
 
 The older `sync-tracked-skill.sh` file still exists as a thin wrapper around the main script's `sync-one` helper.
 
-### Example
+### Add a new tracked repo
+
+```bash
+bash agents/.agents/skills/tracked-skills/scripts/tracked-skills.sh add https://github.com/user/repo.git
+```
+
+That clones the upstream repo to a temp directory, scans for `SKILL.md` files, lets you choose one or more skills, adds the repo as a subtree under `.agents/tracking/`, records the selected skills in `tracked-skills.json`, and syncs them into `.agents/skills/`.
+
+### Review updates
 
 ```bash
 bash agents/.agents/skills/tracked-skills/scripts/tracked-skills.sh
@@ -91,7 +105,9 @@ If you manage the subtree manually, add or pull the upstream repo into `agents/.
 
 ## Manifest
 
-Tracked skills live in `../tracked-skills.json`. Each entry records:
+Tracked skills live in `../tracked-skills.json`. One upstream repo can have multiple entries that share `repo`, `ref`, and `tracking_repo` but point at different `source_path` values.
+
+Each entry records:
 
 - `name`: human-friendly skill name
 - `repo`: upstream git repo URL
