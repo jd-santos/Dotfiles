@@ -1,0 +1,13 @@
+{
+  "name": "learning-opportunities-auto",
+  "version": "1.0.1",
+  "description": "Automatically nudges Claude to offer learning exercises after git commits. Requires the learning-opportunities plugin.",
+  "author": {
+    "name": "Dr. Cat Hicks",
+    "url": "https://drcathicks.com"
+  },
+  "homepage": "https://github.com/DrCatHicks/learning-opportunities",
+  "repository": "https://github.com/DrCatHicks/learning-opportunities",
+  "license": "CC-BY-4.0",
+  "keywords": ["learning", "education", "skill-development", "expertise", "learning-science"]
+}
