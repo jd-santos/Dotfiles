@@ -65,6 +65,18 @@ if [ -f ~/.env-local ]; then
 fi
 
 # ┌───────────────────────────────────────────────────────────────────┐
+# │ 1Password SSH Agent                                               │
+# └───────────────────────────────────────────────────────────────────┘
+
+# Route SSH (and git-over-SSH) through the 1Password agent so keys stored
+# in 1Password vaults — gated by agent.toml — are used for auth/signing.
+# Without this, SSH_AUTH_SOCK points at macOS's default agent, which does
+# not know about any 1Password vault.
+if [[ -S "$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock" ]]; then
+  export SSH_AUTH_SOCK="$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
+fi
+
+# ┌───────────────────────────────────────────────────────────────────┐
 # │ API Keys                                                          │
 # └───────────────────────────────────────────────────────────────────┘
 

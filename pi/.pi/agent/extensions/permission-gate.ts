@@ -298,7 +298,7 @@ export default function (pi: ExtensionAPI) {
 		toolName: string,
 		path?: string,
 		patterns?: string[],
-	): Promise<{ allow: boolean; rule?: PermissionRule }> {
+	): Promise<{ allow: boolean; rule?: PermissionRule; message?: string }> {
 		if (!ctx.hasUI) return { allow: true };
 
 		announce(ctx, `⚠️  Permission required: ${toolName}`);
@@ -310,11 +310,19 @@ export default function (pi: ExtensionAPI) {
 		]);
 
 		if (!primaryChoice || primaryChoice === "✕ Deny") {
-			return { allow: false };
+			const message = await ctx.ui.input(
+				"Reason for denial (optional — sent to model)",
+				"e.g. wrong file, try a different approach…",
+			);
+			return { allow: false, message: message || undefined };
 		}
 
 		if (primaryChoice === "▶ Allow this once") {
-			return { allow: true };
+			const message = await ctx.ui.input(
+				"Message to model (optional)",
+				"e.g. proceed but watch out for X…",
+			);
+			return { allow: true, message: message || undefined };
 		}
 
 		const isBash = toolName === "bash";
@@ -382,7 +390,11 @@ export default function (pi: ExtensionAPI) {
 			updateStatus(ctx);
 		}
 
-		return { allow: true };
+		const message = await ctx.ui.input(
+			"Message to model (optional)",
+			"e.g. proceed but watch out for X…",
+		);
+		return { allow: true, message: message || undefined };
 	}
 
 	async function denyPrompt(
@@ -497,9 +509,15 @@ export default function (pi: ExtensionAPI) {
 
 			if (!result.allow) {
 				await denyPrompt(ctx, toolName, path);
-				return { block: true, reason: "Blocked by user." };
+				const reason = result.message
+					? `Blocked by user: ${result.message}`
+					: "Blocked by user.";
+				return { block: true, reason };
 			}
 
+			if (result.message) {
+				pi.sendUserMessage(result.message, { deliverAs: "steer" });
+			}
 			return undefined;
 		}
 
@@ -569,9 +587,15 @@ export default function (pi: ExtensionAPI) {
 
 			if (!result.allow) {
 				await denyPrompt(ctx, toolName, undefined, patterns);
-				return { block: true, reason: "Blocked by user." };
+				const reason = result.message
+					? `Blocked by user: ${result.message}`
+					: "Blocked by user.";
+				return { block: true, reason };
 			}
 
+			if (result.message) {
+				pi.sendUserMessage(result.message, { deliverAs: "steer" });
+			}
 			return undefined;
 		}
 
