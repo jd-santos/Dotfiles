@@ -303,38 +303,26 @@ export default function (pi: ExtensionAPI) {
 
 		announce(ctx, `⚠️  Permission required: ${toolName}`);
 
-		let message: string | undefined;
+		const primaryChoice = await ctx.ui.select(PROMPT_BANNER + title, [
+			"▶ Allow this once",
+			"✓ Always allow…",
+			"✕ Deny",
+		]);
 
-		while (true) {
-			const noteLabel = message
-				? `✏️  Edit note: “${message.length > 40 ? message.slice(0, 40) + "…" : message}”`
-				: "✏️  Add note…";
+		if (!primaryChoice || primaryChoice === "✕ Deny") {
+			const message = await ctx.ui.input(
+				"Reason for denial (optional — sent to model)",
+				"e.g. wrong file, try a different approach…",
+			);
+			return { allow: false, message: message || undefined };
+		}
 
-			const primaryChoice = await ctx.ui.select(PROMPT_BANNER + title + "\n", [
-				"✅  Allow this once",
-				"🔁  Always allow…",
-				"🚫  Deny",
-				noteLabel,
-			]);
-
-			if (!primaryChoice || primaryChoice === "🚫  Deny") {
-				return { allow: false, message };
-			}
-
-			if (primaryChoice === "✅  Allow this once") {
-				return { allow: true, message };
-			}
-
-			if (primaryChoice === noteLabel) {
-				const input = await ctx.ui.input(
-					PROMPT_BANNER + "Note to model (optional)",
-					"denial reason, or guidance for the model…",
-				);
-				message = input || undefined;
-				continue;
-			}
-
-			break; // “✓ Always allow…” — fall through to scope picker
+		if (primaryChoice === "▶ Allow this once") {
+			const message = await ctx.ui.input(
+				"Message to model (optional)",
+				"e.g. proceed but watch out for X…",
+			);
+			return { allow: true, message: message || undefined };
 		}
 
 		const isBash = toolName === "bash";
@@ -389,7 +377,7 @@ export default function (pi: ExtensionAPI) {
 			scopeOptions.map((o) => o.label),
 		);
 
-		if (!scopeChoice) return { allow: true, message };
+		if (!scopeChoice) return { allow: true };
 
 		const selected = scopeOptions.find((o) => o.label === scopeChoice);
 		if (selected) {
@@ -402,6 +390,10 @@ export default function (pi: ExtensionAPI) {
 			updateStatus(ctx);
 		}
 
+		const message = await ctx.ui.input(
+			"Message to model (optional)",
+			"e.g. proceed but watch out for X…",
+		);
 		return { allow: true, message: message || undefined };
 	}
 
