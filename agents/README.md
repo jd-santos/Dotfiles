@@ -69,26 +69,39 @@ rm -rf agents/.agents/skills/skill-name/ && stow -R agents
 
 ## Tracked upstream skills
 
-Third-party skills can be tracked in two layers:
+Third-party skills live in two layers:
 
-- `.agents/tracking/` for the upstream repo snapshot
-- `.agents/skills/` for the exposed skill that agents discover
+| Layer    | Path                       | Purpose                                                          |
+| -------- | -------------------------- | ---------------------------------------------------------------- |
+| Tracking | `.agents/tracking/<repo>/` | Full upstream repo via git subtree. Used for diffing and review. |
+| Exposed  | `.agents/skills/<skill>/`  | Self-contained copy agents actually discover and load.           |
 
-Add a new tracked repo with:
+This means the skill content exists in both places. That's intentional: the tracking copy preserves upstream context for review, while the exposed copy gets path rewriting (e.g., `../../references/` becomes `references/`) so it works standalone without depending on the upstream repo layout.
+
+`tracked-skills.json` records what's tracked, where it came from, and which upstream commit was last synced.
+
+### Commands
+
+The main script lives at `agents/.agents/skills/tracked-skills/scripts/tracked-skills.sh`.
 
 ```bash
+# Add a new upstream repo — scans for SKILL.md files, lets you pick which to track
 bash agents/.agents/skills/tracked-skills/scripts/tracked-skills.sh add <repo-url> [ref]
-```
 
-Review and update tracked skills with:
-
-```bash
+# Review and update — fetches upstream, shows diffs, asks before pulling
 bash agents/.agents/skills/tracked-skills/scripts/tracked-skills.sh
+
+# Sync only — refresh exposed skills from current tracking/ snapshots
+bash agents/.agents/skills/tracked-skills/scripts/tracked-skills.sh sync all
 ```
 
-That script reads `agents/.agents/tracked-skills.json`, can scan a new upstream repo for multiple `SKILL.md` directories, fetches upstream changes for existing tracked repos, shows reviewable diffs, asks before pulling subtree updates, then syncs the exposed skills.
+The update flow fetches each tracked upstream repo, shows the commit log and diff stat since your last sync, optionally shows the full patch, then asks before applying. After approval, it pulls the subtree, syncs the exposed skill, and updates the manifest.
 
-For the full workflow, see `agents/.agents/docs/tracked-skills.md`.
+### How syncing works
+
+When syncing, the script copies the skill directory from `tracking/` into `skills/`. If the upstream skill references shared docs outside its own directory (common in monorepos), those get copied into the exposed skill and the paths get rewritten to stay local. The result is a self-contained skill directory that doesn't depend on the tracking tree at runtime.
+
+For the full workflow details, see `agents/.agents/docs/tracked-skills.md`.
 
 ## Integration with dotfiles
 
