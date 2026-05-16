@@ -19,7 +19,8 @@
  * has full shell access; this extension only surfaces risky operations.
  */
 
-import { dirname } from "node:path";
+/// <reference path="../types.d.ts" />
+
 import type {
 	ExtensionAPI,
 	ExtensionContext,
@@ -27,21 +28,37 @@ import type {
 
 // Bash commands that auto-allow without prompting (read-only safe list).
 const ALLOW_PATTERNS: RegExp[] = [
+	/^cd(\s|$)/,
 	/^ls(\s|$)/,
-	/^pwd$/,
+	/^pwd(\s|$)/,
 	/^cat\s/,
 	/^head\s/,
 	/^tail\s/,
 	/^wc\s/,
 	/^file\s/,
 	/^which\s/,
+	/^dirname\s/,
+	/^basename\s/,
+	/^realpath\s/,
+	/^readlink\s/,
+	/^stat\s/,
+	/^du(\s|$)/,
 	/^tree(\s|$)/,
 	/^find\s/,
 	/^grep\s/,
 	/^rg\s/,
 	/^fd\s/,
+	/^sort(\s|$)/,
+	/^uniq(\s|$)/,
+	/^cut\s/,
+	/^tr\s/,
+	/^awk\s/,
+	/^sed\s/,
+	/^nl(\s|$)/,
+	/^ps(\s|$)/,
 	/^echo(\s|$)/,
-	/^git\s+(status|diff|log|branch|show|rev-parse)(\s|$)/,
+	/^printf\s/,
+	/^git\s+(status|diff|log|branch|show|rev-parse|ls-files|grep)(\s|$)/,
 ];
 
 // Sensitive file access — always blocked, regardless of mode.
@@ -87,13 +104,20 @@ function extractCommandPatterns(command: string): string[] {
 	return Array.from(patterns).sort();
 }
 
+function parentDir(path: string): string {
+	const normalized = path.replace(/\/+$/, "");
+	const slash = normalized.lastIndexOf("/");
+	if (slash <= 0) return ".";
+	return normalized.slice(0, slash);
+}
+
 function getDirChain(path?: string): string[] {
 	if (!path) return [];
 	const dirs: string[] = [];
-	let d = dirname(path);
+	let d = parentDir(path);
 	for (let i = 0; i < 3 && d && d !== "." && d !== "/"; i++) {
 		dirs.push(d);
-		const next = dirname(d);
+		const next = parentDir(d);
 		if (next === d) break;
 		d = next;
 	}
@@ -104,6 +128,10 @@ function pathStartsWith(path: string, prefix: string): boolean {
 	const n = path.replace(/\/$/, "");
 	const p = prefix.replace(/\/$/, "");
 	return n === p || n.startsWith(p + "/");
+}
+
+function unreachable(value: never): never {
+	throw new Error(`Unhandled permission rule: ${JSON.stringify(value)}`);
 }
 
 export default function (pi: ExtensionAPI) {
@@ -234,10 +262,8 @@ export default function (pi: ExtensionAPI) {
 				return path ? pathStartsWith(path, rule.prefix) : false;
 			case "bash":
 				return patterns ? patterns.some((p) => rule.pattern.test(p)) : false;
-			default: {
-				const _: never = rule;
-				return false;
-			}
+			default:
+				return unreachable(rule);
 		}
 	}
 
@@ -251,10 +277,8 @@ export default function (pi: ExtensionAPI) {
 				return `${rule.prefix} (dir)`;
 			case "bash":
 				return `${rule.pattern.source} (pattern)`;
-			default: {
-				const _: never = rule;
-				return "unknown";
-			}
+			default:
+				return unreachable(rule);
 		}
 	}
 

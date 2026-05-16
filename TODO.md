@@ -10,6 +10,7 @@
 
 ## Done
 
+- [x] Expand Pi permission-gate auto-allow patterns for exploratory shell commands
 - [x] Add interactive tracked-skills add flow with multi-skill repo support
 - [x] Add tracked skills review-and-update script with manifest-driven sync
 - [x] Add tracked skills workflow for `agents/` (tracking layout, sync script, docs, `informed-patient` import)
