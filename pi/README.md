@@ -1,6 +1,6 @@
 # Pi Agent Config
 
-Personal Pi configuration with extensions for write gating, auto-formatting, cost tracking, and UI tweaks.
+Personal Pi configuration with extensions for write gating, auto-formatting, cost tracking, usage analytics, git summaries, and UI tweaks.
 
 ## Files
 
@@ -11,6 +11,9 @@ Personal Pi configuration with extensions for write gating, auto-formatting, cos
 | `extensions/permission-gate.ts`       | Interactive gate for writes and shell commands                                        |
 | `extensions/format-on-save.ts`        | Auto-format files after write/edit                                                    |
 | `extensions/cost-tracker.ts`          | Token and cost tracking (`/costs`)                                                    |
+| `extensions/lg.ts`                    | Scripted git change summary (`/lg`, `/lg --staged`, `/lg --all`)                      |
+| `extensions/tps-tracker.ts`           | Live tokens-per-second footer status and end-of-turn notification                     |
+| `extensions/usage.ts`                 | Pi and Codex CLI usage analytics (`/usage`)                                           |
 | `extensions/ui-read-and-shortcuts.ts` | Read previews, slash command keybinding hints, editor banner, and model source status |
 | `themes/dracula.json`                 | Dracula community theme                                                               |
 | `prompts/plan.md`                     | `/plan` template for two-round planning                                               |
@@ -121,6 +124,52 @@ Accumulates token usage from every assistant message and counts tool calls per t
 Token attribution is per-message, not per-tool-call (Pi doesn't expose per-tool token data). Tool call counts show which tools are being used; message totals show actual spend.
 
 Output includes: tokens in/out, estimated cost, and a per-tool call count table.
+
+---
+
+### Git Summary
+
+Location: `extensions/lg.ts`
+
+Run `/lg` to show a scripted summary of unstaged git changes below the editor. It uses git commands for per-file additions and deletions instead of asking the model to estimate them.
+
+Modes:
+
+| Command        | Scope                                       |
+| -------------- | ------------------------------------------- |
+| `/lg`          | Unstaged changes plus untracked files       |
+| `/lg --staged` | Staged changes                              |
+| `/lg --all`    | Changes against `HEAD` plus untracked files |
+
+Untracked text files are counted as additions. Binary files show `binary` for the changed line count.
+
+---
+
+### TPS Tracker
+
+Location: `extensions/tps-tracker.ts`
+
+Shows live tokens-per-second in the footer while the assistant streams. At the end of each agent run, it posts a notification with final output tokens and streaming time.
+
+Live values use provider usage when available. Before final usage lands, the extension estimates output tokens from streamed characters.
+
+---
+
+### Usage Analytics
+
+Location: `extensions/usage.ts`
+
+Run `/usage` to parse local Pi and Codex CLI session files and show a Markdown usage report below the editor.
+
+The report covers the last 1, 7, 30, and 90 days. Each window groups by source and model, with turns, input tokens, output tokens, cached input tokens, total tokens, and estimated price. Pricing comes from `models.dev` when a model match is available. Unknown rates are priced as `$0` and listed in the notes.
+
+Read paths:
+
+- `~/.pi/agent/sessions/**/*.jsonl`
+- `~/.codex/sessions/**/*.jsonl`
+- `~/.codex/archived_sessions/**/*.jsonl`
+
+The extension reads session JSONL files locally and only displays aggregate usage data.
 
 ---
 

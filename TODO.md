@@ -3,10 +3,19 @@
 ## In Progress
 
 - **feat(pi): louder permission prompts** — banner header (`━━━ 🔔 PERMISSION REQUIRED ━━━`) prepended to every prompt title plus a warning-level `notify` fired immediately before each `ui.select`. Applied to both steps of `twoStepPrompt` and to `denyPrompt`. Needs manual smoke test.
+- [ ] Add Pi analytics and git helper extensions
+  - [x] Implement `lg.ts` as a scripted git summary command with `--staged` and `--all` modes
+  - [x] Implement `tps-tracker.ts` with live footer status and final notification
+  - [x] Implement `usage.ts` as a local Pi and Codex usage parser with a Markdown widget report
+  - [x] Update Pi docs with the new commands and behavior
+  - [ ] Smoke test in Pi with `/reload`, `/lg`, `/lg --staged`, `/lg --all`, and `/usage`
 
 ## Up Next
 
 ## Backlog
+
+- [ ] Extend `/usage` with cached pricing, JSON export, per-project filtering, and trend deltas
+- [ ] Consider a richer `/usage` table renderer if the widget output is too dense
 
 ## Done
 
