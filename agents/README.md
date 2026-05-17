@@ -142,6 +142,7 @@ stow -R agents # restow after changes
 - **technical-writing-style**: casual-professional tone guide; anti-AI-slop
 - **commit-message-writer**: Conventional Commits format with a casual tone
 - **todo-manager**: creates and manages TODO.md files
+- **project-issue-note**: creates and updates Markdown project, issue, or feature notes with YAML frontmatter for repo-local tracking
 
 ### Meta
 
