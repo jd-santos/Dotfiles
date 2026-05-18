@@ -22,16 +22,11 @@ Personal Pi configuration with extensions for write gating, auto-formatting, cos
 
 ## Settings
 
-Default provider: `openai-codex`. Default model: `gpt-5.4`.
+`defaultProvider` and `defaultModel` are machine-specific and will differ across machines. Don't change these fields in a commit just because they drifted. Update locally after pulling.
 
-Scoped model cycle (`Ctrl+P`) comes from `enabledModels` in `settings.json`:
+Scoped model cycle (`Ctrl+P`) comes from `enabledModels` in `settings.json`.
 
-- `openai-codex/gpt-5.5`
-- `openai-codex/gpt-5.4`
-- `openrouter/deepseek/deepseek-v4-pro`
-- `openrouter/deepseek/deepseek-v4-flash`
-
-Other settings: Dracula theme, thinking level high, thinking block visible on output, quiet startup, `pi-mcp-adapter` and `pi-lens` packages loaded, skills path `~/.agents/skills`.
+Other settings: Dracula theme, thinking level medium, thinking block visible on output, quiet startup, `pi-mcp-adapter` and `pi-lens` packages loaded, skills path `~/.agents/skills`.
 
 ### Changing models
 
@@ -41,8 +36,6 @@ Other settings: Dracula theme, thinking level high, thinking block visible on ou
 - Use `/scoped-models` to toggle the scoped list interactively.
 
 If Pi opens on a different model during a resumed session, that session's restored model wins for that session. Start a fresh session with `/new` or `pi --no-session` to use the configured default.
-
-> **`defaultProvider` and `defaultModel` are machine-specific.** Different machines intentionally use different providers to avoid mixing home and work API keys. Do not change these fields in a commit just because they drifted — leave them set to whatever is correct for the machine you last worked on, and update locally after pulling.
 
 ## Extensions
 

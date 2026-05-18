@@ -16,7 +16,7 @@ Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). E
 
 Built on [LazyVim](https://lazyvim.github.io/) with `lazy.nvim` for plugin management.
 
-- See [Neovim Documentation](docs/neovim.md) for configuration details and keybindings
+- See [Neovim README](nvim/.config/nvim/README.md) for file structure and keybindings
 
 ### Git (`git`)
 
@@ -60,6 +60,7 @@ pgcli postgresql://localhost/mydb
 ```
 
 **Environment Variables:**
+
 - `PGHOST` - Database host (default: localhost)
 - `PGPORT` - Database port (default: 5432)
 - `PGUSER` - Username
@@ -69,14 +70,6 @@ pgcli postgresql://localhost/mydb
 ### Starship (`starship.toml`)
 
 Prompt using Starship with Nerd Font icons.
-
-### Claude Skills (`claude`)
-
-Reusable instruction sets for Claude Code:
-
-- **Skills System:** Domain-specific expertise modules for specialized tasks
-- **Custom Workflows:** Processes for code review, API design, testing, and more
-- See [Claude Skills README](claude/README.md) for documentation
 
 ### OpenCode (`opencode`)
 
@@ -89,13 +82,10 @@ Configuration for [OpenCode](https://opencode.ai/), an AI coding assistant:
 
 Configuration for [pi](https://pi.dev/), a terminal-based coding agent.
 
-- **`settings.json`**: provider, default model, enabled models (including codex, kimi-k2.6, glm-5.1), packages, skills path
+- **`settings.json`**: provider, model, enabled models, packages, skills path
 - **`AGENTS.md`**: global agent instructions (Build Mode workflow, secrets protection, formatting rules)
-- **`extensions/permission-gate.ts`**: write confirmation + `/readonly` toggle; sensitive file access always blocked
-- **`extensions/format-on-save.ts`**: auto-format on write (Prettier, Ruff, gofmt, gdformat)
-- **`extensions/cost-tracker.ts`**: `/costs` command for session token usage and spend
-- **`extensions/ui-read-and-shortcuts.ts`**: read tool preview (5 lines, expandable) and slash command keybinding hints in autocomplete
-- **`themes/dracula.json`**: Dracula community theme, set as default
+- **Extensions**: permission gate, format-on-save, cost tracker, git summary, TPS tracker, usage analytics, UI tweaks
+- **`themes/dracula.json`**: Dracula community theme
 - **`prompts/plan.md`**: `/plan` template for two-round planning (clarify, then propose)
 - **`.config/mcp/mcp.json`**: MCP servers (Brave Search, Svelte)
 
@@ -143,10 +133,10 @@ Custom keybindings on top of [LazyVim defaults](https://www.lazyvim.org/keymaps)
 
 ## Changes
 
-| Date       | Change                                                  |
-| ---------- | ------------------------------------------------------- |
+| Date       | Change                                                                         |
+| ---------- | ------------------------------------------------------------------------------ |
 | 2026-05-07 | Added `ui-read-and-shortcuts` Pi extension (read preview, slash command hints) |
-| 2026-05-04 | Added codex, kimi-k2.6, glm-5.1 to Pi enabled models                          |
+| 2026-05-04 | Updated Pi enabled models                                                      |
 | 2026-05-03 | Added Build Mode workflow, Dracula theme, and `/plan` template to Pi           |
 | 2026-04-30 | Fixed prompt lag from stow misconfig and pyenv shim; added `command_timeout`   |
 | 2026-04-22 | Added gcloud SDK PATH sourcing to zsh                                          |
@@ -277,6 +267,6 @@ See the [GNU Stow Manual](https://www.gnu.org/software/stow/manual/) for more.
 - `pgcli/`: PostgreSQL CLI (pgcli) configuration
 - `pi/`: Pi coding agent configuration
 - `starship/`: Starship prompt configuration
-- `vim/`: Legacy Vim configuration
+- `lint/`: Markdown lint configuration
 - `zed/`: Zed editor configuration
 - `zsh/`: Zsh shell configuration
