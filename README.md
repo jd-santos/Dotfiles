@@ -2,98 +2,23 @@
 
 Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). Each top-level directory maps to `$HOME` when stowed.
 
-## Highlights
+## Packages
 
-### Zsh (`.zshrc`)
-
-- **Aliases:** Quick navigation with `..` and `...`, enhanced `ls` commands (`lt` for sorting by date, `lk` for sorting by size), and process management aliases like `memHogsTop`
-- **`extract`:** Unpacks almost any archive type
-- **`cdf`:** `cd` into your frontmost Finder window
-- **gcloud SDK:** Sourced from Homebrew if installed (`google-cloud-sdk`)
-- See [Aliases & Functions Reference](zsh/ALIASES_AND_FUNCTIONS.md) for the complete list
-
-### Neovim (`nvim`)
-
-Built on [LazyVim](https://lazyvim.github.io/) with `lazy.nvim` for plugin management.
-
-- See [Neovim README](nvim/.config/nvim/README.md) for file structure and keybindings
-
-### Git (`git`)
-
-- **Global gitignore:** OS files (`.DS_Store`, `Thumbs.db`), editor files (Vim swaps, VSCode, JetBrains), secrets (`.env*`, keys, credentials), and database CLI history
-- **Git LFS:** Pre-configured
-- **Default branch:** `main`
-- **Local overrides:** `~/.gitconfig.local` for machine-specific settings (SSH keys, work URLs)
-
-The gitignore applies globally across all repositories.
-
-**Setup:**
-
-```bash
-stow git  # Symlinks .gitconfig and .gitignore to ~/
-cp git/.gitconfig.local.example ~/.gitconfig.local  # Optional: machine-specific settings
-```
-
-### pgcli (`pgcli`)
-
-PostgreSQL CLI with syntax highlighting, auto-completion, and vi/emacs editor mode.
-
-- Colors, table format, and pager preferences configured
-- Context-aware auto-completion, multi-line queries, destructive warnings enabled
-- Passwords stored in macOS Keychain/1Password via keyring integration
-- Connect using environment variables or a connection string
-
-**Setup:**
-
-```bash
-stow pgcli  # Symlinks config to ~/.config/pgcli/
-
-# Connect using environment variables:
-export PGHOST=localhost
-export PGPORT=5432
-export PGUSER=myuser
-export PGDATABASE=mydb
-pgcli  # Connects using above env vars
-
-# Or use a connection string:
-pgcli postgresql://localhost/mydb
-```
-
-**Environment Variables:**
-
-- `PGHOST` - Database host (default: localhost)
-- `PGPORT` - Database port (default: 5432)
-- `PGUSER` - Username
-- `PGDATABASE` - Database name
-- `PGPASSWORD` - Password (or use keyring for secure storage)
-
-### Starship (`starship.toml`)
-
-Prompt using Starship with Nerd Font icons.
-
-### OpenCode (`opencode`)
-
-Configuration for [OpenCode](https://opencode.ai/), an AI coding assistant:
-
-- **Base config:** Model settings, MCP servers, formatters, permissions
-- **Custom agents:** Plan, build, ask modes with different capabilities
-
-### Pi (`pi`)
-
-Configuration for [pi](https://pi.dev/), a terminal-based coding agent.
-
-- **`settings.json`**: provider, model, enabled models, packages, skills path
-- **`AGENTS.md`**: global agent instructions (Build Mode workflow, secrets protection, formatting rules)
-- **Extensions**: permission gate, format-on-save, cost tracker, git summary, TPS tracker, usage analytics, UI tweaks
-- **`themes/dracula.json`**: Dracula community theme
-- **`prompts/plan.md`**: `/plan` template for two-round planning (clarify, then propose)
-- **`.config/mcp/mcp.json`**: MCP servers (Brave Search, Svelte)
-
-**Not tracked:** `auth.json` (credentials), `sessions/` (chat history), `bin/` (downloaded helpers). Excluded via `git/.gitignore`.
-
-**Setup:** `stow pi` (folds into `~/.pi/agent/`, leaving secrets and runtime state untouched)
-
-See [Pi Documentation](pi/README.md) for details on each extension, the `/plan` template, and AGENTS.md.
+| Package | Description |
+|---|---|
+| [`agents`](agents/README.md) | AI agent skills ([Agent Skills](https://agentskills.io) standard) |
+| `fzf` | [fzf](https://github.com/junegunn/fzf) setup (PATH and shell integration) |
+| `ghostty` | [Ghostty](https://ghostty.org) terminal (Dracula theme, Nerd Font icons) |
+| `git` | Git config, global gitignore, LFS, [`~/.gitconfig.local`](git/.gitconfig.local.example) for machine-specific overrides |
+| `lint` | Markdown lint rules (`.markdownlint.jsonc`) |
+| [`nvim`](nvim/.config/nvim/README.md) | Neovim (LazyVim, fzf-lua, tokyonight) |
+| `opencode` | [OpenCode](https://opencode.ai/) AI assistant config |
+| [`pgcli`](pgcli/README.md) | [pgcli](https://www.pgcli.com/) PostgreSQL CLI (auto-completion, keyring, env var connection) |
+| [`pi`](pi/README.md) | [Pi](https://pi.dev/) coding agent (extensions, Dracula theme, `/plan` template, MCP servers) |
+| `starship` | [Starship](https://starship.rs/) prompt with Nerd Font icons |
+| `tmux` | Tmux (backtick prefix, vim-style navigation, nested session support) |
+| `zed` | [Zed](https://zed.dev/) editor settings |
+| [`zsh`](zsh/ALIASES_AND_FUNCTIONS.md) | Zsh (aliases, functions, `extract`, `cdf`, gcloud SDK) |
 
 ## Keyboard Shortcuts
 
@@ -255,18 +180,3 @@ sudo apt install stow       # Ubuntu/Debian
 
 See the [GNU Stow Manual](https://www.gnu.org/software/stow/manual/) for more.
 
-## Structure
-
-- `agents/`: AI agent skills (Agent Skills standard)
-- `docs/`: Additional documentation
-- `fzf/`: fzf fuzzy finder configuration
-- `ghostty/`: Ghostty terminal emulator configuration
-- `git/`: Git configuration and global gitignore
-- `nvim/`: Neovim configuration (LazyVim-based)
-- `opencode/`: OpenCode AI assistant configuration
-- `pgcli/`: PostgreSQL CLI (pgcli) configuration
-- `pi/`: Pi coding agent configuration
-- `starship/`: Starship prompt configuration
-- `lint/`: Markdown lint configuration
-- `zed/`: Zed editor configuration
-- `zsh/`: Zsh shell configuration
