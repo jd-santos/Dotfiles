@@ -4,21 +4,21 @@ Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). E
 
 ## Packages
 
-| Package | Description |
-|---|---|
-| [`agents`](agents/README.md) | AI agent skills ([Agent Skills](https://agentskills.io) standard) |
-| `fzf` | [fzf](https://github.com/junegunn/fzf) setup (PATH and shell integration) |
-| `ghostty` | [Ghostty](https://ghostty.org) terminal (Dracula theme, Nerd Font icons) |
-| `git` | Git config, global gitignore, LFS, [`~/.gitconfig.local`](git/.gitconfig.local.example) for machine-specific overrides |
-| `lint` | Markdown lint rules (`.markdownlint.jsonc`) |
-| [`nvim`](nvim/.config/nvim/README.md) | Neovim (LazyVim, fzf-lua, tokyonight) |
-| `opencode` | [OpenCode](https://opencode.ai/) AI assistant config |
-| [`pgcli`](pgcli/README.md) | [pgcli](https://www.pgcli.com/) PostgreSQL CLI (auto-completion, keyring, env var connection) |
-| [`pi`](pi/README.md) | [Pi](https://pi.dev/) coding agent (extensions, Dracula theme, `/plan` template, MCP servers) |
-| `starship` | [Starship](https://starship.rs/) prompt with Nerd Font icons |
-| `tmux` | Tmux (backtick prefix, vim-style navigation, nested session support) |
-| `zed` | [Zed](https://zed.dev/) editor settings |
-| [`zsh`](zsh/ALIASES_AND_FUNCTIONS.md) | Zsh (aliases, functions, `extract`, `cdf`, gcloud SDK) |
+| Package                               | Description                                                                                                            |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| [`agents`](agents/README.md)          | AI agent skills ([Agent Skills](https://agentskills.io) standard)                                                      |
+| `fzf`                                 | [fzf](https://github.com/junegunn/fzf) setup (PATH and shell integration)                                              |
+| `ghostty`                             | [Ghostty](https://ghostty.org) terminal (Dracula theme, Nerd Font icons)                                               |
+| `git`                                 | Git config, global gitignore, LFS, [`~/.gitconfig.local`](git/.gitconfig.local.example) for machine-specific overrides |
+| `lint`                                | Markdown lint rules (`.markdownlint.jsonc`)                                                                            |
+| [`nvim`](nvim/.config/nvim/README.md) | Neovim (LazyVim, fzf-lua, tokyonight)                                                                                  |
+| `opencode`                            | [OpenCode](https://opencode.ai/) AI assistant config                                                                   |
+| [`pgcli`](pgcli/README.md)            | [pgcli](https://www.pgcli.com/) PostgreSQL CLI (auto-completion, keyring, env var connection)                          |
+| [`pi`](pi/README.md)                  | [Pi](https://pi.dev/) coding agent (extensions, Dracula theme, `/plan` template, MCP servers)                          |
+| `starship`                            | [Starship](https://starship.rs/) prompt with Nerd Font icons                                                           |
+| `tmux`                                | Tmux (backtick prefix, vim-style navigation, nested session support)                                                   |
+| `zed`                                 | [Zed](https://zed.dev/) editor settings                                                                                |
+| [`zsh`](zsh/ALIASES_AND_FUNCTIONS.md) | Zsh (aliases, functions, `extract`, `cdf`, gcloud SDK)                                                                 |
 
 ## Keyboard Shortcuts
 
@@ -179,4 +179,3 @@ sudo apt install stow       # Ubuntu/Debian
 ```
 
 See the [GNU Stow Manual](https://www.gnu.org/software/stow/manual/) for more.
-
