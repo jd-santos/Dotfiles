@@ -6,7 +6,7 @@ Personal Pi configuration with extensions for write gating, auto-formatting, cos
 
 | File                                  | Purpose                                                                               |
 | ------------------------------------- | ------------------------------------------------------------------------------------- |
-| `settings.json`                       | Provider, model, theme, packages, skills path                                         |
+| `settings.base.json`                  | Shared settings (theme, packages, skills path, enabled models)                        |
 | `AGENTS.md`                           | Global agent instructions loaded each session                                         |
 | `extensions/permission-gate.ts`       | Interactive gate for writes and shell commands                                        |
 | `extensions/format-on-save.ts`        | Auto-format files after write/edit                                                    |
@@ -18,19 +18,19 @@ Personal Pi configuration with extensions for write gating, auto-formatting, cos
 | `themes/dracula.json`                 | Dracula community theme                                                               |
 | `prompts/plan.md`                     | `/plan` template for two-round planning                                               |
 
-**Not tracked:** `auth.json`, `sessions/`, `bin/` — excluded via the global `.gitignore`.
+**Not tracked:** `auth.json`, `sessions/`, `bin/`, `settings.json` (generated), `settings.local.json` (machine-specific overrides).
 
 ## Settings
 
-`defaultProvider` and `defaultModel` are machine-specific and will differ across machines. Don't change these fields in a commit just because they drifted. Update locally after pulling.
+Shared settings live in `settings.base.json` (tracked). Machine-specific overrides (provider, model) go in `settings.local.json` (not tracked). Run `merge-settings` after pulling to combine them into `settings.json`, which Pi actually reads.
 
-Scoped model cycle (`Ctrl+P`) comes from `enabledModels` in `settings.json`.
+Scoped model cycle (`Ctrl+P`) comes from `enabledModels` in `settings.base.json`.
 
 Other settings: Dracula theme, thinking level medium, thinking block visible on output, quiet startup, `pi-mcp-adapter` and `pi-lens` packages loaded, skills path `~/.agents/skills`.
 
 ### Changing models
 
-- Change the startup default with `defaultProvider` and `defaultModel` in `settings.json`.
+- Change shared model lists in `settings.base.json`, machine-specific defaults in `settings.local.json`.
 - Change the scoped `Ctrl+P` shortlist with `enabledModels`.
 - Use `/model` for the full selector.
 - Use `/scoped-models` to toggle the scoped list interactively.
@@ -186,7 +186,7 @@ The extension overrides the built-in `read` tool using Pi's exported `createRead
 
 Location: `themes/dracula.json`
 
-Dracula-based custom theme. Set as default via `"theme": "dracula"` in `settings.json`. User messages use a darker purple card so they stand out more clearly in conversation history. The theme file is committed here so it survives `stow` reinstalls without needing to re-download.
+Dracula-based custom theme. Set as default via `"theme": "dracula"` in `settings.base.json`. User messages use a darker purple card so they stand out more clearly in conversation history. The theme file is committed here so it survives `stow` reinstalls without needing to re-download.
 
 ## Prompts
 

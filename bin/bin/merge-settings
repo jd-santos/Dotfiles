@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# merge-settings — merge settings.base.json + settings.local.json → settings.json
+#
+# Run after pulling dotfiles to apply shared settings without overwriting
+# machine-specific overrides. Requires jq.
+#
+# Per-tool local override files (not tracked in dotfiles):
+#   ~/.config/zed/settings.local.json
+#   ~/.pi/agent/settings.local.json
+#
+# Keys in the local file win on conflict. All other base keys are kept.
+
+set -euo pipefail
+
+if ! command -v jq &>/dev/null; then
+  echo "Error: jq is required (brew install jq)" >&2
+  exit 1
+fi
+
+merge_json() {
+  local label="$1"
+  local base="$2"
+  local local_file="$3"
+  local output="$4"
+
+  if [[ ! -f "$base" ]]; then
+    echo "⚠  $label: base not found at $base, skipping"
+    return
+  fi
+
+  # Remove a stale symlink so the output is always a real file
+  [[ -L "$output" ]] && rm "$output"
+
+  if [[ -f "$local_file" ]]; then
+    jq -s '.[0] * .[1]' "$base" "$local_file" > "$output"
+    echo "✓  $label: merged base + local → settings.json"
+  else
+    cp "$base" "$output"
+    echo "✓  $label: no local override found, copied base → settings.json"
+  fi
+}
+
+merge_json "Zed" \
+  "$HOME/.config/zed/settings.base.json" \
+  "$HOME/.config/zed/settings.local.json" \
+  "$HOME/.config/zed/settings.json"
+
+merge_json "Pi" \
+  "$HOME/.pi/agent/settings.base.json" \
+  "$HOME/.pi/agent/settings.local.json" \
+  "$HOME/.pi/agent/settings.json"
