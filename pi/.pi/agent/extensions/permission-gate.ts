@@ -303,17 +303,78 @@ export default function (pi: ExtensionAPI) {
 
 	// ─── Two-step prompt ──────────────────────────────────────────────
 
-	// Loud banner prepended to every prompt title so it's obvious the agent
-	// is waiting on user input rather than continuing on its own.
-	const PROMPT_BANNER =
-		"━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
-		"🔔 PERMISSION REQUIRED\n" +
-		"━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+	const PERMISSION_WIDGET_ID = "permission-gate-alert";
+	const PERMISSION_BOX_WIDTH = 56;
+	let cmuxWarned = false;
 
-	function announce(ctx: ExtensionContext, message: string): void {
+	function boxLine(text: string): string {
+		return `│ ${text.slice(0, PERMISSION_BOX_WIDTH - 4).padEnd(PERMISSION_BOX_WIDTH - 4)} │`;
+	}
+
+	function permissionTitleBox(title: string): string {
+		const innerWidth = PERMISSION_BOX_WIDTH - 2;
+		const heading = " 🔔 Permission required 🔔 ";
+		const left = Math.floor((innerWidth - heading.length) / 2);
+		const right = innerWidth - heading.length - left;
+		return [
+			`╭${"─".repeat(left)}${heading}${"─".repeat(right)}╮`,
+			...title.split("\n").map(boxLine),
+			`╰${"─".repeat(innerWidth)}╯`,
+			"",
+		].join("\n");
+	}
+
+	function permissionWidgetLines(_toolName: string): string[] {
+		return [
+			"                 ▲ ▲ ▲",
+			"                 │ │ │",
+			"       Choose in the permission prompt above",
+		];
+	}
+
+	function showPermissionWidget(ctx: ExtensionContext, toolName: string): void {
+		ctx.ui.setWidget(PERMISSION_WIDGET_ID, permissionWidgetLines(toolName), {
+			placement: "belowEditor",
+		});
+	}
+
+	function clearPermissionWidget(ctx: ExtensionContext): void {
+		ctx.ui.setWidget(PERMISSION_WIDGET_ID, undefined);
+	}
+
+	async function runCmuxCommand(args: string[]): Promise<string | undefined> {
+		try {
+			const result = await pi.exec("cmux", args, { timeout: 2000 });
+			if (result.code === 0) return undefined;
+			return `${args[0]} exited ${result.code}${result.stderr ? `: ${String(result.stderr).trim()}` : ""}`;
+		} catch (error) {
+			return `${args[0]} failed: ${error instanceof Error ? error.message : String(error)}`;
+		}
+	}
+
+	async function alertCmux(ctx: ExtensionContext, body: string): Promise<void> {
+		const failures = (
+			await Promise.all([
+				runCmuxCommand(["notify", "--title", "pi", "--body", body]),
+				runCmuxCommand(["trigger-flash"]),
+			])
+		).filter(Boolean);
+
+		if (failures.length > 0 && !cmuxWarned) {
+			cmuxWarned = true;
+			ctx.ui.notify(`cmux alert failed: ${failures.join("; ")}`, "warning");
+		}
+	}
+
+	async function announce(
+		ctx: ExtensionContext,
+		toolName: string,
+	): Promise<void> {
 		// Warning level renders in the attention color and lingers above the
 		// editor, giving a second visual cue alongside the banner.
-		ctx.ui.notify(message, "warning");
+		ctx.ui.notify(`⚠️  Permission required: ${toolName}`, "warning");
+		showPermissionWidget(ctx, toolName);
+		await alertCmux(ctx, `Permission required: ${toolName}`);
 	}
 
 	async function twoStepPrompt(
@@ -325,7 +386,7 @@ export default function (pi: ExtensionAPI) {
 	): Promise<{ allow: boolean; rule?: PermissionRule; message?: string }> {
 		if (!ctx.hasUI) return { allow: true };
 
-		announce(ctx, `⚠️  Permission required: ${toolName}`);
+		await announce(ctx, toolName);
 
 		let message: string | undefined;
 
@@ -334,7 +395,7 @@ export default function (pi: ExtensionAPI) {
 				? `✏️  Edit note: “${message.length > 40 ? message.slice(0, 40) + "…" : message}”`
 				: "✏️  Add note…";
 
-			const primaryChoice = await ctx.ui.select(PROMPT_BANNER + title + "\n", [
+			const primaryChoice = await ctx.ui.select(permissionTitleBox(title), [
 				"✅  Allow this once",
 				"🔁  Always allow…",
 				"🚫  Deny",
@@ -351,7 +412,7 @@ export default function (pi: ExtensionAPI) {
 
 			if (primaryChoice === noteLabel) {
 				const input = await ctx.ui.input(
-					PROMPT_BANNER + "Note to model (optional)",
+					permissionTitleBox("Note to model (optional)"),
 					"denial reason, or guidance for the model…",
 				);
 				message = input || undefined;
@@ -409,7 +470,7 @@ export default function (pi: ExtensionAPI) {
 		});
 
 		const scopeChoice = await ctx.ui.select(
-			PROMPT_BANNER + "Scope for always allow:",
+			permissionTitleBox("Scope for always allow:"),
 			scopeOptions.map((o) => o.label),
 		);
 
@@ -461,10 +522,10 @@ export default function (pi: ExtensionAPI) {
 
 		scopeOptions.push(`🔧 This tool type (${toolName})`);
 
-		announce(ctx, `🚫 Denied: ${toolName} — choose deny scope`);
+		await announce(ctx, toolName);
 
 		const scopeChoice = await ctx.ui.select(
-			PROMPT_BANNER + "Scope for deny:",
+			permissionTitleBox("Scope for deny:"),
 			scopeOptions,
 		);
 
@@ -541,12 +602,14 @@ export default function (pi: ExtensionAPI) {
 
 			if (!result.allow) {
 				await denyPrompt(ctx, toolName, path);
+				clearPermissionWidget(ctx);
 				const reason = result.message
 					? `Blocked by user: ${result.message}`
 					: "Blocked by user.";
 				return { block: true, reason };
 			}
 
+			clearPermissionWidget(ctx);
 			if (result.message) {
 				pi.sendUserMessage(result.message, { deliverAs: "steer" });
 			}
@@ -619,12 +682,14 @@ export default function (pi: ExtensionAPI) {
 
 			if (!result.allow) {
 				await denyPrompt(ctx, toolName, undefined, patterns);
+				clearPermissionWidget(ctx);
 				const reason = result.message
 					? `Blocked by user: ${result.message}`
 					: "Blocked by user.";
 				return { block: true, reason };
 			}
 
+			clearPermissionWidget(ctx);
 			if (result.message) {
 				pi.sendUserMessage(result.message, { deliverAs: "steer" });
 			}

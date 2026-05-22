@@ -2,7 +2,6 @@
 
 ## In Progress
 
-- **feat(pi): louder permission prompts** — banner header (`━━━ 🔔 PERMISSION REQUIRED ━━━`) prepended to every prompt title plus a warning-level `notify` fired immediately before each `ui.select`. Applied to both steps of `twoStepPrompt` and to `denyPrompt`. Needs manual smoke test.
 - [ ] Add Pi analytics and git helper extensions
   - [x] Implement `lg.ts` as a scripted git summary command with `--staged` and `--all` modes
   - [x] Implement `tps-tracker.ts` with live footer status and final notification
@@ -19,6 +18,7 @@
 
 ## Done
 
+- [x] Add louder Pi permission prompts with cmux alerts and a pointer widget
 - [x] Expand Pi permission-gate auto-allow patterns for exploratory shell commands
 - [x] Add interactive tracked-skills add flow with multi-skill repo support
 - [x] Add tracked skills review-and-update script with manifest-driven sync
