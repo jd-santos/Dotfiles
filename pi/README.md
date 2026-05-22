@@ -1,6 +1,6 @@
 # Pi Agent Config
 
-Personal Pi configuration with extensions for write gating, auto-formatting, cost tracking, usage analytics, git summaries, and UI tweaks.
+Personal Pi configuration with extensions for write gating, auto-formatting, cost tracking, usage analytics, git summaries, footer layout, and UI tweaks.
 
 ## Files
 
@@ -12,9 +12,10 @@ Personal Pi configuration with extensions for write gating, auto-formatting, cos
 | `extensions/format-on-save.ts`        | Auto-format files after write/edit                                                    |
 | `extensions/cost-tracker.ts`          | Token and cost tracking (`/costs`)                                                    |
 | `extensions/lg.ts`                    | Scripted git change summary (`/lg`, `/lg --staged`, `/lg --all`)                      |
-| `extensions/tps-tracker.ts`           | Live tokens-per-second footer status and end-of-turn notification                     |
+| `extensions/tps-tracker.ts`           | Live tokens-per-second status and end-of-turn notification                            |
 | `extensions/usage.ts`                 | Pi and Codex CLI usage analytics (`/usage`)                                           |
 | `extensions/ui-read-and-shortcuts.ts` | Read previews, slash command keybinding hints, editor banner, and model source status |
+| `extensions/footer.ts`                | Central footer for location, model, tokens, MCP, permissions, and extension statuses  |
 | `themes/dracula.json`                 | Dracula community theme                                                               |
 | `prompts/plan.md`                     | `/plan` template for two-round planning                                               |
 
@@ -142,7 +143,7 @@ Untracked text files are counted as additions. Binary files show `binary` for th
 
 Location: `extensions/tps-tracker.ts`
 
-Shows live tokens-per-second in the footer while the assistant streams. At the end of each agent run, it posts a notification with final output tokens and streaming time.
+Publishes live tokens-per-second while the assistant streams. The central footer shows it only while active, then the extension posts a notification with final output tokens and streaming time.
 
 Live values use provider usage when available. Before final usage lands, the extension estimates output tokens from streamed characters.
 
@@ -166,6 +167,20 @@ The extension reads session JSONL files locally and only displays aggregate usag
 
 ---
 
+### Footer
+
+Location: `extensions/footer.ts`
+
+Replaces Pi's default footer with a three-line layout:
+
+- Line 1: working directory, git branch, and session name
+- Line 2: context usage and token/cost details (`◷ ctx` context/max plus auto-compaction, `↑` input, `↓` output, `R` cache read, `W` cache write)
+- Line 3: MCP, pi-lens/LSP, permission mode, active TPS, usage scan status, and other extension statuses
+
+MCP uses explicit labels so lazy or idle servers are clearer: `live` means currently connected, while `cache` means tools are known from metadata and can usually reconnect on demand.
+
+The footer reads statuses published by other extensions with `ctx.ui.setStatus()`, so those extensions keep their own logic while layout stays in one place.
+
 ### UI: Read Preview and Slash Shortcuts
 
 Location: `extensions/ui-read-and-shortcuts.ts`
@@ -176,7 +191,7 @@ Four interface tweaks:
 
 **Slash command hints.** Slash command autocomplete appends the bound keybinding next to commands that have one (for example `/model`, `/new`, `/fork`). Key text comes from the active keybinding config, so custom values from `~/.pi/agent/keybindings.json` show up automatically.
 
-**Editor banner.** The input editor gets a louder top border with a `YOU` label, plus a bottom border that shows the active model and whether it came from the default config, scoped cycling, manual selection, or session restore.
+**Editor banner.** The input editor gets a louder top border with a `YOU` label. The bottom border shows the active model, thinking level, provider, auth type (`sub` or `key`), and whether the model came from the default config, scoped cycling, manual selection, or session restore.
 
 **Restore hint.** If a resumed session restores an older model, Pi shows a notification so it's obvious why the configured default did not win.
 

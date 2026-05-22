@@ -14,7 +14,13 @@ import {
 	keyText,
 	type ReadToolDetails,
 } from "@mariozechner/pi-coding-agent";
-import { Box, type Component, Text } from "@mariozechner/pi-tui";
+import {
+	Box,
+	type Component,
+	Text,
+	truncateToWidth,
+	visibleWidth,
+} from "@mariozechner/pi-tui";
 
 declare const process: { cwd(): string };
 
@@ -95,8 +101,42 @@ function describeModelSource(source: ModelSource): string {
 	}
 }
 
-function formatModelBanner(modelLabel: string, source: ModelSource): string {
-	return ` model: ${modelLabel || "none"} · ${describeModelSource(source)} `;
+function compactModelName(label: string): string {
+	if (!label) return "none";
+	return label.split("/").at(-1) ?? label;
+}
+
+function formatModelBanner(
+	pi: ExtensionAPI,
+	ctx: any,
+	modelLabel: string,
+	source: ModelSource,
+	theme: ThemeLike,
+): string {
+	const sourceLabel =
+		source === "default" ? "" : `${describeModelSource(source)} `;
+	const thinking = pi.getThinkingLevel?.();
+	const provider = ctx.model?.provider;
+	const auth =
+		ctx.modelRegistry?.isUsingOAuth?.(ctx.model) === true ? "sub" : "key";
+	const modelColor = source === "restore" ? "warning" : "accent";
+	const thinkingColor =
+		thinking === "off"
+			? "dim"
+			: thinking === "high" || thinking === "xhigh"
+				? "warning"
+				: "muted";
+	const providerColor = auth === "sub" ? "success" : "muted";
+	const parts = [
+		`${theme.fg("dim", "model: ")}${theme.fg(modelColor, `${sourceLabel}${compactModelName(modelLabel)}`)}`,
+		thinking
+			? `${theme.fg("dim", "think: ")}${theme.fg(thinkingColor, thinking)}`
+			: undefined,
+		provider
+			? `${theme.fg("dim", "via ")}${theme.fg(providerColor, `${provider} (${auth})`)}`
+			: undefined,
+	].filter(Boolean);
+	return ` ${parts.join(theme.fg("dim", " · "))} `;
 }
 
 class EmptyComponent implements Component {
@@ -263,10 +303,18 @@ export default function (pi: ExtensionAPI) {
 
 	class ConversationEditor extends CustomEditor {
 		private uiTheme: ThemeLike;
+		private sessionCtx: any;
 
-		constructor(tui: any, theme: any, keybindings: any, uiTheme: ThemeLike) {
+		constructor(
+			tui: any,
+			theme: any,
+			keybindings: any,
+			uiTheme: ThemeLike,
+			sessionCtx: any,
+		) {
 			super(tui, theme, keybindings, { paddingX: 0 });
 			this.uiTheme = uiTheme;
+			this.sessionCtx = sessionCtx;
 			activeTui = tui;
 		}
 
@@ -281,16 +329,21 @@ export default function (pi: ExtensionAPI) {
 				"─".repeat(topFill),
 			)}${borderColor("─")}`;
 
-			const bottomLabel = truncatePlain(
-				formatModelBanner(activeModelLabel, activeModelSource),
+			const bottomLabel = truncateToWidth(
+				formatModelBanner(
+					pi,
+					this.sessionCtx,
+					activeModelLabel,
+					activeModelSource,
+					this.uiTheme,
+				),
 				Math.max(0, width - 2),
+				"...",
 			);
-			const bottomFill = Math.max(0, width - 2 - bottomLabel.length);
-			const bottomColor = activeModelSource === "restore" ? "warning" : "muted";
-			lines[lines.length - 1] =
-				`${borderColor("─")}${this.uiTheme.fg(bottomColor, bottomLabel)}${borderColor(
-					"─".repeat(bottomFill),
-				)}${borderColor("─")}`;
+			const bottomFill = Math.max(0, width - 2 - visibleWidth(bottomLabel));
+			lines[lines.length - 1] = `${borderColor("─")}${bottomLabel}${borderColor(
+				"─".repeat(bottomFill),
+			)}${borderColor("─")}`;
 			return lines;
 		}
 	}
@@ -331,7 +384,7 @@ export default function (pi: ExtensionAPI) {
 		syncModelState(ctx);
 		ctx.ui.setEditorComponent(
 			(tui, theme, keybindings) =>
-				new ConversationEditor(tui, theme, keybindings, ctx.ui.theme),
+				new ConversationEditor(tui, theme, keybindings, ctx.ui.theme, ctx),
 		);
 		ctx.ui.addAutocompleteProvider((current) => ({
 			async getSuggestions(lines, cursorLine, cursorCol, options) {

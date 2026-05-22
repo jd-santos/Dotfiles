@@ -18,6 +18,8 @@
 
 ## Done
 
+- [x] Move Pi model status into the input editor banner and trim the footer to three lines
+- [x] Centralize Pi footer layout and status design (custom footer, MCP live/cache labels, docs)
 - [x] Add louder Pi permission prompts with cmux alerts and a pointer widget
 - [x] Expand Pi permission-gate auto-allow patterns for exploratory shell commands
 - [x] Add interactive tracked-skills add flow with multi-skill repo support
