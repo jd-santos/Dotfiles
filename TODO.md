@@ -11,6 +11,8 @@
 
 ## Up Next
 
+- [ ] Revisit `commit-message-writer` skill for progressive disclosure and tone
+
 ## Backlog
 
 - [ ] Extend `/usage` with cached pricing, JSON export, per-project filtering, and trend deltas
