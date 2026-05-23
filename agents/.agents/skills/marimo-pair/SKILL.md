@@ -254,10 +254,10 @@ Read [rich-representations.md](reference/rich-representations.md) before wiring 
 
 ## Cross-Reference
 
-- **marimo** — hub skill with core concepts and reactive model
-- **marimo-notebook** — cell model, editor shortcuts, execution control
-- **marimo-data** — UI widgets, dataframes, SQL
-- **marimo-app** — deploying notebooks as apps and scripts
+- **marimo**: hub skill with core concepts and routing
+- **marimo/reference/notebook.md**: cell model, editor shortcuts, execution control
+- **marimo/reference/data.md**: UI widgets, dataframes, SQL, plotting
+- **marimo/reference/deploy.md**: apps, exports, scripts, and deployment
 
 ### Bundled references
 

@@ -18,6 +18,7 @@
 
 ## Done
 
+- [x] Consolidate marimo skills to two entries (hub references plus active-kernel pair skill)
 - [x] Move Pi model status into the input editor banner and trim the footer to three lines
 - [x] Centralize Pi footer layout and status design (custom footer, MCP live/cache labels, docs)
 - [x] Add louder Pi permission prompts with cmux alerts and a pointer widget

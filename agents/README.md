@@ -120,11 +120,8 @@ stow -R agents # restow after changes
 
 ### Marimo (reactive Python notebooks)
 
-- **marimo**: hub skill; reactive model basics, routing table to sub-skills
-  - **marimo-pair**: live kernel access; discover servers, execute code, create/edit cells programmatically via `code_mode`; includes bundled `scripts/` and `reference/`
-  - **marimo-notebook**: editor workflow; cell DAG, disabling cells, `mo.stop`, lazy mode, keyboard shortcuts
-  - **marimo-data**: interactive data; `mo.ui` widgets, dataframe viewer, reactive filtering, SQL cells, Altair/Plotly
-  - **marimo-app**: deployment; `marimo run`, `marimo export`, WASM, scripts, CLI args, scheduling
+- **marimo**: hub skill; reactive model basics, routing, and references for notebook editing, interactive data, SQL, apps, exports, and deployment
+- **marimo-pair**: live kernel access; discover servers, execute code, create/edit cells programmatically via `code_mode`; includes bundled `scripts/` and `reference/`
 
 ### Learning
 
