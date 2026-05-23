@@ -175,7 +175,10 @@ Replaces Pi's default footer with a three-line layout:
 
 - Line 1: working directory, git branch, and session name
 - Line 2: context usage and token/cost details (`◷ ctx` context/max plus auto-compaction, `↑` input, `↓` output, `R` cache read, `W` cache write)
+- Separator: dim border line between core footer data and plugin output
 - Line 3: MCP, pi-lens/LSP, permission mode, active TPS, usage scan status, and other extension statuses
+
+Pi renders all footer content in one footer slot, so plugin output cannot move below it. The separator keeps extension statuses visually distinct from the core location and token lines.
 
 MCP uses explicit labels so lazy or idle servers are clearer: `live` means currently connected, while `cache` means tools are known from metadata and can usually reconnect on demand.
 

@@ -328,6 +328,10 @@ function formatPermissionStatus(
 	return field(theme, "perm", color, parts.join(" "));
 }
 
+function renderDivider(width: number, theme: ThemeLike): string {
+	return theme.fg("dim", "─".repeat(Math.max(0, width)));
+}
+
 function renderSegments(
 	parts: Array<string | undefined>,
 	width: number,
@@ -423,7 +427,11 @@ export default function (pi: ExtensionAPI) {
 						theme,
 					);
 
-					return [locationLine, tokenLine, extensionLine].filter(Boolean);
+					const lines = [locationLine, tokenLine].filter(Boolean);
+					if (extensionLine) {
+						lines.push(renderDivider(width, theme), extensionLine);
+					}
+					return lines;
 				},
 			};
 		});
