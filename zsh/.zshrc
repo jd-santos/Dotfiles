@@ -59,6 +59,9 @@ export PATH="$PATH:$HOME/.dotnet/tools"
 # LM Studio
 export PATH="$PATH:$HOME/.lmstudio/bin"
 
+# User scripts
+export PATH="$PATH:$HOME/bin"
+
 # Source .env-local if it exists
 if [ -f ~/.env-local ]; then
   source ~/.env-local
@@ -159,6 +162,7 @@ alias c='clear' # c: Clear terminal display
 alias ducks='du -cks *|sort -rn|head -11' # ducks: List top ten largest files/directories in current directory
 alias path='echo -e ${PATH//:/\\n}' # path: Echo all executable Paths
 alias szsh='source ~/.zshrc' # szsh: Reload .zshrc configuration
+alias dsync='merge-settings'  # dsync: Re-merge dotfile base + local settings after a pull
 
 # ┌───────────────────────────────────────────────────────────────────┐
 # │ Functions                                                         │

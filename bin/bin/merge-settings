@@ -31,11 +31,15 @@ merge_json() {
   # Remove a stale symlink so the output is always a real file
   [[ -L "$output" ]] && rm "$output"
 
+  # Strip // line comments (used by Zed) before passing to jq
   if [[ -f "$local_file" ]]; then
-    jq -s '.[0] * .[1]' "$base" "$local_file" > "$output"
+    jq -s '.[0] * .[1]' \
+      <(grep -v '^[[:space:]]*//' "$base") \
+      <(grep -v '^[[:space:]]*//' "$local_file") \
+      > "$output"
     echo "✓  $label: merged base + local → settings.json"
   else
-    cp "$base" "$output"
+    grep -v '^[[:space:]]*//' "$base" | jq . > "$output"
     echo "✓  $label: no local override found, copied base → settings.json"
   fi
 }
