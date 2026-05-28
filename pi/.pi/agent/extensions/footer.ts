@@ -366,6 +366,7 @@ function formatUnknownStatuses(
 		"tps",
 		"usage",
 		"permission-gate",
+		"conv-summary",
 	]);
 	const result: string[] = [];
 	for (const [id, value] of statuses.entries()) {
@@ -393,13 +394,16 @@ export default function (pi: ExtensionAPI) {
 					const usageTotals = getUsageTotals(ctx);
 					const sessionName = pi.getSessionName?.();
 
-					const locationLine = renderSegments(
+					const convSummary = statuses.get("conv-summary");
+						const locationLine = renderSegments(
 						[
 							value(theme, "accent", formatCwd(ctx.cwd)),
 							branch ? field(theme, "git", "success", branch) : undefined,
-							sessionName
-								? field(theme, "session", "dim", sessionName)
-								: undefined,
+							convSummary
+								? theme.fg("accent", theme.bold(`» ${stripAnsi(convSummary).trim()}`))
+								: sessionName
+									? field(theme, "session", "dim", sessionName)
+									: undefined,
 						],
 						width,
 						theme,
