@@ -18,6 +18,7 @@ Personal Pi configuration with extensions for write gating, auto-formatting, cos
 | `extensions/promptfoo-export.ts`      | Promptfoo eval stub export for the active Pi branch (`/promptfoo-export`)             |
 | `extensions/ui-read-and-shortcuts.ts` | Read previews, slash command keybinding hints, editor banner, and model source status |
 | `extensions/footer.ts`                | Central footer for location, model, tokens, MCP, permissions, and extension statuses  |
+| `themes/catppuccin-*.json`            | Catppuccin Latte, Frappé, Macchiato, and Mocha themes                                 |
 | `themes/dracula.json`                 | Dracula community theme                                                               |
 | `prompts/plan.md`                     | `/plan` template for two-round planning                                               |
 
@@ -29,7 +30,7 @@ Shared settings live in `settings.base.json` (tracked). Machine-specific overrid
 
 Scoped model cycle (`Ctrl+P`) comes from `enabledModels` in `settings.base.json`.
 
-Other settings: Dracula theme, thinking level medium, thinking block visible on output, quiet startup, `pi-mcp-adapter` and `pi-lens` packages loaded, skills path `~/.agents/skills`.
+Other settings: Catppuccin Mocha theme, thinking level medium, thinking block visible on output, quiet startup, `pi-mcp-adapter` and `pi-lens` packages loaded, skills path `~/.agents/skills`.
 
 ### Changing models
 
@@ -250,9 +251,11 @@ The extension overrides the built-in `read` tool using Pi's exported `createRead
 
 ## Theme
 
-Location: `themes/dracula.json`
+Locations: `themes/catppuccin-*.json`, `themes/dracula.json`
 
-Dracula-based custom theme. Set as default via `"theme": "dracula"` in `settings.base.json`. User messages use a darker purple card so they stand out more clearly in conversation history. The theme file is committed here so it survives `stow` reinstalls without needing to re-download.
+Catppuccin Latte, Frappé, Macchiato, and Mocha themes are available. Mocha is the default via `"theme": "catppuccin-mocha"` in `settings.base.json`.
+
+The Dracula theme is still available as `dracula`.
 
 ## Prompts
 
