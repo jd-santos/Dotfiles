@@ -15,6 +15,7 @@ Personal Pi configuration with extensions for write gating, auto-formatting, cos
 | `extensions/tps-tracker.ts`           | Live tokens-per-second status and end-of-turn notification                            |
 | `extensions/usage.ts`                 | Pi and Codex CLI usage analytics (`/usage`)                                           |
 | `extensions/conversation-summary.ts`  | Live short conversation summary for the footer and session name (`/summary`)           |
+| `extensions/promptfoo-export.ts`      | Promptfoo eval stub export for the active Pi branch (`/promptfoo-export`)             |
 | `extensions/ui-read-and-shortcuts.ts` | Read previews, slash command keybinding hints, editor banner, and model source status |
 | `extensions/footer.ts`                | Central footer for location, model, tokens, MCP, permissions, and extension statuses  |
 | `themes/dracula.json`                 | Dracula community theme                                                               |
@@ -165,6 +166,31 @@ Read paths:
 - `~/.codex/archived_sessions/**/*.jsonl`
 
 The extension reads session JSONL files locally and only displays aggregate usage data.
+
+---
+
+### Promptfoo Export
+
+Location: `extensions/promptfoo-export.ts`
+
+Run `/promptfoo-export [name]` to export the active Pi branch as a promptfoo evaluation stub.
+
+Exports are written outside the dotfiles repo:
+
+```text
+~/.pi/agent/evals/promptfoo/<name>-<timestamp>/
+```
+
+Each export includes:
+
+- `conversation.json`: normalized message records
+- `conversation.md`: Markdown transcript
+- `original-user-request.txt`: first user message
+- `judge-prompt.txt`: starter LLM-as-judge prompt
+- `promptfooconfig.json`: starter promptfoo config
+- `README.md`: local run notes
+
+These exports can contain private prompts, local paths, tool outputs, and model responses. Redact before sharing.
 
 ---
 
