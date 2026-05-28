@@ -14,6 +14,7 @@ Personal Pi configuration with extensions for write gating, auto-formatting, cos
 | `extensions/lg.ts`                    | Scripted git change summary (`/lg`, `/lg --staged`, `/lg --all`)                      |
 | `extensions/tps-tracker.ts`           | Live tokens-per-second status and end-of-turn notification                            |
 | `extensions/usage.ts`                 | Pi and Codex CLI usage analytics (`/usage`)                                           |
+| `extensions/conversation-summary.ts`  | Live short conversation summary for the footer and session name (`/summary`)           |
 | `extensions/ui-read-and-shortcuts.ts` | Read previews, slash command keybinding hints, editor banner, and model source status |
 | `extensions/footer.ts`                | Central footer for location, model, tokens, MCP, permissions, and extension statuses  |
 | `themes/dracula.json`                 | Dracula community theme                                                               |
@@ -164,6 +165,27 @@ Read paths:
 - `~/.codex/archived_sessions/**/*.jsonl`
 
 The extension reads session JSONL files locally and only displays aggregate usage data.
+
+---
+
+### Conversation Summary
+
+Location: `extensions/conversation-summary.ts`
+
+Generates a short 8-15 word summary for the active interactive session. The summary appears in the footer and becomes the session name.
+
+Guardrails:
+
+- Runs only when UI is available, so print-mode Pi runs cannot trigger it
+- Calls `anthropic/claude-haiku-4-5` directly with Pi's `complete()` helper instead of spawning another `pi` process
+- Disables thinking for the summary request
+- Does not fall back to the active conversation model if Haiku is unavailable
+- Runs after `agent_end`, at most once per user request
+- Skips updates until at least 2 new assistant messages and 60 seconds have passed
+- Stops automatic updates after 25 summaries in one session
+- Sends only a bounded sketch of recent user and assistant text to the summary model
+
+Use `/summary` to show the current value, `/summary <text>` to set it manually, or `/summary clear` to reset it.
 
 ---
 

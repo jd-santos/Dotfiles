@@ -20,6 +20,7 @@
 
 ## Done
 
+- [x] Rewrite Pi conversation summary extension to prevent recursive spend (direct Haiku call, UI-only trigger, no thinking, cooldown and cap guardrails)
 - [x] Consolidate marimo skills to two entries (hub references plus active-kernel pair skill)
 - [x] Move Pi model status into the input editor banner and trim the footer to three lines
 - [x] Centralize Pi footer layout and status design (custom footer, MCP live/cache labels, docs)
