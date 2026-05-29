@@ -214,20 +214,25 @@ function formatContext(ctx: any, theme: ThemeLike): string | undefined {
 	const contextWindow = usage?.contextWindow ?? ctx.model?.contextWindow;
 	if (!contextWindow) return undefined;
 
+	const rawPercent = Number(usage?.percent ?? 0);
+	const percentValue = Number.isFinite(rawPercent)
+		? Math.max(0, Math.min(100, rawPercent))
+		: 0;
 	const percent =
 		usage?.percent === null || usage?.percent === undefined
 			? "?"
-			: `${Math.round(Number(usage.percent))}%`;
-	const percentValue = Number(usage?.percent ?? 0);
+			: `${Math.round(percentValue)}%`;
 	const color =
 		percentValue >= 90 ? "error" : percentValue >= 75 ? "warning" : "muted";
-	const auto = isAutoCompactionEnabled(ctx.cwd) ? " auto" : "";
-	return field(
-		theme,
-		"◷ ctx",
-		color,
-		`${percent}/${formatCount(contextWindow)}${auto}`,
+	const barWidth = 10;
+	const filled = Math.max(
+		0,
+		Math.min(barWidth, Math.round((percentValue / 100) * barWidth)),
 	);
+	const bar = `${theme.fg(color, "█".repeat(filled))}${theme.fg("dim", "░".repeat(barWidth - filled))}`;
+	const auto = isAutoCompactionEnabled(ctx.cwd) ? label(theme, " auto") : "";
+
+	return `${label(theme, "◷ ctx ")}${bar} ${value(theme, color, percent)}${label(theme, "/")}${value(theme, "muted", formatCount(contextWindow))}${auto}`;
 }
 
 function formatTokenDetails(
@@ -398,20 +403,26 @@ export default function (pi: ExtensionAPI) {
 					const usageTotals = getUsageTotals(ctx);
 					const sessionName = pi.getSessionName?.();
 
-					const convSummary = statuses.get("conv-summary");
-						const locationLine = renderSegments(
+					const convSummary = stripAnsi(statuses.get("conv-summary")).trim();
+					const locationLine = renderSegments(
 						[
 							value(theme, "accent", formatCwd(ctx.cwd)),
 							branch ? field(theme, "git", "success", branch) : undefined,
-							convSummary
-								? theme.fg("accent", theme.bold(`» ${stripAnsi(convSummary).trim()}`))
-								: sessionName
-									? field(theme, "session", "dim", sessionName)
-									: undefined,
+							!convSummary && sessionName
+								? field(theme, "session", "dim", sessionName)
+								: undefined,
 						],
 						width,
 						theme,
 					);
+
+					const summaryLine = convSummary
+						? renderSegments(
+								[theme.fg("accent", theme.bold(`» ${convSummary}`))],
+								width,
+								theme,
+							)
+						: "";
 
 					const tokenLine = renderSegments(
 						[formatContext(ctx, theme), formatTokenDetails(usageTotals, theme)],
@@ -434,6 +445,9 @@ export default function (pi: ExtensionAPI) {
 					const lines = [locationLine, tokenLine].filter(Boolean);
 					if (extensionLine) {
 						lines.push(renderDivider(width, theme), extensionLine);
+					}
+					if (summaryLine) {
+						lines.push(summaryLine);
 					}
 					return lines;
 				},

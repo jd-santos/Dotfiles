@@ -220,12 +220,13 @@ Use `/summary` to show the current value, `/summary <text>` to set it manually, 
 
 Location: `extensions/footer.ts`
 
-Replaces Pi's default footer with a three-line layout:
+Replaces Pi's default footer with a compact multiline layout:
 
-- Line 1: working directory, git branch, and session name
-- Line 2: context usage and token/cost details (`◷ ctx` context/max plus auto-compaction, `↑` input, `↓` output, `R` cache read, `W` cache write)
+- Line 1: working directory, git branch, and session name when no live conversation summary exists
+- Line 2: context usage and token/cost details (`◷ ctx` with a colored bar, context percent/max plus auto-compaction, `↑` input, `↓` output, `R` cache read, `W` cache write)
 - Separator: dim border line between core footer data and plugin output
-- Line 3: MCP, pi-lens/LSP, permission mode, active TPS, usage scan status, and other extension statuses
+- Status line: MCP, pi-lens/LSP, permission mode, active TPS, usage scan status, and other extension statuses
+- Final line: conversation summary, when available
 
 Pi renders all footer content in one footer slot, so plugin output cannot move below it. The separator keeps extension statuses visually distinct from the core location and token lines.
 
