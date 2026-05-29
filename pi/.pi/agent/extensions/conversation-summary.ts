@@ -10,8 +10,9 @@
  * Guardrails:
  *   - Runs only when UI is available, so print-mode runs cannot trigger it
  *   - Calls the summary model directly with complete(), never by spawning pi
+ *   - Uses a dedicated primary model with a configured fallback
  *   - Triggers after agent_end, once per user request instead of once per turn
- *   - Disables thinking, uses no model fallback, and caps update frequency
+ *   - Disables thinking and caps update frequency
  */
 import { complete } from "@earendil-works/pi-ai";
 import type {
@@ -21,9 +22,12 @@ import type {
 
 const SUMMARY_ENTRY_TYPE = "conversation-summary";
 const SUMMARY_STATUS_KEY = "conv-summary";
-const SUMMARY_PROVIDER = "anthropic";
-const SUMMARY_MODEL_ID = "claude-haiku-4-5";
-const SUMMARY_MODEL_LABEL = `${SUMMARY_PROVIDER}/${SUMMARY_MODEL_ID}`;
+const PRIMARY_SUMMARY_PROVIDER = "openai-codex";
+const PRIMARY_SUMMARY_MODEL_ID = "gpt-5.4-mini";
+const FALLBACK_SUMMARY_PROVIDER = "anthropic";
+const FALLBACK_SUMMARY_MODEL_ID = "claude-haiku-4-5";
+const PRIMARY_SUMMARY_MODEL_LABEL = `${PRIMARY_SUMMARY_PROVIDER}/${PRIMARY_SUMMARY_MODEL_ID}`;
+const FALLBACK_SUMMARY_MODEL_LABEL = `${FALLBACK_SUMMARY_PROVIDER}/${FALLBACK_SUMMARY_MODEL_ID}`;
 
 const MIN_TURNS_BETWEEN_UPDATES = 2;
 const MIN_MS_BETWEEN_UPDATES = 60_000;
@@ -215,25 +219,48 @@ export default function (pi: ExtensionAPI) {
 		ctx: ExtensionContext,
 		expectedSessionSerial: number,
 	) {
-		const model = ctx.modelRegistry.find(SUMMARY_PROVIDER, SUMMARY_MODEL_ID);
-		if (!model) {
-			if (ctx.hasUI && !authNoticeShown) {
-				ctx.ui.notify(
-					`Summary model not found: ${SUMMARY_MODEL_LABEL}`,
-					"warning",
-				);
-				authNoticeShown = true;
+		const candidates = [
+			{
+				provider: PRIMARY_SUMMARY_PROVIDER,
+				modelId: PRIMARY_SUMMARY_MODEL_ID,
+				label: PRIMARY_SUMMARY_MODEL_LABEL,
+			},
+			{
+				provider: FALLBACK_SUMMARY_PROVIDER,
+				modelId: FALLBACK_SUMMARY_MODEL_ID,
+				label: FALLBACK_SUMMARY_MODEL_LABEL,
+			},
+		];
+
+		let selectedModel;
+		let auth;
+		const errors: string[] = [];
+
+		for (const candidate of candidates) {
+			const model = ctx.modelRegistry.find(candidate.provider, candidate.modelId);
+			if (!model) {
+				errors.push(`Summary model not found: ${candidate.label}`);
+				continue;
 			}
-			return;
+
+			const candidateAuth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
+			if (!candidateAuth.ok || !candidateAuth.apiKey) {
+				errors.push(
+					candidateAuth.ok
+						? `No API key for ${candidate.label}`
+						: candidateAuth.error,
+				);
+				continue;
+			}
+
+			selectedModel = model;
+			auth = candidateAuth;
+			break;
 		}
 
-		const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
-		if (!auth.ok || !auth.apiKey) {
+		if (!selectedModel || !auth) {
 			if (ctx.hasUI && !authNoticeShown) {
-				ctx.ui.notify(
-					auth.ok ? `No API key for ${SUMMARY_MODEL_LABEL}` : auth.error,
-					"warning",
-				);
+				ctx.ui.notify(errors.join(" | "), "warning");
 				authNoticeShown = true;
 			}
 			return;
@@ -254,7 +281,7 @@ export default function (pi: ExtensionAPI) {
 			}
 
 			const response = await complete(
-				model,
+				selectedModel,
 				{
 					messages: [
 						{

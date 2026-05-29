@@ -20,6 +20,7 @@
 
 ## Done
 
+- [x] Switch Pi conversation summarizer to `openai-codex/gpt-5.4-mini` with Anthropic fallback when config is missing
 - [x] Trim Pi footer status line and expand permission-gate safe commands (hide MCP-only line, allow comment-only bash)
 - [x] Tweak Pi footer and permission gate UI (remove footer divider, simplify MCP availability, drop pre-prompt warning)
 - [x] Rewrite Pi conversation summary extension to prevent recursive spend (direct Haiku call, UI-only trigger, no thinking, cooldown and cap guardrails)

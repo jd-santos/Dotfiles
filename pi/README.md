@@ -204,9 +204,10 @@ Generates a short 8-15 word summary for the active interactive session. The summ
 Guardrails:
 
 - Runs only when UI is available, so print-mode Pi runs cannot trigger it
-- Calls `anthropic/claude-haiku-4-5` directly with Pi's `complete()` helper instead of spawning another `pi` process
+- Calls `openai-codex/gpt-5.4-mini` directly with Pi's `complete()` helper instead of spawning another `pi` process
+- Falls back to `anthropic/claude-haiku-4-5` only when the primary summary model is not configured
 - Disables thinking for the summary request
-- Does not fall back to the active conversation model if Haiku is unavailable
+- Does not fall back to the active conversation model
 - Runs after `agent_end`, at most once per user request
 - Skips updates until at least 2 new assistant messages and 60 seconds have passed
 - Stops automatic updates after 25 summaries in one session
