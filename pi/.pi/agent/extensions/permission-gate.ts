@@ -28,6 +28,7 @@ import type {
 
 // Bash commands that auto-allow without prompting (read-only safe list).
 const ALLOW_PATTERNS: RegExp[] = [
+	/^#.*$/,
 	/^cd(\s|$)/,
 	/^ls(\s|$)/,
 	/^pwd(\s|$)/,
@@ -370,9 +371,6 @@ export default function (pi: ExtensionAPI) {
 		ctx: ExtensionContext,
 		toolName: string,
 	): Promise<void> {
-		// Warning level renders in the attention color and lingers above the
-		// editor, giving a second visual cue alongside the banner.
-		ctx.ui.notify(`⚠️  Permission required: ${toolName}`, "warning");
 		showPermissionWidget(ctx, toolName);
 		await alertCmux(ctx, `Permission required: ${toolName}`);
 	}

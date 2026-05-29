@@ -47,7 +47,7 @@ If Pi opens on a different model during a resumed session, that session's restor
 
 Location: `extensions/permission-gate.ts`
 
-Prompts before writes, edits, and unrecognized shell commands. Each prompt shows an optional note field first (sent to the model as a reason or guidance), then the allow/deny choice, then a scope picker for always-allow rules.
+Prompts before writes, edits, and unrecognized shell commands. Each prompt shows an optional note field first (sent to the model as a reason or guidance), then the allow/deny choice, then a scope picker for always-allow rules. The prompt also triggers the below-editor pointer widget and the cmux alert hooks. Comment-only lines are treated as safe no-ops, and the read-only allowlist includes common inspection commands like `ls`, `rg`, and specific read-only `git` subcommands such as `status`, `diff`, `log`, `branch`, `show`, `rev-parse`, `ls-files`, and `grep`.
 
 #### Commands
 
@@ -224,13 +224,10 @@ Replaces Pi's default footer with a compact multiline layout:
 
 - Line 1: working directory, git branch, and session name when no live conversation summary exists
 - Line 2: context usage and token/cost details (`◷ ctx` with a colored bar, context percent/max plus auto-compaction, `↑` input, `↓` output, `R` cache read, `W` cache write)
-- Separator: dim border line between core footer data and plugin output
-- Status line: MCP, pi-lens/LSP, permission mode, active TPS, usage scan status, and other extension statuses
+- Status line: pi-lens/LSP, permission mode, active TPS, usage scan status, and other extension statuses
 - Final line: conversation summary, when available
 
-Pi renders all footer content in one footer slot, so plugin output cannot move below it. The separator keeps extension statuses visually distinct from the core location and token lines.
-
-MCP uses explicit labels so lazy or idle servers are clearer: `live` means currently connected, while `cache` means tools are known from metadata and can usually reconnect on demand.
+Pi renders all footer content in one footer slot, so plugin output cannot move below it.
 
 The footer reads statuses published by other extensions with `ctx.ui.setStatus()`, so those extensions keep their own logic while layout stays in one place.
 

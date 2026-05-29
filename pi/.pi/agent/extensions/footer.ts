@@ -284,19 +284,15 @@ function formatMcpStatus(
 	const live = countMatch ? Number(countMatch[1]) : 0;
 	const total = countMatch ? Number(countMatch[2]) : snapshot.configured;
 	const configured = Math.max(total, snapshot.configured);
-	const cached = snapshot.cached;
-	const liveColor =
-		live === configured && configured > 0
+	const available = Math.max(live, snapshot.cached);
+	const color =
+		available === configured && configured > 0
 			? "success"
-			: live > 0
+			: available > 0
 				? "accent"
 				: "warning";
-	const cacheColor = cached > 0 ? "muted" : "dim";
 
-	return [
-		field(theme, "mcp", liveColor, `live ${live}/${configured}`),
-		field(theme, "cache", cacheColor, `${cached}/${configured}`),
-	].join(label(theme, " "));
+	return field(theme, "mcp", color, `${available}/${configured}`);
 }
 
 function formatTpsStatus(
@@ -331,10 +327,6 @@ function formatPermissionStatus(
 			? "success"
 			: "muted";
 	return field(theme, "perm", color, parts.join(" "));
-}
-
-function renderDivider(width: number, theme: ThemeLike): string {
-	return theme.fg("dim", "─".repeat(Math.max(0, width)));
 }
 
 function renderSegments(
@@ -432,7 +424,6 @@ export default function (pi: ExtensionAPI) {
 
 					const extensionLine = renderSegments(
 						[
-							formatMcpStatus(statuses.get("mcp"), ctx.cwd, theme),
 							...formatUnknownStatuses(statuses, theme),
 							formatPermissionStatus(statuses.get("permission-gate"), theme),
 							formatTpsStatus(statuses.get("tps"), theme),
@@ -444,7 +435,7 @@ export default function (pi: ExtensionAPI) {
 
 					const lines = [locationLine, tokenLine].filter(Boolean);
 					if (extensionLine) {
-						lines.push(renderDivider(width, theme), extensionLine);
+						lines.push(extensionLine);
 					}
 					if (summaryLine) {
 						lines.push(summaryLine);
