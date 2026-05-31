@@ -6,6 +6,7 @@
 - **Project**: Personal dotfiles managed with GNU Stow
 - **Structure**: Each top-level directory is a stow package that mirrors `$HOME` structure internally
 - **Deployment**: Files symlinked via `stow <package>` (e.g., `stow nvim`)
+- **Pi Features**: Add project-local Pi features in this repo under `.pi/`. The dotfiles are stowed to each machine, so repo-local Pi prompts, extensions, themes, and related config should live here unless the user explicitly asks for a machine-local change.
 
 ## Critical Rules
 
