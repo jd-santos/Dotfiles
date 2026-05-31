@@ -12,6 +12,7 @@
  *   - Calls the summary model directly with complete(), never by spawning pi
  *   - Uses a dedicated primary model with a configured fallback
  *   - Triggers after agent_end, once per user request instead of once per turn
+ *   - Reuses the cached summary for the session name without extra model calls
  *   - Disables thinking and caps update frequency
  */
 import { complete } from "@earendil-works/pi-ai";
@@ -134,6 +135,15 @@ function cleanSummary(summary: string): string {
 		.trim();
 }
 
+function normalizeSessionName(summary: string | undefined): string | undefined {
+	const name = String(summary ?? "")
+		.replace(/\s+/g, " ")
+		.trim()
+		.slice(0, MAX_SUMMARY_CHARS)
+		.trim();
+	return name || undefined;
+}
+
 function countAssistantMessages(entries: SessionEntry[]): number {
 	return entries.filter(
 		(entry) => entry.type === "message" && entry.message?.role === "assistant",
@@ -155,6 +165,28 @@ export default function (pi: ExtensionAPI) {
 	let generating = false;
 	let sessionSerial = 0;
 	let activeSummaryController: AbortController | undefined;
+	let lastSavedSessionName: string | undefined;
+
+	function saveCurrentSummaryAsSessionName() {
+		const name = normalizeSessionName(currentSummary);
+		if (!name) return;
+
+		const existingName = pi.getSessionName?.();
+		if (name === existingName || name === lastSavedSessionName) {
+			lastSavedSessionName = name;
+			return;
+		}
+
+		pi.setSessionName(name);
+		lastSavedSessionName = name;
+	}
+
+	function clearSummarySessionName() {
+		if (pi.getSessionName?.() || lastSavedSessionName) {
+			pi.setSessionName("");
+		}
+		lastSavedSessionName = undefined;
+	}
 
 	// Restore summary state on session load.
 	pi.on("session_start", (_event, ctx) => {
@@ -168,6 +200,7 @@ export default function (pi: ExtensionAPI) {
 		generating = false;
 		activeSummaryController?.abort();
 		activeSummaryController = undefined;
+		lastSavedSessionName = pi.getSessionName?.();
 
 		for (const entry of ctx.sessionManager.getEntries() as SessionEntry[]) {
 			if (entry.type !== "custom" || entry.customType !== SUMMARY_ENTRY_TYPE) {
@@ -202,11 +235,11 @@ export default function (pi: ExtensionAPI) {
 				SUMMARY_STATUS_KEY,
 				currentSummary ?? "(awaiting first exchange)",
 			);
-			if (currentSummary) pi.setSessionName(currentSummary);
 		}
 	});
 
 	pi.on("session_shutdown", (_event, ctx) => {
+		if (ctx.hasUI) saveCurrentSummaryAsSessionName();
 		sessionSerial += 1;
 		activeSummaryController?.abort();
 		activeSummaryController = undefined;
@@ -237,7 +270,10 @@ export default function (pi: ExtensionAPI) {
 		const errors: string[] = [];
 
 		for (const candidate of candidates) {
-			const model = ctx.modelRegistry.find(candidate.provider, candidate.modelId);
+			const model = ctx.modelRegistry.find(
+				candidate.provider,
+				candidate.modelId,
+			);
 			if (!model) {
 				errors.push(`Summary model not found: ${candidate.label}`);
 				continue;
@@ -343,7 +379,7 @@ export default function (pi: ExtensionAPI) {
 				generatedAt: Date.now(),
 				automaticSummaryCount,
 			});
-			pi.setSessionName(summary);
+			saveCurrentSummaryAsSessionName();
 			if (ctx.hasUI) ctx.ui.setStatus(SUMMARY_STATUS_KEY, summary);
 		} catch (err) {
 			if (ctx.hasUI && expectedSessionSerial === sessionSerial) {
@@ -363,6 +399,7 @@ export default function (pi: ExtensionAPI) {
 	// Trigger once after a full user request completes.
 	pi.on("agent_end", (_event, ctx) => {
 		if (!ctx.hasUI) return;
+		saveCurrentSummaryAsSessionName();
 		if (generating) return;
 
 		const branch = ctx.sessionManager.getBranch() as SessionEntry[];
@@ -427,7 +464,7 @@ export default function (pi: ExtensionAPI) {
 				generating = false;
 				activeSummaryController?.abort();
 				activeSummaryController = undefined;
-				pi.setSessionName("");
+				clearSummarySessionName();
 				pi.appendEntry(SUMMARY_ENTRY_TYPE, {
 					summary: "",
 					turnCount: 0,
@@ -449,7 +486,7 @@ export default function (pi: ExtensionAPI) {
 					source: "manual",
 					automaticSummaryCount,
 				});
-				pi.setSessionName(currentSummary);
+				saveCurrentSummaryAsSessionName();
 				if (ctx.hasUI) {
 					ctx.ui.setStatus(SUMMARY_STATUS_KEY, currentSummary);
 					ctx.ui.notify(`Summary: ${currentSummary}`, "info");

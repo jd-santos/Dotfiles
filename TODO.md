@@ -20,6 +20,7 @@
 
 ## Done
 
+- [x] Persist Pi conversation summaries as session names without extra LLM calls
 - [x] Add project-local Pi `/ship` prompt for branch review, commit grouping, and push workflow
 - [x] Switch Pi conversation summarizer to `openai-codex/gpt-5.4-mini` with Anthropic fallback when config is missing
 - [x] Trim Pi footer status line and expand permission-gate safe commands (hide MCP-only line, allow comment-only bash)
