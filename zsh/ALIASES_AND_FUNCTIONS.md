@@ -1,6 +1,6 @@
 # Zsh Aliases and Functions Reference
 
-This document provides a comprehensive guide to all custom aliases and functions defined in `.zshrc`.
+This document lists the custom aliases and functions defined in `.zshrc`.
 
 ## Table of Contents
 
@@ -29,6 +29,7 @@ Enhanced versions of common commands with useful flags.
 | `ls` | `ls -FGlAhp` | Enhanced ls with colors, long format, and hidden files |
 | `less` | `less -FSRXc` | Less pager with useful defaults |
 | `cat` | `bat` | Modern cat replacement with syntax highlighting |
+| `manhtml()` | `man -t <page> \| open -f -a Preview` | Open a man page as a PDF in Preview on macOS |
 
 ---
 
@@ -126,6 +127,7 @@ General utility aliases.
 | `ducks` | List top 10 largest files/directories in current dir |
 | `path` | Display all directories in your PATH |
 | `szsh` | Reload `.zshrc` configuration |
+| `dsync` | Run `merge-settings` to rebuild generated Pi and Zed settings |
 
 ---
 
@@ -253,6 +255,16 @@ $ myPs aux       # With additional flags
 
 ---
 
+### `fp()`
+
+Open an interactive `fzf` file picker with a `bat` preview, then open the selected file in `$EDITOR` or `nvim`.
+
+**Usage:** `fp`
+
+**Dependencies:** fzf, bat
+
+---
+
 ### `ii()`
 
 Display useful host-related information (macOS specific).
@@ -270,6 +282,25 @@ Display useful host-related information (macOS specific).
 **Notes:**
 - macOS specific: Uses `scselect` for network location
 - Uses colored output for better readability
+
+---
+
+### `stowp()`
+
+Preview a GNU Stow operation, then ask before applying it.
+
+**Usage:** `stowp <stow_arguments>`
+
+**Example:**
+```bash
+$ stowp nvim zsh
+$ stowp agents bin fzf ghostty git lint nvim opencode pgcli pi starship tmux zed zsh
+```
+
+**Notes:**
+- Runs `stow --simulate` first
+- Stops if Stow reports conflicts
+- Applies the same arguments with `stow` only after confirmation
 
 ---
 
@@ -340,10 +371,11 @@ The AWS profile (if set via `export AWS_PROFILE=...`) appears before the main pr
 ## Tips & Tricks
 
 1. **Use `showa` to discover aliases:** If you forget an alias, run `showa keyword` to find it
-2. **Combine navigation aliases:** Use `.. cd project` or `...` to move up multiple levels
+2. **Combine navigation aliases:** Use `..` or `...` to move up multiple levels
 3. **Check process usage:** Use `memHogsTop` or `cpuHogs` to quickly identify resource hogs
 4. **Python workflow:** Use `mcd` to create project dir, then `venv` to activate environment
-5. **Extract anything:** `extract` is powerful enough to handle most archive formats
+5. **Refresh generated settings:** Run `dsync` after pulling Pi or Zed settings changes
+6. **Extract common archives:** `extract` handles most archive formats
 
 ---
 

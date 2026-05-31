@@ -17,15 +17,18 @@
 #columns(4)[
 
 == Tmux Basics
-#section-header("Prefix: Ctrl+O")
+#section-header("Prefix: backtick")
 
 *Sessions & Windows:*
-- `Prefix + c` — New window
-- `Option+1-9` — Jump to window
-- `Prefix + &` — Close window
-- `Prefix + ,` — Rename window
-- `Prefix + w` — Window list
-- `Prefix + p/n` — Prev/next window
+- `backtick` — Prefix
+- `backtick backtick` — Send prefix
+- `F12` — Toggle nested mode
+- `Option+1-9` — Local window
+- `Option+Shift+1-9` — Nested window
+- `Option+[/]` — Prev/next window
+- `Option+w` — Window list
+- `Option+n/c` — New window
+- `Option+d` — Detach local
 
 *Panes:*
 - `Prefix + |` — Vertical split
@@ -33,7 +36,7 @@
 - `Prefix + h/j/k/l` — Navigate
 - `Prefix + H/J/K/L` — Resize
 - `Prefix + x` — Close pane
-- `Prefix + z` — Zoom pane
+- `Option+z` — Zoom pane
 - `Prefix + q` — Show pane numbers
 
 *Copy Mode (vi-style):*
@@ -48,10 +51,11 @@
 - `Prefix + d` — Detach
 - `Prefix + s` — Session list
 - `Prefix + (/)` — Prev/next session
-- `Prefix + $` — Rename session
+- `Prefix + dollar` — Rename session
 
 *Admin:*
 - `Prefix + r` — Reload config
+- `Prefix + C-f` — fzf file popup
 - `Prefix + ?` — List all keybinds
 - `Prefix + t` — Show clock
 
@@ -82,13 +86,13 @@
 *Tabs:*
 - `<leader><tab><tab>` — New tab
 - `<leader><tab>d` — Close tab
-- `<leader><tab>[/]` — Prev/next tab
+- `<leader><tab>[` / `<leader><tab>]` — Prev/next tab
 
 *Search in File:*
 - `/` — Search forward
 - `?` — Search backward
 - `n/N` — Next/prev match
-- `*/#` — Search word at cursor
+- `*` / `#` — Search word at cursor
 - `<leader>ur` — Clear highlights
 
 *Editing Basics:*
@@ -347,6 +351,8 @@
 *Shell Management:*
 - `showa <pat>` — Search aliases
 - `szsh` — Reload .zshrc
+- `dsync` — Merge Pi/Zed settings
+- `stowp <pkg>` — Preview then stow
 - `path` — Display PATH dirs
 
 *Archive Formats (extract):*
@@ -370,6 +376,6 @@
 #v(1fr)
 #align(center)[
   #text(size: 7pt, fill: luma(120))[
-    _Terminal Workflow Cheatsheet | LazyVim + Tmux + Zsh | Updated Jan 2026_
+    _Terminal Workflow Cheatsheet | LazyVim + Tmux + Zsh | Updated May 2026_
   ]
 ]

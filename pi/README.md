@@ -7,6 +7,7 @@ Personal Pi configuration with extensions for write gating, auto-formatting, cos
 | File                                  | Purpose                                                                               |
 | ------------------------------------- | ------------------------------------------------------------------------------------- |
 | `settings.base.json`                  | Shared settings (theme, packages, skills path, enabled models)                        |
+| `.config/mcp/mcp.json`                | Shared MCP servers for Brave Search and Svelte                                        |
 | `AGENTS.md`                           | Global agent instructions loaded each session                                         |
 | `extensions/permission-gate.ts`       | Interactive gate for writes and shell commands                                        |
 | `extensions/format-on-save.ts`        | Auto-format files after write/edit                                                    |
@@ -31,6 +32,8 @@ Shared settings live in `settings.base.json` (tracked). Machine-specific overrid
 Scoped model cycle (`Ctrl+P`) comes from `enabledModels` in `settings.base.json`.
 
 Other settings: Catppuccin Mocha theme, thinking level medium, thinking block visible on output, quiet startup, `pi-mcp-adapter` and `pi-lens` packages loaded, skills path `~/.agents/skills`.
+
+MCP servers live in `~/.config/mcp/mcp.json` after stowing. Brave Search reads `BRAVE_API_KEY` from the environment; Svelte uses the `@sveltejs/mcp` package through `npx`.
 
 ### Changing models
 
@@ -212,8 +215,9 @@ Guardrails:
 - Skips updates until at least 2 new assistant messages and 60 seconds have passed
 - Stops automatic updates after 25 summaries in one session
 - Sends only a bounded sketch of recent user and assistant text to the summary model
+- Reuses the cached summary as the session name, so naming the session does not make another model call
 
-Use `/summary` to show the current value, `/summary <text>` to set it manually, or `/summary clear` to reset it.
+Use `/summary` to show the current value, `/summary <text>` to set it manually, or `/summary clear` to reset the footer summary and session name.
 
 ---
 

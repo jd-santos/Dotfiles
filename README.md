@@ -1,40 +1,51 @@
 # My Dotfiles
 
-Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). Each top-level directory maps to `$HOME` when stowed.
+Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). Most top-level tool directories map to `$HOME` when stowed. Repo notes live in `docs/`, and repo-local Pi prompts live in `.pi/`.
 
-## Packages
+## Packages and repo-local files
 
 | Package                               | Description                                                                                                            |
 | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `.pi/`                                | Repo-local Pi prompt templates, including `/ship`                                                                      |
 | [`agents`](agents/README.md)          | AI agent skills ([Agent Skills](https://agentskills.io) standard)                                                      |
+| `bin`                                 | User scripts installed to `~/bin`, including `merge-settings`                                                          |
+| `docs/`                               | Repo documentation and the Typst terminal workflow cheatsheet, not a stow package                                      |
 | `fzf`                                 | [fzf](https://github.com/junegunn/fzf) setup (PATH and shell integration)                                              |
 | `ghostty`                             | [Ghostty](https://ghostty.org) terminal (Dracula theme, Nerd Font icons)                                               |
 | `git`                                 | Git config, global gitignore, LFS, [`~/.gitconfig.local`](git/.gitconfig.local.example) for machine-specific overrides |
 | `lint`                                | Markdown lint rules (`.markdownlint.jsonc`)                                                                            |
 | [`nvim`](nvim/.config/nvim/README.md) | Neovim (LazyVim, fzf-lua, tokyonight)                                                                                  |
-| `opencode`                            | [OpenCode](https://opencode.ai/) AI assistant config                                                                   |
+| `opencode`                            | [OpenCode](https://opencode.ai/) AI assistant config and local agent prompts                                           |
 | [`pgcli`](pgcli/README.md)            | [pgcli](https://www.pgcli.com/) PostgreSQL CLI (auto-completion, keyring, env var connection)                          |
-| [`pi`](pi/README.md)                  | [Pi](https://pi.dev/) coding agent (extensions, Dracula theme, `/plan` template, MCP servers)                          |
+| [`pi`](pi/README.md)                  | [Pi](https://pi.dev/) coding agent (extensions, Catppuccin theme, `/plan` template, MCP servers)                       |
 | `starship`                            | [Starship](https://starship.rs/) prompt with Nerd Font icons                                                           |
 | `tmux`                                | Tmux (backtick prefix, vim-style navigation, nested session support)                                                   |
-| `zed`                                 | [Zed](https://zed.dev/) editor settings                                                                                |
+| `zed`                                 | [Zed](https://zed.dev/) editor settings merged by `merge-settings`                                                     |
 | [`zsh`](zsh/ALIASES_AND_FUNCTIONS.md) | Zsh (aliases, functions, `extract`, `cdf`, gcloud SDK)                                                                 |
 
 ## Keyboard Shortcuts
 
 ### Tmux (Prefix: `` ` ``)
 
-| Shortcut             | Description                          |
-| -------------------- | ------------------------------------ |
-| `` ` ``              | Tmux prefix (activates command mode) |
-| `` ` `` `` ` ``      | Send prefix to nested session        |
-| `Prefix` + `h/j/k/l` | Navigate panes (vim-style)           |
-| `Prefix` + `H/J/K/L` | Resize panes (repeatable)            |
-| `Option+1-9`         | Quick switch to window 1-9           |
-| `Prefix` + `\|`      | Vertical split                       |
-| `Prefix` + `-`       | Horizontal split                     |
-| `Prefix` + `x`       | Close pane                           |
-| `Prefix` + `r`       | Reload tmux config                   |
+| Shortcut                 | Description                                      |
+| ------------------------ | ------------------------------------------------ |
+| `` ` ``                  | Tmux prefix (activates command mode)             |
+| `` ` `` `` ` ``          | Send prefix to nested session                    |
+| `F12`                    | Toggle nested-session mode                       |
+| `Prefix` + `h/j/k/l`     | Navigate panes (vim-style)                       |
+| `Prefix` + `H/J/K/L`     | Resize panes (repeatable)                        |
+| `Option+1-9`             | Switch local window 1-9                          |
+| `Option+Shift+1-9`       | Send window switch 1-9 to nested session         |
+| `Option+z`               | Zoom or unzoom pane                              |
+| `Option+d`               | Detach local session                             |
+| `Option+n` / `Option+c`  | New window in current path                       |
+| `Option+w`               | Choose window                                    |
+| `Option+[` / `Option+]`  | Previous or next window                          |
+| `Prefix` + `\|`          | Vertical split                                   |
+| `Prefix` + `-`           | Horizontal split                                 |
+| `Prefix` + `Ctrl+f`      | fzf file preview popup, opens selection in `vim` |
+| `Prefix` + `x`           | Close pane                                       |
+| `Prefix` + `r`           | Reload tmux config                               |
 
 **Copy Mode (vi-style):** Press `Prefix` + `[` to enter, `v` to select, `y` to copy.
 
@@ -60,6 +71,7 @@ Custom keybindings on top of [LazyVim defaults](https://www.lazyvim.org/keymaps)
 
 | Date       | Change                                                                         |
 | ---------- | ------------------------------------------------------------------------------ |
+| 2026-05-31 | Refreshed package docs, stow commands, tmux shortcuts, and cheatsheet source   |
 | 2026-05-07 | Added `ui-read-and-shortcuts` Pi extension (read preview, slash command hints) |
 | 2026-05-04 | Updated Pi enabled models                                                      |
 | 2026-05-03 | Added Build Mode workflow, Dracula theme, and `/plan` template to Pi           |
@@ -90,8 +102,10 @@ stow nvim git starship zsh   # Install multiple configurations
 ### Install Everything
 
 ```bash
-stow */     # Install all tool configurations
+stow agents bin fzf ghostty git lint nvim opencode pgcli pi starship tmux zed zsh
 ```
+
+`docs/` is not a stow package. Keep it in the repo unless you intentionally want those files linked into `$HOME`.
 
 ### Remove a Configuration
 
@@ -118,7 +132,7 @@ stow --simulate nvim
 The `stowp` function (included in `.zshrc`) previews changes and prompts before applying:
 
 ```bash
-stowp */           # Preview all packages, then confirm
+stowp agents bin fzf ghostty git lint nvim opencode pgcli pi starship tmux zed zsh
 stowp nvim zsh     # Preview specific packages, then confirm
 ```
 
