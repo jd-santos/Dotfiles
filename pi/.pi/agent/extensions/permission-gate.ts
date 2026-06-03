@@ -105,6 +105,26 @@ function extractCommandPatterns(command: string): string[] {
 	return Array.from(patterns).sort();
 }
 
+function escapeRegExp(text: string): string {
+	return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function isComplexBashCommand(command: string): boolean {
+	return (
+		command.includes("\n") ||
+		/<<-?\s*['"]?\w+['"]?/.test(command) ||
+		command.includes("$(") ||
+		command.includes("`")
+	);
+}
+
+function extractScopeableCommandPatterns(command: string): string[] {
+	// Complex bash commands often include embedded script content, heredoc markers,
+	// or shell fragments that are not meaningful command scopes. In those cases we
+	// skip pattern scopes and only offer directory, tool, or yolo options.
+	return isComplexBashCommand(command) ? [] : extractCommandPatterns(command);
+}
+
 function parentDir(path: string): string {
 	const normalized = path.replace(/\/+$/, "");
 	const slash = normalized.lastIndexOf("/");
@@ -123,6 +143,14 @@ function getDirChain(path?: string): string[] {
 		d = next;
 	}
 	return dirs;
+}
+
+function scopePathForDirectory(dir?: string): string | undefined {
+	if (!dir) return undefined;
+	const normalized = dir.replace(/\/+$/, "") || "/";
+	return normalized === "/"
+		? "/__pi_permission_gate_scope__"
+		: `${normalized}/__pi_permission_gate_scope__`;
 }
 
 function pathStartsWith(path: string, prefix: string): boolean {
@@ -228,24 +256,24 @@ export default function (pi: ExtensionAPI) {
 
 	// ─── Rule helpers ─────────────────────────────────────────────────
 
-	function isAllowed(
+	function getPermissionDecision(
 		toolName: string,
 		path?: string,
 		patterns?: string[],
-	): { allowed: boolean; matchedRule?: string } {
-		if (yolo) return { allowed: true };
+	): { decision: "allow" | "deny" | "prompt"; matchedRule?: string } {
+		if (yolo) return { decision: "allow" };
 
 		for (const rule of rules.deny) {
 			if (matchRule(rule, toolName, path, patterns)) {
-				return { allowed: false, matchedRule: formatRule(rule) };
+				return { decision: "deny", matchedRule: formatRule(rule) };
 			}
 		}
 		for (const rule of rules.allow) {
 			if (matchRule(rule, toolName, path, patterns)) {
-				return { allowed: true, matchedRule: formatRule(rule) };
+				return { decision: "allow", matchedRule: formatRule(rule) };
 			}
 		}
-		return { allowed: false };
+		return { decision: "prompt" };
 	}
 
 	function matchRule(
@@ -284,13 +312,18 @@ export default function (pi: ExtensionAPI) {
 	}
 
 	function makePatternRule(token: string): PermissionRule {
-		return { type: "bash", pattern: new RegExp(`^${token}(\\s|$)`) };
+		return {
+			type: "bash",
+			pattern: new RegExp(`^${escapeRegExp(token)}(\\s|$)`),
+		};
 	}
 
 	function makeMultiPatternRule(tokens: string[]): PermissionRule {
 		return {
 			type: "bash",
-			pattern: new RegExp(`^(?:${tokens.join("|")})(\\s|$)`),
+			pattern: new RegExp(
+				`^(?:${tokens.map((token) => escapeRegExp(token)).join("|")})(\\s|$)`,
+			),
 		};
 	}
 
@@ -323,6 +356,83 @@ export default function (pi: ExtensionAPI) {
 			`╰${"─".repeat(innerWidth)}╯`,
 			"",
 		].join("\n");
+	}
+
+	function truncateInline(text: string, limit = 140): string {
+		return text.length > limit ? `${text.slice(0, limit)}…` : text;
+	}
+
+	function previewFormattedLines(
+		text: string,
+		maxLines = 5,
+		maxColumns = 96,
+	): string[] {
+		const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+		const preview = lines.slice(0, maxLines);
+		if (preview.length === 0) return [""];
+		const rendered = preview.map((line) => truncateInline(line, maxColumns));
+		if (lines.length > maxLines) {
+			rendered[rendered.length - 1] = `${rendered[rendered.length - 1]} …`;
+		}
+		return rendered;
+	}
+
+	function extractDisplayCommandNames(command: string): string[] {
+		const parts = command
+			.split(/;|&&|\|\||\|/)
+			.map((part) => part.trim())
+			.filter(Boolean);
+		const names: string[] = [];
+		const seen = new Set<string>();
+
+		for (const part of parts) {
+			const tokens = part.split(/\s+/).filter(Boolean);
+			let commandToken: string | undefined;
+			for (const token of tokens) {
+				if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(token)) continue;
+				if (!/^[A-Za-z0-9_.-]+$/.test(token)) continue;
+				commandToken = token;
+				break;
+			}
+			if (commandToken && !seen.has(commandToken)) {
+				seen.add(commandToken);
+				names.push(commandToken);
+			}
+		}
+
+		return names;
+	}
+
+	function permissionPromptTitle(
+		ctx: ExtensionContext,
+		title: string,
+		toolName: string,
+		path?: string,
+		command?: string,
+		expanded = false,
+	): string {
+		const lines = [permissionTitleBox(title)];
+
+		if (toolName === "bash" && command) {
+			const commands = extractDisplayCommandNames(command);
+			if (commands.length > 0) {
+				lines.push(
+					`${ctx.ui.theme.fg("muted", "Summary:")} ${commands.join(", ")}`,
+				);
+			}
+			lines.push(ctx.ui.theme.fg("muted", "Raw command:"));
+			const rawCommandLines = expanded
+				? command.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n")
+				: previewFormattedLines(command);
+			for (const line of rawCommandLines) {
+				lines.push(`  ${ctx.ui.theme.fg("dim", line)}`);
+			}
+		} else if (path) {
+			lines.push(ctx.ui.theme.fg("muted", "Target:"));
+			lines.push(`  ${ctx.ui.theme.fg("dim", truncateInline(path))}`);
+		}
+
+		return lines.join("\n");
 	}
 
 	function permissionWidgetLines(_toolName: string): string[] {
@@ -381,31 +491,50 @@ export default function (pi: ExtensionAPI) {
 		toolName: string,
 		path?: string,
 		patterns?: string[],
-	): Promise<{ allow: boolean; rule?: PermissionRule; message?: string }> {
+		command?: string,
+	): Promise<{
+		allow: boolean;
+		rule?: PermissionRule;
+		message?: string;
+		expanded?: boolean;
+	}> {
 		if (!ctx.hasUI) return { allow: true };
 
 		await announce(ctx, toolName);
 
 		let message: string | undefined;
+		let expanded = false;
 
 		while (true) {
 			const noteLabel = message
 				? `✏️  Edit note: “${message.length > 40 ? message.slice(0, 40) + "…" : message}”`
 				: "✏️  Add note…";
+			const toggleLabel =
+				toolName === "bash" && command
+					? expanded
+						? "🙈  Hide full command"
+						: "👁  Show full command"
+					: undefined;
+			const options = ["✅  Allow this once", "🔁  Always allow…", "🚫  Deny"];
+			if (toggleLabel) options.push(toggleLabel);
+			options.push(noteLabel);
 
-			const primaryChoice = await ctx.ui.select(permissionTitleBox(title), [
-				"✅  Allow this once",
-				"🔁  Always allow…",
-				"🚫  Deny",
-				noteLabel,
-			]);
+			const primaryChoice = await ctx.ui.select(
+				permissionPromptTitle(ctx, title, toolName, path, command, expanded),
+				options,
+			);
 
 			if (!primaryChoice || primaryChoice === "🚫  Deny") {
-				return { allow: false, message };
+				return { allow: false, message, expanded };
 			}
 
 			if (primaryChoice === "✅  Allow this once") {
-				return { allow: true, message };
+				return { allow: true, message, expanded };
+			}
+
+			if (toggleLabel && primaryChoice === toggleLabel) {
+				expanded = !expanded;
+				continue;
 			}
 
 			if (primaryChoice === noteLabel) {
@@ -421,7 +550,11 @@ export default function (pi: ExtensionAPI) {
 		}
 
 		const isBash = toolName === "bash";
-		const scopeOptions: { label: string; rule: PermissionRule }[] = [];
+		const scopeOptions: {
+			label: string;
+			rules: PermissionRule[];
+			notifyLabel?: string;
+		}[] = [];
 
 		// Directory hierarchy
 		const dirChain = getDirChain(path);
@@ -435,28 +568,38 @@ export default function (pi: ExtensionAPI) {
 		for (let i = 0; i < dirChain.length; i++) {
 			scopeOptions.push({
 				label: `${dirIcons[i]} ${dirLabels[i]} (${dirChain[i]}/)`,
-				rule: { type: "directory", prefix: dirChain[i] },
+				rules: [{ type: "directory", prefix: dirChain[i] }],
 			});
 		}
 
 		// Tool type
 		scopeOptions.push({
 			label: `🔧 This tool type (${toolName})`,
-			rule: { type: "tool", tool: toolName },
+			rules: [{ type: "tool", tool: toolName }],
 		});
+		if (toolName === "write" || toolName === "edit") {
+			scopeOptions.push({
+				label: "🔧 Both write + edit tool types",
+				rules: [
+					{ type: "tool", tool: "write" },
+					{ type: "tool", tool: "edit" },
+				],
+				notifyLabel: "write + edit (tool types)",
+			});
+		}
 
 		// Command patterns
 		if (isBash && patterns && patterns.length > 0) {
 			for (const p of patterns) {
 				scopeOptions.push({
 					label: `⌨️  ${p} …`,
-					rule: makePatternRule(p),
+					rules: [makePatternRule(p)],
 				});
 			}
 			if (patterns.length > 1) {
 				scopeOptions.push({
 					label: `⌨️  All command patterns (${patterns.join(", ")})`,
-					rule: makeMultiPatternRule(patterns),
+					rules: [makeMultiPatternRule(patterns)],
 				});
 			}
 		}
@@ -464,11 +607,18 @@ export default function (pi: ExtensionAPI) {
 		// Yolo
 		scopeOptions.push({
 			label: "⚡ Everything (full yolo)",
-			rule: { type: "yolo" },
+			rules: [{ type: "yolo" }],
 		});
 
 		const scopeChoice = await ctx.ui.select(
-			permissionTitleBox("Scope for always allow:"),
+			permissionPromptTitle(
+				ctx,
+				"Scope for always allow:",
+				toolName,
+				path,
+				command,
+				expanded,
+			),
 			scopeOptions.map((o) => o.label),
 		);
 
@@ -476,16 +626,20 @@ export default function (pi: ExtensionAPI) {
 
 		const selected = scopeOptions.find((o) => o.label === scopeChoice);
 		if (selected) {
-			pushRule(rules.allow, selected.rule);
-			if (selected.rule.type === "yolo") yolo = true;
-			ctx.ui.notify(
-				`🟢 ${formatRule(selected.rule)} — auto-allowed from now on.`,
-				"info",
-			);
+			for (const rule of selected.rules) {
+				pushRule(rules.allow, rule);
+				if (rule.type === "yolo") yolo = true;
+			}
+			const notifyLabel =
+				selected.notifyLabel ??
+				(selected.rules.length === 1
+					? formatRule(selected.rules[0])
+					: selected.rules.map((rule) => formatRule(rule)).join(", "));
+			ctx.ui.notify(`🟢 ${notifyLabel} — auto-allowed from now on.`, "info");
 			updateStatus(ctx);
 		}
 
-		return { allow: true, message: message || undefined };
+		return { allow: true, message: message || undefined, expanded };
 	}
 
 	async function denyPrompt(
@@ -493,6 +647,8 @@ export default function (pi: ExtensionAPI) {
 		toolName: string,
 		path?: string,
 		patterns?: string[],
+		command?: string,
+		expanded = false,
 	): Promise<void> {
 		if (!ctx.hasUI) return;
 
@@ -523,7 +679,14 @@ export default function (pi: ExtensionAPI) {
 		await announce(ctx, toolName);
 
 		const scopeChoice = await ctx.ui.select(
-			permissionTitleBox("Scope for deny:"),
+			permissionPromptTitle(
+				ctx,
+				"Scope for deny:",
+				toolName,
+				path,
+				command,
+				expanded,
+			),
 			scopeOptions,
 		);
 
@@ -587,19 +750,37 @@ export default function (pi: ExtensionAPI) {
 			}
 
 			const path = String(input.path ?? input.file_path ?? "unknown path");
-			const check = isAllowed(toolName, path);
-			if (check.allowed) return undefined;
+			const check = getPermissionDecision(toolName, path);
+			if (check.decision === "allow") return undefined;
+			if (check.decision === "deny") {
+				if (ctx.hasUI && check.matchedRule) {
+					ctx.ui.notify(`Blocked by rule: ${check.matchedRule}`, "warning");
+				}
+				return {
+					block: true,
+					reason: check.matchedRule
+						? `Blocked by session rule: ${check.matchedRule}.`
+						: "Blocked by session rule.",
+				};
+			}
 			if (!ctx.hasUI) return undefined;
 
 			const result = await twoStepPrompt(
 				ctx,
-				`Allow ${toolName}?\n\n  ${path}`,
+				`Allow ${toolName}?`,
 				toolName,
 				path,
 			);
 
 			if (!result.allow) {
-				await denyPrompt(ctx, toolName, path);
+				await denyPrompt(
+					ctx,
+					toolName,
+					path,
+					undefined,
+					undefined,
+					result.expanded,
+				);
 				clearPermissionWidget(ctx);
 				const reason = result.message
 					? `Blocked by user: ${result.message}`
@@ -618,6 +799,9 @@ export default function (pi: ExtensionAPI) {
 		if (toolName === "bash") {
 			const command = String(input.command ?? "").trim();
 			const parts = splitCommandParts(command);
+			const patterns = extractCommandPatterns(command);
+			const scopeablePatterns = extractScopeableCommandPatterns(command);
+			const bashDirectoryPath = scopePathForDirectory(ctx.cwd);
 
 			// Sensitive files: check raw command first, then each split part.
 			// Neither catches wrapped commands (sh -c, eval), but together they
@@ -645,6 +829,19 @@ export default function (pi: ExtensionAPI) {
 				}
 			}
 
+			const check = getPermissionDecision(toolName, ctx.cwd, patterns);
+			if (check.decision === "deny") {
+				if (ctx.hasUI && check.matchedRule) {
+					ctx.ui.notify(`Blocked by rule: ${check.matchedRule}`, "warning");
+				}
+				return {
+					block: true,
+					reason: check.matchedRule
+						? `Blocked by session rule: ${check.matchedRule}.`
+						: "Blocked by session rule.",
+				};
+			}
+
 			// Read-only safe-list: ALL parts must be safe
 			const allSafe = parts.every((part) =>
 				ALLOW_PATTERNS.some((p) => p.test(part)),
@@ -658,28 +855,27 @@ export default function (pi: ExtensionAPI) {
 				};
 			}
 
-			// Session rules
-			const patterns = extractCommandPatterns(command);
-			const check = isAllowed(toolName, undefined, patterns);
-			if (check.allowed) return undefined;
-
+			if (check.decision === "allow") return undefined;
 			if (!ctx.hasUI) return undefined;
-
-			const preview =
-				command.length > 80 ? command.slice(0, 80) + "…" : command;
-			const patternsSummary =
-				patterns.length > 1 ? `\n  Commands: ${patterns.join(", ")}` : "";
 
 			const result = await twoStepPrompt(
 				ctx,
-				`Allow bash command?\n\n  ${preview}${patternsSummary}`,
+				"Allow bash command?",
 				toolName,
-				undefined,
-				patterns,
+				bashDirectoryPath,
+				scopeablePatterns,
+				command,
 			);
 
 			if (!result.allow) {
-				await denyPrompt(ctx, toolName, undefined, patterns);
+				await denyPrompt(
+					ctx,
+					toolName,
+					bashDirectoryPath,
+					scopeablePatterns,
+					command,
+					result.expanded,
+				);
 				clearPermissionWidget(ctx);
 				const reason = result.message
 					? `Blocked by user: ${result.message}`
