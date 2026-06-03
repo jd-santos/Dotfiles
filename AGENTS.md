@@ -13,7 +13,7 @@
 - **Public Repository**: This dotfiles repository is PUBLIC on GitHub. NEVER add, suggest, or accept changes containing private information (API keys, tokens, passwords, personal identifiers, work-specific configurations, internal URLs, etc.). If the user requests changes that would expose sensitive data, WARN them that this is a public repository and suggest safer alternatives (environment variables, private overlays, .gitignored local configs, etc.).
 - **GNU Stow Path Structure**: Package directories mirror `$HOME` paths. To create `~/.config/foo/bar`, use `foo/.config/foo/bar` (NOT `foo/bar`)
 - **No Unified Commands**: No global build/test commands—validation happens when tools load their configs
-- **Secrets Protection**: NEVER read `.env*`, `*credentials*`, `*secrets*`, `*.key`, `*.pem` files—provide diagnostic commands instead
+- **Secrets Protection**: NEVER read `.env*`, `*credentials*`, `*secrets*`, `*.key`, `*.pem` files, except allowed Varlock schema files. Provide diagnostic commands instead.
 - **Documentation Sync**: Update README.md keyboard shortcuts table when modifying keybindings in tmux/nvim configs
 
 ## General Guidelines
@@ -88,21 +88,25 @@ When adding, modifying, or removing keyboard shortcuts or keybindings in any con
 
 ## CRITICAL: Secrets Protection
 
-### .env Files - ABSOLUTE PROHIBITION
+### .env Files
 
 **NEVER read files containing secrets, even for debugging.**
 
 Prohibited files:
-- `.env*` (all variants)
+- `.env*` (all variants), except `.env.schema` and `.env-schema`
 - `*credentials*`, `*secrets*`, `*token*`, `*.key`, `*.pem`
 - `.aws/credentials`, `.ssh/id_rsa*`
+
+Allowed schema exception:
+- Varlock schema files named `.env.schema` or `.env-schema` may be read. These files are intended to expose variable names, descriptions, types, validation rules, and resolver expressions such as `awsSecret(...)`, `op(...)`, or `exec(...)`.
+- If a schema file appears to contain literal credentials, tokens, passwords, private keys, or connection strings with embedded passwords, stop reading and ask the user to inspect it.
 
 **Note:** The global `.gitignore` (in `git/.gitignore`) helps prevent accidental commits of these sensitive files across all repositories.
 
 ### When Users Request .env Help
 
 **FORBIDDEN:**
-- Reading file contents (cat, hexdump, grep, etc.)
+- Reading dotenv files that may contain values (cat, hexdump, grep, etc.)
 - Attempting to redact/mask (you see secrets first - this FAILS)
 
 **REQUIRED:**
@@ -114,4 +118,4 @@ Prohibited files:
 **Template response:**
 "I won't read .env to protect secrets. Instead: (1) What format? (e.g., `export VAR="value"`) (2) Run `bash -n .env` - errors? (3) Run `file .env` - encoding? (4) How do you source it?"
 
-**Rationale:** Redaction requires reading first. Only safe approach: never read.
+**Rationale:** Redaction requires reading first. Only safe approach: never read dotenv files that may contain values.

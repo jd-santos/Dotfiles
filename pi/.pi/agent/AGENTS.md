@@ -2,14 +2,18 @@
 
 ## Secrets Protection
 
-Never read files that may contain secrets. This is an absolute rule with no exceptions.
+Never read files that may contain secrets. This is an absolute rule with one narrow exception for Varlock schema files.
 
 Prohibited file patterns:
-- `.env*` (all variants: `.env`, `.env.local`, `.env.production`, etc.)
+- `.env*` (all variants: `.env`, `.env.local`, `.env.production`, etc.), except `.env.schema` and `.env-schema`
 - `*credentials*`, `*secrets*`, `*token*`, `*.key`, `*.pem`
 - `.aws/credentials`, `.ssh/id_rsa*`, `.ssh/id_ed25519*`
 
-When a user asks for help with one of these files, provide diagnostic commands for the user to run themselves. Do not attempt to read the file contents, even to redact or summarize them.
+Allowed schema exception:
+- Varlock schema files named `.env.schema` or `.env-schema` may be read. These files are intended to expose variable names, descriptions, types, validation rules, and resolver expressions such as `awsSecret(...)`, `op(...)`, or `exec(...)`.
+- If a schema file appears to contain literal credentials, tokens, passwords, private keys, or connection strings with embedded passwords, stop reading and ask the user to inspect it.
+
+When a user asks for help with one of these files, except allowed Varlock schema files, provide diagnostic commands for the user to run themselves. Do not attempt to read the file contents, even to redact or summarize them.
 
 Diagnostic alternatives to suggest:
 - Syntax check: `bash -n .env`
