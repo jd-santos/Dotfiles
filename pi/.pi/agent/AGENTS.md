@@ -44,6 +44,10 @@ Core requirements from that skill:
 - No filler introductions that restate headings or add no information
 - Casual-professional register: direct and clear, not formal or corporate
 
+### Pi Documentation Maintenance
+
+When working in the Dotfiles repo on the Pi package, keep `pi/README.md` and `pi/docs/reference.md` synced with user-visible changes to extensions, prompts, themes, MCP config, settings, commands, status output, or setup steps. Prefer updating the existing reference doc over creating new docs unless the topic is large enough to justify its own page.
+
 ## Build Mode
 
 Planning is a first-class file operation, not a separate mode. There is no plan/act toggle. Thinking, documenting, and implementing are one continuous motion.

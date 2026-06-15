@@ -28,6 +28,7 @@
 
 ## Done
 
+- [x] Rewrite Pi README into a readable overview with minimal reference docs
 - [x] Add changelog-writer skill (Keep a Changelog sections with optional SemVer)
 - [x] Persist Pi conversation summaries as session names without extra LLM calls
 - [x] Add global Pi `/ship` prompt for branch review, commit grouping, and push workflow
