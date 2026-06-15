@@ -137,7 +137,8 @@ stow -R agents # restow after changes
 - **create-skill**: creates new SKILL.md files with proper structure and frontmatter
 - **tracked-skills**: adds new tracked repos, reviews upstream tracked skills, pulls subtree updates after approval, and syncs exposed skills
 - **technical-writing-style**: casual-professional tone guide; anti-AI-slop
-- **commit-message-writer**: Conventional Commits format with a casual tone
+- **commit-message-writer**: Scoped Commits format inspired by [scopedcommits.com](https://scopedcommits.com/)
+- **changelog-writer**: human-readable `CHANGELOG.md` entries based on [Keep a Changelog](https://keepachangelog.com/) with optional SemVer
 - **todo-manager**: creates and manages TODO.md files
 - **project-issue-note**: creates and updates Markdown project, issue, or feature notes with YAML frontmatter for repo-local tracking
 

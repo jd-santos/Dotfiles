@@ -1,6 +1,6 @@
 ---
 name: commit-message-writer
-description: Writes git commit messages using Conventional Commits format (feat, fix, docs, refactor). Use when committing changes, writing commit messages, or when user says "commit this" or "write a commit message".
+description: 'Writes git commit messages using Scoped Commits format (scope: description). Use when committing changes, writing commit messages, or when user says "commit this" or "write a commit message".'
 version: 1.0.0
 author: jdwork
 category: git
@@ -10,165 +10,185 @@ category: git
 
 ## Description
 
-Writes commit messages that are clear, concise, and follow Conventional Commits basics. No corporate speak, no marketing language—just what changed and why in plain English.
+Writes commit messages that put the changed area first. Use Scoped Commits format: `scope: description`. No type-first prefixes like `feat:`, `fix:`, or `chore:` unless a project explicitly asks for them.
 
 ## Instructions
 
-### 1. Choose the Right Type
+### 1. Choose the scope
 
-Use these prefixes for the commit type:
+The scope is the subsystem, area, module, package, directory, or tool the commit touches.
 
-- **feat:** new feature or capability
-- **fix:** bug fix
-- **docs:** documentation changes
-- **refactor:** code restructuring (no behavior change)
-- **test:** adding or updating tests
-- **chore:** maintenance tasks (deps, config, tooling)
-- **style:** formatting, whitespace (not CSS)
-- **perf:** performance improvements
+Good scopes are specific enough to help someone scan `git log`:
 
-**Format:** `type(optional-scope): description`
+- `auth`
+- `api`
+- `ui`
+- `readme`
+- `nvim`
+- `tmux`
+- `net/http`
+- `net/http/cookiejar`
+
+Use the project vocabulary. If the project already has component names, package names, app names, or top-level directories, prefer those.
+
+**Format:** `scope: description`
 
 **Examples:**
-- `feat(auth): add password reset flow`
-- `fix: handle null user in profile page`
-- `docs: update API examples`
-- `chore(deps): bump react to 18.2`
 
-### 2. Write the Description
+- `auth: add password reset flow`
+- `api: handle null user in profile endpoint`
+- `readme: document tmux copy mode`
+- `nvim/keymaps: add diagnostics shortcut`
+- `treewide: rename default branch references`
 
-**Keep it short and direct:**
-- Start with lowercase (unless proper noun)
-- Use imperative mood ("add", not "added" or "adds")
+### 2. Write the description
+
+Keep it short and direct:
+
+- Start with lowercase unless the first word is a proper noun
+- Use imperative mood, like `add`, not `added` or `adds`
 - Skip the period at the end
-- ~50 chars max (definitely under 72)
-
-**Focus on WHAT and WHY, not HOW:**
-- ❌ "Updated the authentication service to check for null values before processing"
-- ✅ "fix: handle null user in auth check"
+- Aim for 50 characters, stay under 72
+- Focus on what changed and why, not the implementation steps
 
 **Be specific:**
-- ❌ "fix: bug fix"
-- ❌ "feat: improvements"
-- ✅ "fix: prevent crash when user logs out twice"
-- ✅ "feat: add dark mode toggle to settings"
 
-### 3. Add a Body (Optional)
+- ❌ `api: fix bug`
+- ❌ `ui: improvements`
+- ✅ `api: reject empty search queries`
+- ✅ `ui: prevent double-submit on checkout`
 
-Only add a body if the commit needs more context:
+### 3. Use multiple scopes only when needed
 
-```
-fix: prevent race condition in data sync
+If a commit spans more than one area, prefer one of these options:
 
-The sync timer was resetting before the previous sync finished,
-causing duplicate entries. Now we check if a sync is in progress.
-```
+1. Use a broader scope that covers the change.
+2. Use comma-separated scopes if both are important.
+3. Use `treewide`, `all`, or `global` for repo-wide changes.
+4. If no useful scope exists, skip the scope rule and write a clear special commit.
 
-**When to add a body:**
-- The change isn't obvious from the description
-- You need to explain WHY you did it this way
-- Multiple related changes in one commit
-- Breaking changes that need explanation
+Examples:
 
-**When to skip the body:**
-- The description says it all
-- Self-explanatory refactoring
-- Obvious bug fixes
+- `settings: sync theme names across UI and docs`
+- `api,ui: show validation errors from server`
+- `treewide: format Lua configs`
 
-### 4. Avoid Common Mistakes
+### 4. Add a body when it helps
 
-**Don't use vague descriptions:**
-- ❌ "update code"
-- ❌ "fix issues"
-- ❌ "refactor components"
-- ❌ "WIP" (commit when done, not in progress)
+Only add a body if the subject line needs more context:
 
-**Don't write marketing copy:**
-- ❌ "feat: implement robust error handling solution"
-- ✅ "feat: add error logging to API calls"
-- ❌ "fix: comprehensive improvements to validation"
-- ✅ "fix: validate email before sending"
+```text
+auth: prevent duplicate token refreshes
 
-**Don't be overly formal:**
-- ❌ "This commit ensures that the validation logic properly handles edge cases"
-- ✅ "fix: validate empty input in search form"
-
-**Don't explain the code:**
-- ❌ "fix: changed if statement to check for null and undefined values"
-- ✅ "fix: handle null user in profile"
-
-### 5. Scope Usage (Optional)
-
-Add a scope when working in multi-module projects:
-
-```
-feat(api): add user search endpoint
-fix(ui): prevent button double-click
-docs(readme): add setup instructions
-chore(ci): update build workflow
+Concurrent requests were refreshing the token independently, which
+caused later requests to overwrite newer credentials. Track the active
+refresh promise and reuse it until it settles.
 ```
 
-**Skip the scope if:**
-- Project is small or single-purpose
-- Change affects multiple areas
-- Scope doesn't add clarity
+Add a body when:
 
-### 6. Breaking Changes
+- The change is not obvious from the description
+- You need to explain why the change was made
+- Multiple related changes belong in one commit
+- There is migration, rollout, or compatibility context
 
-For breaking changes, add `!` after the type:
+Skip the body when the subject says enough.
 
-```
-feat!: change API response format to JSON
+### 5. Handle breaking changes and trailers
 
-Old XML format is no longer supported.
-```
+Scoped Commits does not require a special subject marker for breaking changes. Put the breaking-change note in the body or trailer:
 
-Or use a footer:
+```text
+api: change auth token response
 
-```
-feat: update auth API
-
-BREAKING CHANGE: auth tokens now expire after 24 hours
+BREAKING CHANGE: auth tokens now return under `access_token` instead of `token`.
 ```
 
-**Only mark as breaking if:**
-- API changes affect consumers
-- Config format changes
-- CLI arguments change
-- Database migrations required
+Ticket IDs can go after the scope or in a trailer, depending on the project:
+
+```text
+auth (PROJ-123): fix login redirect
+```
+
+```text
+auth: fix login redirect
+
+Ticket: PROJ-123
+```
+
+### 6. Special commits
+
+Reverts, merges, release commits, and generated commits can use their normal project format. If a scoped subject is still clear, use it:
+
+```text
+auth: revert token refresh retry limit
+```
+
+Otherwise, keep Git's default wording or the release tool's generated message.
+
+### 7. Avoid common mistakes
+
+Do not use type-first prefixes unless the repo asks for them:
+
+- ❌ `feat(auth): add password reset flow`
+- ✅ `auth: add password reset flow`
+- ❌ `fix: handle null user in profile page`
+- ✅ `profile: handle null user`
+
+Do not use vague descriptions:
+
+- ❌ `ui: update code`
+- ❌ `api: fix issues`
+- ❌ `treewide: cleanup`
+- ❌ `wip: stuff`
+
+Do not write marketing copy:
+
+- ❌ `api: implement robust validation solution`
+- ✅ `api: validate email before sending invite`
+- ❌ `search: add comprehensive filtering improvements`
+- ✅ `search: filter archived projects`
+
+Do not explain the code mechanics in the subject:
+
+- ❌ `profile: change if statement to check null user`
+- ✅ `profile: handle null user`
 
 ## Examples
 
 **Rambling description:**
+
+```text
+Added a new feature where users can now reset their passwords by clicking the forgot password link
 ```
-Added a new feature where users can now reset their passwords by clicking the forgot password link...
-```
-→ `feat(auth): add password reset flow`
+
+→ `auth: add password reset flow`
 
 **Vague:**
-```
+
+```text
 Fixed the bug where the thing wasn't working
 ```
-→ `fix: prevent crash on empty search results`
 
-**All-in-one sentence:**
+→ `search: prevent crash on empty results`
+
+**Too implementation-focused:**
+
+```text
+Updated the database configuration file to use a connection pool instead of creating a new connection each time
 ```
-Updated the database configuration file to use a connection pool instead of creating a new connection each time because it was causing performance issues and now it should be faster
-```
-→ 
-```
-perf(db): use connection pooling
+
+→
+
+```text
+db: use connection pooling
 
 Creating a new connection per query was causing 2s delays.
-Connection pool reduces this to ~50ms.
+Connection pooling reduces this to roughly 50ms.
 ```
 
 ## Notes
 
-**When to split commits:**
-- Multiple unrelated changes
-- Would make review easier
+This format is based on [Scoped Commits](https://scopedcommits.com/), which prioritizes the changed area over a type prefix.
 
-**When to add a body:**
-- Change needs more context than the description provides
-- Explaining WHY you did it this way
+Split commits when changes are unrelated or review would be easier with separate history entries.

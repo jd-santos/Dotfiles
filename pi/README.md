@@ -22,6 +22,7 @@ Personal Pi configuration with extensions for write gating, auto-formatting, cos
 | `themes/catppuccin-*.json`            | Catppuccin Latte, Frappé, Macchiato, and Mocha themes                                 |
 | `themes/dracula.json`                 | Dracula community theme                                                               |
 | `prompts/plan.md`                     | `/plan` template for two-round planning                                               |
+| `prompts/ship.md`                     | `/ship` template for reviewing, committing, and pushing branch work                   |
 
 **Not tracked:** `auth.json`, `sessions/`, `bin/`, `settings.json` (generated), `settings.local.json` (machine-specific overrides).
 
@@ -261,6 +262,18 @@ Catppuccin Latte, Frappé, Macchiato, and Mocha themes are available. Mocha is t
 The Dracula theme is still available as `dracula`.
 
 ## Prompts
+
+### /ship
+
+Location: `prompts/ship.md`
+
+Branch shipping template. Invoke with `/ship [extra instructions]`.
+
+- Reviews branch status, diffs, untracked files, and unpushed commits.
+- Loads the commit-message-writer and changelog-writer skills before commit decisions.
+- Groups ready work into focused commits.
+- Checks public repository status before committing when GitHub metadata is available.
+- Asks before pushing to the current branch's upstream.
 
 ### /plan
 
