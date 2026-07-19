@@ -64,9 +64,20 @@ That split keeps each extension small while making the UI feel like one system.
 
 ## Settings, models, and MCP
 
-The shared model shortlist comes from `enabledModels` in `.pi/agent/settings.base.json`. `Ctrl+P` cycles that scoped list. `/model` still opens the full selector, and `/scoped-models` toggles the scoped list interactively.
+The shared model shortlist comes from `enabledModels` in
+`.pi/agent/settings.base.json`. `Ctrl+P` cycles that scoped list. The current
+cycle includes Codex GPT-5.6 Sol, Terra, and Luna, with GPT-5.5, GPT-5.4,
+and DeepSeek V4 routes as fallbacks. `/model` still opens the full selector,
+and `/scoped-models` toggles the scoped list interactively.
 
-If a resumed session opens on a model you did not expect, the session restore won. Start a fresh session with `/new` or `pi --no-session` to use the configured default.
+The shared default is `openai-codex/gpt-5.6-sol` with low thinking. OpenRouter
+standby models, including GPT-5.6 Pro routes, Kimi K3, GLM 5.2, Qwen 3.7,
+and Gemma 4, stay out of the `Ctrl+P` cycle but remain available through
+`/model` when the provider catalog and auth expose them.
+
+If a resumed session opens on a model you did not expect, the session restore
+won. Start a fresh session with `/new` or `pi --no-session` to use the
+configured default.
 
 MCP servers are defined in `.config/mcp/mcp.json`:
 

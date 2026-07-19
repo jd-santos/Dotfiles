@@ -28,6 +28,7 @@
 
 ## Done
 
+- [x] Update Pi model defaults and scoped model list
 - [x] Rewrite Pi README into a readable overview with minimal reference docs
 - [x] Add changelog-writer skill (Keep a Changelog sections with optional SemVer)
 - [x] Persist Pi conversation summaries as session names without extra LLM calls

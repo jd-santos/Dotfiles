@@ -32,21 +32,53 @@ The repo root `.stow-local-ignore` ignores top-level `README.md` and `docs/` in 
 
 ## Settings
 
-Shared settings live in `.pi/agent/settings.base.json`. Local overrides live in `~/.pi/agent/settings.local.json`. Run `merge-settings` to generate `~/.pi/agent/settings.json`, which is the file Pi reads.
+Shared settings live in `.pi/agent/settings.base.json`. Local overrides live in
+`~/.pi/agent/settings.local.json`. Run `merge-settings` to generate
+`~/.pi/agent/settings.json`, which is the file Pi reads.
 
 Current shared settings include:
 
 - Theme: `catppuccin-mocha`
-- Thinking level: `medium`
+- Default model: `openai-codex/gpt-5.6-sol`
+- Thinking level: `low`
 - Thinking block: visible on output
 - Startup: quiet
 - Packages: `npm:pi-mcp-adapter` and `npm:pi-lens`
 - Skills path: `~/.agents/skills`
 - Scoped model list through `enabledModels`
 
-`Ctrl+P` cycles the scoped model list. `/model` opens the full selector. `/scoped-models` toggles the scoped list interactively.
+`Ctrl+P` cycles the scoped model list. `/model` opens the full selector.
+`/scoped-models` toggles the scoped list interactively.
 
-A resumed session can restore its previous model and override the configured default for that session. Use `/new` or `pi --no-session` to start from the configured default.
+Scoped model cycle:
+
+- `openai-codex/gpt-5.6-sol`
+- `openai-codex/gpt-5.6-terra`
+- `openai-codex/gpt-5.6-luna`
+- `openai-codex/gpt-5.5`
+- `openai-codex/gpt-5.4`
+- `openrouter/deepseek/deepseek-v4-pro`
+- `openrouter/deepseek/deepseek-v4-flash`
+
+OpenRouter standby routes verified in Pi 0.80.10, intentionally not in the
+`Ctrl+P` cycle:
+
+- GPT pro:
+  - `openrouter/openai/gpt-5.6-sol-pro`
+  - `openrouter/openai/gpt-5.6-terra-pro`
+  - `openrouter/openai/gpt-5.6-luna-pro`
+  - `openrouter/openai/gpt-5.5-pro`
+  - `openrouter/openai/gpt-5.4-pro`
+- Kimi: `openrouter/moonshotai/kimi-k3`
+- GLM: `openrouter/z-ai/glm-5.2`
+- Qwen: `openrouter/qwen/qwen3.7-max`, `openrouter/qwen/qwen3.7-plus`
+- Gemma 4:
+  - `openrouter/google/gemma-4-31b-it`
+  - `openrouter/google/gemma-4-26b-a4b-it`
+
+A resumed session can restore its previous model and override the configured
+default for that session. Use `/new` or `pi --no-session` to start from the
+configured default.
 
 ## MCP
 
