@@ -132,6 +132,8 @@ stow -R agents # restow after changes
 
 ### Development workflows
 
+- **ship**: reviews a git branch, groups ready changes into commits, checks
+  changelog needs, and pushes only after confirmation
 - **add-pi-feature**: adds pi coding agent features: skills, extensions, prompt templates, themes, custom tools, commands, and flags
 - **create-agents-md**: creates AGENTS.md files for AI agent context in codebases
 - **create-skill**: creates new SKILL.md files with proper structure and frontmatter

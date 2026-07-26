@@ -41,7 +41,7 @@ Local-only files stay out of git:
 | `.pi/agent/AGENTS.md` | Global instructions loaded by Pi at session start |
 | `.pi/agent/extensions/*.ts` | Local Pi extensions |
 | `.pi/agent/prompts/plan.md` | `/plan` prompt template for two-round planning |
-| `.pi/agent/prompts/ship.md` | `/ship` prompt template for branch review, commits, changelog checks, and push confirmation |
+| `.pi/agent/prompts/ship.md` | `/ship` prompt template that delegates to the shared `ship` skill |
 | `.pi/agent/themes/*.json` | Catppuccin and Dracula themes |
 | `docs/reference.md` | Detailed reference notes that are useful but too dense for the README |
 
@@ -102,7 +102,7 @@ MCP servers are defined in `.config/mcp/mcp.json`:
 | `/summary clear` | Clear the current summary |
 | `/promptfoo-export [name]` | Export the active Pi branch as a promptfoo eval stub |
 | `/plan [topic]` | Run the two-round planning prompt |
-| `/ship [instructions]` | Review branch work, commit ready changes, check changelog needs, and ask before pushing |
+| `/ship [instructions]` | Run the shared `ship` skill for branch review, commits, changelog checks, and push confirmation |
 
 ## Extensions
 
@@ -134,14 +134,10 @@ The prompt says not to write files during the planning rounds. Plans are saved t
 
 ### `/ship`
 
-`/ship` runs the branch shipping workflow:
-
-1. Inspect branch status, upstream, unpushed commits, diffs, and untracked files.
-2. Review non-sensitive changes and classify what is ready, uncertain, unfinished, unrelated, or potentially sensitive.
-3. Load the commit-message-writer skill for commit messages.
-4. Load the changelog-writer skill and decide whether the ready work needs a changelog update.
-5. Stage and commit high-confidence groups with scoped commit messages.
-6. Ask before staging uncertain work or pushing to the upstream branch.
+`/ship` is a thin wrapper around the shared `ship` skill in
+`~/.agents/skills/ship`. The skill owns the branch review workflow: inspect git
+state, review non-sensitive changes, group ready work into commits, decide
+whether a changelog update is needed, and ask before pushing.
 
 Use `/ship [extra instructions]` when a branch is ready for final review.
 

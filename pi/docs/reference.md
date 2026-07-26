@@ -14,7 +14,7 @@ This is the spillover doc for Pi details that are worth keeping but too dense fo
 | `.pi/agent/types.d.ts` | `~/.pi/agent/types.d.ts` | Local extension type helpers |
 | `.pi/agent/extensions/*.ts` | `~/.pi/agent/extensions/*.ts` | Local Pi extensions |
 | `.pi/agent/prompts/plan.md` | `~/.pi/agent/prompts/plan.md` | `/plan` prompt template |
-| `.pi/agent/prompts/ship.md` | `~/.pi/agent/prompts/ship.md` | `/ship` prompt template |
+| `.pi/agent/prompts/ship.md` | `~/.pi/agent/prompts/ship.md` | `/ship` wrapper for the shared `ship` skill |
 | `.pi/agent/themes/*.json` | `~/.pi/agent/themes/*.json` | Catppuccin and Dracula themes |
 | `README.md` | Not stowed | Human-facing overview |
 | `docs/reference.md` | Not stowed | Dense reference notes |
@@ -374,21 +374,16 @@ The prompt says to save plans to `TODO.md` or `docs/` only on explicit instructi
 
 Location: `.pi/agent/prompts/ship.md`
 
-`/ship [extra instructions]` runs a branch shipping review.
+`/ship [extra instructions]` loads and runs the shared `ship` skill from
+`~/.agents/skills/ship`.
 
-The prompt asks Pi to:
+The prompt stays small so the workflow can be reused outside Pi by any agent
+that understands Agent Skills. The skill owns the branch shipping behavior:
+inspect git state, protect secret-looking files, group ready work into focused
+commits, check whether a changelog update is needed, and ask before pushing.
 
-- Inspect branch status, upstream, unpushed commits, staged changes, unstaged changes, and untracked files
-- Review non-sensitive diffs with targeted reads
-- Classify changes as ready, uncertain, unfinished, unrelated, or potentially sensitive
-- Load the commit-message-writer skill before writing commit messages
-- Load the changelog-writer skill before deciding whether the work needs a changelog update
-- Stage only coherent, high-confidence change groups
-- Commit with scoped commit messages
-- Ask before staging uncertain work
-- Ask before pushing to the upstream branch
-
-Use it when a branch is ready for final review and you want the agent to handle commit grouping without skipping the push confirmation.
+Use it when a branch is ready for final review and you want the agent to handle
+commit grouping without skipping the push confirmation.
 
 ## AGENTS.md
 

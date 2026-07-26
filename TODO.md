@@ -28,6 +28,7 @@
 
 ## Done
 
+- [x] Convert Pi `/ship` prompt into reusable `ship` skill
 - [x] Update Pi model defaults and scoped model list
 - [x] Rewrite Pi README into a readable overview with minimal reference docs
 - [x] Add changelog-writer skill (Keep a Changelog sections with optional SemVer)
