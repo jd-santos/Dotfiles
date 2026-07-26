@@ -129,6 +129,7 @@ stow -R agents # restow after changes
 - **orient**: generates a repo-specific `orientation.md` for a codebase, used by the learning-opportunities skill for guided orientation exercises
 - **planning-first**: two-round planning protocol before non-trivial work; clarifies intent first, then proposes approaches with tradeoffs
 - **informed-patient**: structured symptom interview and evidence-based literature review to prepare for medical appointments; only activate on explicit request
+- **study-lyrics**: translates and studies user-provided lyric excerpts with alternatives, language notes, and sourced cultural context
 
 ### Development workflows
 
