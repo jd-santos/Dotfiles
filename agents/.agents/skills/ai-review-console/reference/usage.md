@@ -72,6 +72,35 @@ generator for a new review — you write a spec. Minimum viable spec:
 The data JSON must expose a key matching each queue's `source` (e.g.
 `"main_items": [...]`) plus optional `date` and `counts`.
 
+## Optional spec keys
+
+The generator supports a few optional keys so a console can keep its identity
+across regenerations without touching the engine. All are optional and default
+to sensible generic behavior:
+
+- Top-level:
+  - `storage_key` (str) — override the browser `localStorage` key (default
+    `reviewConsole:<title-slug>:v1`). Set this to preserve already-saved
+    decisions when you change a title.
+  - `download_prefix` (str) — override the downloaded-filename prefix (default
+    `<title-slug>-decisions`). The filename becomes `<prefix>-YYYY-MM-DD.json`.
+  - `note_label` (str) — text shown above each card's note box (default
+    `Note / rationale`).
+  - `agent_help` (str) — replace the "How this works" sentence in the header
+    (default: generic instruction to download decision JSON and send it to
+    the agent).
+  - `payload_meta` (object) — extra static keys merged into the exported
+    decision JSON (e.g. `{"generated_from": "scripts/foo.py"}`).
+- Per queue:
+  - `detail_keys` (list) — which item fields render as property blocks
+    (default: `status, priority, due, path, description`).
+  - `primary_keys` (list) — which detail fields get emphasized styling
+    (default: `status, priority, due`). Matching is suffix-based, so
+    prefixed labels like `Todoist priority` still highlight.
+  - `side_labels` (list) — for a queue whose items are two-dict lists (a
+    side-by-side comparison), prefixes each side's detail labels (e.g.
+    `["Todoist", "Obsidian"]`).
+
 ## Common review domains
 
 - Reconciliation / alignment between two systems (e.g. project manager ↔ task

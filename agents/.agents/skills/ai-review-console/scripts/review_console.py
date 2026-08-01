@@ -103,8 +103,18 @@ def item_title(item: Any, detail_keys: list[str]) -> str:
     return "Review item"
 
 
-def item_details(item: Any, detail_keys: list[str]) -> list[tuple[str, str]]:
-    """Return labeled detail rows for an arbitrary review item."""
+def item_details(
+    item: Any,
+    detail_keys: list[str],
+    side_labels: list[str] | None = None,
+) -> list[tuple[str, str]]:
+    """Return labeled detail rows for an arbitrary review item.
+
+    ``side_labels`` optionally prefixes the detail label for each side of a
+    two-dict list item (e.g. ``["Todoist", "Obsidian"]`` for a task-block
+    compared against a source-block), so the human can tell which side a
+    property came from.
+    """
     details: list[tuple[str, str]] = []
     if isinstance(item, dict):
         for key in detail_keys:
@@ -116,7 +126,10 @@ def item_details(item: Any, detail_keys: list[str]) -> list[tuple[str, str]]:
             details.append((key.replace("_", " "), str(val)))
         return details
     if isinstance(item, list) and all(isinstance(x, dict) for x in item):
-        for side in item:
+        for side_i, side in enumerate(item):
+            prefix = ""
+            if side_labels and side_i < len(side_labels):
+                prefix = f"{side_labels[side_i]} "
             for key in detail_keys:
                 if key in ("title", "content", "name"):
                     continue
@@ -125,19 +138,21 @@ def item_details(item: Any, detail_keys: list[str]) -> list[tuple[str, str]]:
                     continue
                 if isinstance(val, (list, dict)):
                     val = json.dumps(val, ensure_ascii=False)
-                details.append((f"{key.replace('_', ' ')}", str(val)))
+                details.append((f"{prefix}{key.replace('_', ' ')}", str(val)))
         return details
     return [("raw", json.dumps(item, ensure_ascii=False))]
 
 
 def render_cards(data: dict[str, Any], spec: dict[str, Any]) -> str:
     global_actions = spec.get("global_actions", [])
+    note_label = spec.get("note_label", "Note / rationale")
     chunks: list[str] = []
     for queue in spec.get("queues", []):
         qid = queue["id"]
         items = data.get(queue.get("source", qid), []) or []
         detail_keys = queue.get("detail_keys", ["status", "priority", "due", "path", "description"])
         primary_keys = set(queue.get("primary_keys", ["status", "priority", "due"]))
+        side_labels = queue.get("side_labels")
         chunks.append(f"<section class='queue' id='{html.escape(qid)}' data-count='{len(items)}'>")
         chunks.append(
             f"<div class='queue-head'><div><div class='eyebrow'>Review queue</div>"
@@ -155,7 +170,7 @@ def render_cards(data: dict[str, Any], spec: dict[str, Any]) -> str:
                         iid = f"{qid}:{item[key]}"
                         break
             title = item_title(item, detail_keys)
-            details = item_details(item, detail_keys)
+            details = item_details(item, detail_keys, side_labels)
             # Script raw-text content (application/json) does not decode HTML
             # entities; keep it literal JSON and only neutralize a closing
             # script sequence so JSON.parse() always succeeds.
@@ -173,7 +188,7 @@ def render_cards(data: dict[str, Any], spec: dict[str, Any]) -> str:
             for k, v in details:
                 if len(v) > 500:
                     v = v[:500] + "\u2026"
-                key_class = " property-primary" if k in primary_keys else ""
+                key_class = " property-primary" if any(k.endswith(pk) for pk in primary_keys) else ""
                 chunks.append(
                     f"<div class='property{key_class}'><span>{html.escape(k)}</span>"
                     f"<strong>{html.escape(v)}</strong></div>"
@@ -203,7 +218,7 @@ def render_cards(data: dict[str, Any], spec: dict[str, Any]) -> str:
                 chunks.append("</div>")
             chunks.append("</fieldset>")
             chunks.append(
-                "<label class='note-label'>Note / rationale<textarea placeholder='Optional note for the apply pass'></textarea></label>"
+                f"<label class='note-label'>{html.escape(note_label)}<textarea placeholder='Optional note for the apply pass'></textarea></label>"
             )
             chunks.append(f"<script type='application/json' class='raw-item'>{raw}</script>")
             chunks.append("</article>")
@@ -219,8 +234,14 @@ def render_html(data: dict[str, Any], spec: dict[str, Any]) -> str:
     )
     queue_links: list[str] = []
     total_cards = 0
-    storage_key = "reviewConsole:" + slugify(spec.get("title", "review")) + ":v1"
-    download_name = slugify(spec.get("title", "review")) + "-decisions-"
+    storage_key = spec.get("storage_key") or ("reviewConsole:" + slugify(spec.get("title", "review")) + ":v1")
+    download_prefix = spec.get("download_prefix") or (slugify(spec.get("title", "review")) + "-decisions")
+    download_name = download_prefix + "-"
+    payload_meta = spec.get("payload_meta") or {}
+    help_sentence = spec.get("agent_help") or (
+        "choose one action per card, add a note only when context is needed, "
+        "then download the decision JSON and send it back to the agent."
+    )
     for queue in spec.get("queues", []):
         qid = queue["id"]
         item_count = len(data.get(queue.get("source", qid), []) or [])
@@ -328,13 +349,14 @@ textarea {{ width:100%; min-height:50px; margin-top:5px; border-radius:11px; bor
 </header>
 <nav class="queue-nav" aria-label="Review queues">{queue_nav}<label class="filter-toggle"><input id="hideDecided" type="checkbox"> Hide decided</label></nav>
 <main>
-  <div class="agent-note"><b>How this works:</b> choose one action per card, add a note only when context is needed, then download the decision JSON and send it back to the agent. Nothing is changed from this page. <code>{payload}</code></div>
+  <div class="agent-note"><b>How this works:</b> {html.escape(help_sentence)} <code>{payload}</code></div>
   {cards}
 </main>
 <div class="toast" id="toast" role="status"></div>
 <script>
 const STORAGE_KEY = '{storage_key}';
 const DOWNLOAD_NAME = '{download_name}';
+const REVIEW_META = {json.dumps(payload_meta, ensure_ascii=False)};
 let storageAvailable = false;
 function loadDecisions() {{
   try {{
@@ -404,7 +426,7 @@ document.querySelectorAll('.card textarea').forEach(ta => {{
   }});
 }});
 function decisionPayload() {{
-  return {{ console_title: {json.dumps(spec.get('title', 'AI Review Console'))}, exported_at: new Date().toISOString(), decisions: Object.values(decisions) }};
+  return {{ ...REVIEW_META, console_title: {json.dumps(spec.get('title', 'AI Review Console'))}, exported_at: new Date().toISOString(), decisions: Object.values(decisions) }};
 }}
 function exportDecisions() {{
   const box = document.getElementById('exportBox');
