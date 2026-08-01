@@ -23,10 +23,13 @@
   - [ ] 1. Add progressive disclosure inside cards (summary, details, evidence/raw item)
   - [ ] 2. Show recommendation provenance: why surfaced, recommendation source, and supporting evidence
   - [ ] 3. Add operational risk, reversibility, evidence-strength, and ambiguity signals; avoid uncalibrated confidence percentages
-  - [ ] 4. Improve navigation and triage with search, filters, keyboard shortcuts, and previous/next-undecided controls
+  - [x] 4. Improve navigation and triage with search, queue/state filters, J/K shortcuts, and previous/next-undecided controls
   - [ ] 5. Add pre-export validation and a decision summary, including incomplete and high-risk review warnings
   - [ ] 6. Represent stale snapshots, invalid data, apply conflicts, and recovery paths as first-class states
-  - [ ] 7. Improve accessibility: keyboard operation, focus styling, ARIA state/live updates, reduced motion, and non-color status cues
+  - [ ] 7. Improve accessibility
+    - [x] Expose selected actions with `aria-pressed` and status updates through a live region
+    - [x] Add visible keyboard focus and respect reduced-motion preferences
+    - [ ] Audit semantic headings, high-zoom/sticky layout behavior, contrast, and full screen-reader flow
   - [ ] 8. Enrich action specs with descriptions, risk, reversibility, rationale requirements, and optional confirmations
   - [ ] 9. Import decision JSON to resume or transfer a review, with schema/snapshot compatibility checks
   - [ ] 10. Refine the mobile review experience with compact details and persistent navigation

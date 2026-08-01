@@ -101,6 +101,22 @@ to sensible generic behavior:
     side-by-side comparison), prefixes each side's detail labels (e.g.
     `["Todoist", "Obsidian"]`).
 
+## Review navigation
+
+The generated console includes review-focused navigation without requiring any
+spec changes:
+
+- Search matches card titles and rendered properties.
+- Queue and decision-state filters narrow the visible cards.
+- **Previous/next undecided** moves through the current filtered result set.
+- Keyboard shortcuts work when focus is not inside a form field:
+  - `/` focuses search.
+  - `J` moves to the next visible undecided card.
+  - `K` moves to the previous visible undecided card.
+- Action buttons expose their selected state to assistive technology, status
+  updates use a live region, keyboard focus is visibly highlighted, and reduced
+  motion preferences are respected.
+
 ## Common review domains
 
 - Reconciliation / alignment between two systems (e.g. project manager ↔ task

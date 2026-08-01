@@ -201,7 +201,7 @@ def render_cards(data: dict[str, Any], spec: dict[str, Any]) -> str:
             )
             for action in queue_actions:
                 chunks.append(
-                    f"<button type='button' data-action='{html.escape(action['id'])}'>"
+                    f"<button type='button' aria-pressed='false' data-action='{html.escape(action['id'])}'>"
                     f"<span class='choice-dot'></span><span>{html.escape(action['label'])}</span></button>"
                 )
             chunks.append("</div>")
@@ -212,7 +212,7 @@ def render_cards(data: dict[str, Any], spec: dict[str, Any]) -> str:
                 )
                 for action in global_actions:
                     chunks.append(
-                        f"<button type='button' data-action='{html.escape(action['id'])}'>"
+                        f"<button type='button' aria-pressed='false' data-action='{html.escape(action['id'])}'>"
                         f"<span class='choice-dot'></span><span>{html.escape(action['label'])}</span></button>"
                     )
                 chunks.append("</div>")
@@ -283,6 +283,7 @@ h1 {{ margin:3px 0 5px; font-size:clamp(24px,3.2vw,38px); letter-spacing:-.035em
 .meta span.storage-warning {{ color:#1b1200; background:var(--warn); border-color:var(--warn); font-weight:850; }}
 .toolbar {{ margin-top:10px; }}
 button {{ font:inherit; }}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible {{ outline:3px solid var(--warn); outline-offset:2px; }}
 .toolbar button {{ background:var(--accent); color:#071018; border:0; border-radius:9px; padding:8px 11px; font-weight:800; cursor:pointer; }}
 .toolbar button.secondary {{ background:var(--panel2); color:var(--text); border:1px solid var(--line); }}
 .toolbar button.danger {{ color:#ffb1b1; }}
@@ -290,7 +291,13 @@ button {{ font:inherit; }}
 .queue-nav a {{ color:var(--muted); text-decoration:none; background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:7px 10px; font-size:12px; }}
 .queue-nav a:hover {{ color:var(--text); border-color:var(--accent); }}
 .queue-nav b {{ color:var(--accent); margin-left:4px; }}
-.filter-toggle {{ margin-left:auto; color:var(--muted); font-size:12px; display:flex; gap:7px; align-items:center; }}
+.review-tools {{ margin-left:auto; display:flex; flex-wrap:wrap; gap:7px; align-items:center; }}
+.review-tools label {{ color:var(--muted); font-size:11px; font-weight:750; }}
+.review-tools input,.review-tools select {{ min-height:34px; color:var(--text); background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:6px 8px; }}
+.review-tools input {{ width:min(220px,34vw); }}
+.review-tools button {{ min-height:34px; color:var(--text); background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:6px 9px; cursor:pointer; }}
+.review-tools button:hover {{ border-color:var(--accent); }}
+.card[hidden],.queue[hidden] {{ display:none; }}
 main {{ max-width:1180px; margin:0 auto; padding:26px clamp(16px,4vw,42px) 100px; }}
 .agent-note {{ color:var(--muted); background:linear-gradient(135deg,rgba(119,208,255,.07),rgba(167,139,250,.05)); border:1px solid var(--line); padding:12px 14px; border-radius:14px; margin-bottom:28px; font-size:13px; }}
 .agent-note code {{ display:none; }}
@@ -330,7 +337,8 @@ textarea {{ width:100%; min-height:50px; margin-top:5px; border-radius:11px; bor
 #exportBox {{ min-height:180px; margin-top:12px; display:none; }}
 .toast {{ position:fixed; right:18px; bottom:18px; z-index:40; color:#071108; background:var(--good); padding:10px 14px; border-radius:10px; font-weight:800; box-shadow:var(--shadow); opacity:0; transform:translateY(12px); pointer-events:none; transition:.2s; }}
 .toast.show {{ opacity:1; transform:none; }}
-@media (max-width:760px) {{ header {{ position:relative; }} .header-row {{ display:block; }} .progress-wrap {{ margin-top:14px; text-align:left; }} .queue-nav {{ top:0; overflow-x:auto; flex-wrap:nowrap; }} .queue-nav a {{ flex:none; }} .filter-toggle {{ flex:none; }} .property {{ flex-basis:100%; min-width:0; }} .property-primary {{ flex:1 1 95px; }} .card-top {{ display:block; }} .decision-state {{ display:inline-block; margin-top:8px; }} .actions button {{ flex:1 1 100%; max-width:none; }} .fallback-actions button {{ flex:1 1 calc(50% - 9px); }} .toolbar button {{ flex:1 1 145px; }} }}</style>
+@media (prefers-reduced-motion:reduce) {{ html {{ scroll-behavior:auto; }} *,*::before,*::after {{ animation-duration:.01ms!important; transition-duration:.01ms!important; }} }}
+@media (max-width:760px) {{ header {{ position:relative; }} .header-row {{ display:block; }} .progress-wrap {{ margin-top:14px; text-align:left; }} .queue-nav {{ top:0; }} .queue-nav>a {{ flex:none; }} .review-tools {{ flex:1 1 100%; margin-left:0; }} .review-tools input {{ width:100%; flex:1 1 100%; }} .property {{ flex-basis:100%; min-width:0; }} .property-primary {{ flex:1 1 95px; }} .card-top {{ display:block; }} .decision-state {{ display:inline-block; margin-top:8px; }} .actions button {{ flex:1 1 100%; max-width:none; }} .fallback-actions button {{ flex:1 1 calc(50% - 9px); }} .toolbar button {{ flex:1 1 145px; }} }}</style>
 </head>
 <body>
 <header>
@@ -347,12 +355,17 @@ textarea {{ width:100%; min-height:50px; margin-top:5px; border-radius:11px; bor
   </div>
   <textarea id="exportBox" readonly></textarea>
 </header>
-<nav class="queue-nav" aria-label="Review queues">{queue_nav}<label class="filter-toggle"><input id="hideDecided" type="checkbox"> Hide decided</label></nav>
+<nav class="queue-nav" aria-label="Review queues">{queue_nav}<div class="review-tools" aria-label="Review filters">
+  <label for="reviewSearch">Search</label><input id="reviewSearch" type="search" placeholder="Title or property" autocomplete="off">
+  <label for="queueFilter">Queue</label><select id="queueFilter"><option value="">All queues</option></select>
+  <label for="stateFilter">State</label><select id="stateFilter"><option value="all">All</option><option value="undecided">Undecided</option><option value="decided">Decided</option></select>
+  <button type="button" id="prevUndecided" title="Previous undecided (K)">← Undecided</button><button type="button" id="nextUndecided" title="Next undecided (J)">Undecided →</button>
+</div></nav>
 <main>
   <div class="agent-note"><b>How this works:</b> {html.escape(help_sentence)} <code>{payload}</code></div>
   {cards}
 </main>
-<div class="toast" id="toast" role="status"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script>
 const STORAGE_KEY = '{storage_key}';
 const DOWNLOAD_NAME = '{download_name}';
@@ -401,7 +414,11 @@ function applyExisting() {{
     if (!d) return;
     card.classList.add('done');
     card.querySelector('.decision-state').textContent = d.label || 'Decided';
-    card.querySelectorAll('button').forEach(b => b.classList.toggle('selected', b.dataset.action === d.action));
+    card.querySelectorAll('button').forEach(b => {{
+      const selected = b.dataset.action === d.action;
+      b.classList.toggle('selected', selected);
+      b.setAttribute('aria-pressed', String(selected));
+    }});
     const ta = card.querySelector('textarea');
     if (ta) ta.value = d.note || '';
   }});
@@ -414,8 +431,13 @@ document.querySelectorAll('.card button').forEach(btn => {{
     decisions[id] = {{ id, queue: card.dataset.queue, action: btn.dataset.action, label: btn.textContent, note, item: cardRaw(card), decided_at: new Date().toISOString() }};
     card.classList.add('done');
     card.querySelector('.decision-state').textContent = btn.textContent;
-    card.querySelectorAll('button').forEach(b => b.classList.toggle('selected', b === btn));
+    card.querySelectorAll('button').forEach(b => {{
+      const selected = b === btn;
+      b.classList.toggle('selected', selected);
+      b.setAttribute('aria-pressed', String(selected));
+    }});
     persist();
+    applyFilters();
   }});
 }});
 document.querySelectorAll('.card textarea').forEach(ta => {{
@@ -456,14 +478,60 @@ function downloadDecisions() {{
 function clearDecisions() {{
   if (!confirm('Clear decisions stored in this browser?')) return;
   decisions = {{}};
-  document.querySelectorAll('.card').forEach(card => {{ card.classList.remove('done'); card.querySelector('.decision-state').textContent='Awaiting decision'; card.querySelectorAll('button').forEach(b => b.classList.remove('selected')); card.querySelector('textarea').value=''; }});
+  document.querySelectorAll('.card').forEach(card => {{ card.classList.remove('done'); card.querySelector('.decision-state').textContent='Awaiting decision'; card.querySelectorAll('button').forEach(b => {{ b.classList.remove('selected'); b.setAttribute('aria-pressed','false'); }}); card.querySelector('textarea').value=''; }});
   persist();
+  applyFilters();
   toast('Local decisions cleared');
 }}
-document.getElementById('hideDecided').addEventListener('change', e => document.body.classList.toggle('hide-decided', e.target.checked));
+const searchInput = document.getElementById('reviewSearch');
+const queueFilter = document.getElementById('queueFilter');
+const stateFilter = document.getElementById('stateFilter');
+document.querySelectorAll('.queue').forEach(queue => {{
+  const option = document.createElement('option');
+  option.value = queue.id;
+  option.textContent = queue.querySelector('h2')?.textContent || queue.id;
+  queueFilter.appendChild(option);
+}});
+function applyFilters() {{
+  const query = searchInput.value.trim().toLowerCase();
+  const queueId = queueFilter.value;
+  const state = stateFilter.value;
+  document.querySelectorAll('.queue').forEach(queue => {{
+    let visible = 0;
+    queue.querySelectorAll('.card').forEach(card => {{
+      const queueMatch = !queueId || card.dataset.queue === queueId;
+      const stateMatch = state === 'all' || (state === 'decided' ? card.classList.contains('done') : !card.classList.contains('done'));
+      const searchMatch = !query || card.innerText.toLowerCase().includes(query);
+      card.hidden = !(queueMatch && stateMatch && searchMatch);
+      if (!card.hidden) visible += 1;
+    }});
+    queue.hidden = (queueId && queue.id !== queueId) || (queue.querySelectorAll('.card').length > 0 && visible === 0);
+  }});
+}}
+function moveToUndecided(direction) {{
+  const cards = [...document.querySelectorAll('.card:not(.done)')].filter(card => !card.hidden && !card.closest('.queue').hidden);
+  if (!cards.length) {{ toast('No visible undecided items'); return; }}
+  const current = document.activeElement?.closest?.('.card');
+  let index = cards.indexOf(current);
+  index = index < 0 ? (direction > 0 ? 0 : cards.length - 1) : (index + direction + cards.length) % cards.length;
+  cards[index].scrollIntoView({{ behavior:'smooth', block:'center' }});
+  cards[index].querySelector('button,textarea')?.focus({{ preventScroll:true }});
+}}
+searchInput.addEventListener('input', applyFilters);
+queueFilter.addEventListener('change', applyFilters);
+stateFilter.addEventListener('change', applyFilters);
+document.getElementById('prevUndecided').addEventListener('click', () => moveToUndecided(-1));
+document.getElementById('nextUndecided').addEventListener('click', () => moveToUndecided(1));
+document.addEventListener('keydown', event => {{
+  const editing = ['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName);
+  if (event.key === '/' && !editing) {{ event.preventDefault(); searchInput.focus(); }}
+  if (!editing && event.key.toLowerCase() === 'j') {{ event.preventDefault(); moveToUndecided(1); }}
+  if (!editing && event.key.toLowerCase() === 'k') {{ event.preventDefault(); moveToUndecided(-1); }}
+}});
 applyExisting();
 updateStorageStatus();
 updateProgress();
+applyFilters();
 </script>
 </body>
 </html>
