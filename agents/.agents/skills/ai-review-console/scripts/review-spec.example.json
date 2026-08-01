@@ -17,8 +17,28 @@
       "detail_keys": ["status", "priority", "due", "labels", "path", "description"],
       "primary_keys": ["status", "priority", "due"],
       "actions": [
-        {"id": "approve", "label": "Approve"},
-        {"id": "needs_changes", "label": "Needs changes"}
+        {
+          "id": "approve",
+          "label": "Approve",
+          "description": "Accept the item as-is.",
+          "risk": "low",
+          "reversible": true
+        },
+        {
+          "id": "needs_changes",
+          "label": "Needs changes",
+          "description": "Request edits to the item.",
+          "risk": "low",
+          "reversible": true
+        },
+        {
+          "id": "close",
+          "label": "Close permanently",
+          "description": "Closes and archives the linked item; not easily reversed.",
+          "risk": "high",
+          "reversible": false,
+          "requires_note": true
+        }
       ]
     },
     {

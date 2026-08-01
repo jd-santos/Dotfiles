@@ -100,6 +100,19 @@ to sensible generic behavior:
   - `side_labels` (list) — for a queue whose items are two-dict lists (a
     side-by-side comparison), prefixes each side's detail labels (e.g.
     `["Todoist", "Obsidian"]`).
+- Per action (in either `global_actions` or a queue's `actions`):
+  - `description` (str) — a one-line explanation of what the action does, shown
+    powering the pre-export decision summary.
+  - `risk` (str) — `low`, `medium`, or `high`. Decisions made with a `high` risk
+    action are flagged in the export warning.
+  - `reversible` (bool) — `false` marks the action as irreversible. An
+    irreversible decision with no note is flagged as missing rationale.
+  - `requires_note` (bool) — hints that the action should carry a rationale;
+    combined with `reversible: false` it drives the "irreversible without a
+    note" warning.
+
+These metadata keys are all optional and only influence the decision summary
+and pre-export warnings — they do not change how cards are rendered for review.
 
 ## Review navigation
 
@@ -116,6 +129,24 @@ spec changes:
 - Action buttons expose their selected state to assistive technology, status
   updates use a live region, keyboard focus is visibly highlighted, and reduced
   motion preferences are respected.
+
+## Decision summary and pre-export validation
+
+Before downloading decision JSON, the console computes a live **review summary**:
+
+- Decided count out of total, and undecided remaining.
+- Per-action breakdown of captured decisions.
+- High-risk decision count (actions marked `risk: "high"`).
+- Irreversible decision count, including how many are missing a rationale note.
+
+The **Review summary** button (in the header toolbar) opens this at any time.
+When you try to export while the review is incomplete, has `high`-risk
+decisions, or has irreversible decisions without a note, the console shows the
+summary with a clear warning instead of exporting immediately. From there you
+can jump to the first unresolved item, or continue and export anyway. The
+exported JSON always carries a `complete` flag (false when items were still
+undecided at export) plus a `warnings` array so a partial export is never
+mistaken for a fully reviewed batch.
 
 ## Common review domains
 

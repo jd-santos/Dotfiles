@@ -238,6 +238,17 @@ def render_html(data: dict[str, Any], spec: dict[str, Any]) -> str:
     download_prefix = spec.get("download_prefix") or (slugify(spec.get("title", "review")) + "-decisions")
     download_name = download_prefix + "-"
     payload_meta = spec.get("payload_meta") or {}
+    # Build a lookup of action metadata (risk / reversibility / note-requirement)
+    # keyed by "queue.action" and "_global.action" so a decision can be validated
+    # against the consequences of the specific action that was chosen. Only the
+    # keys below are forwarded to the browser; nothing sensitive is embedded.
+    _action_meta_keys = ("id", "label", "description", "risk", "reversible", "requires_note")
+    action_specs: dict[str, dict[str, Any]] = {}
+    for queue in spec.get("queues", []):
+        for a in queue.get("actions", []):
+            action_specs[f"{queue['id']}.{a['id']}"] = {k: a.get(k) for k in _action_meta_keys}
+    for a in spec.get("global_actions", []):
+        action_specs["_global." + a["id"]] = {k: a.get(k) for k in _action_meta_keys}
     help_sentence = spec.get("agent_help") or (
         "choose one action per card, add a note only when context is needed, "
         "then download the decision JSON and send it back to the agent."
@@ -337,6 +348,28 @@ textarea {{ width:100%; min-height:50px; margin-top:5px; border-radius:11px; bor
 #exportBox {{ min-height:180px; margin-top:12px; display:none; }}
 .toast {{ position:fixed; right:18px; bottom:18px; z-index:40; color:#071108; background:var(--good); padding:10px 14px; border-radius:10px; font-weight:800; box-shadow:var(--shadow); opacity:0; transform:translateY(12px); pointer-events:none; transition:.2s; }}
 .toast.show {{ opacity:1; transform:none; }}
+.summary-banner {{ color:#3a2c00; background:var(--warn); border:1px solid var(--warn); border-radius:12px; padding:10px 14px; font-size:13px; margin-bottom:18px; }}
+.summary-banner b {{ letter-spacing:.02em; }}
+.modal-backdrop {{ position:fixed; inset:0; z-index:50; background:rgba(0,0,0,.55); }}
+.modal {{ position:fixed; z-index:60; left:50%; top:50%; transform:translate(-50%,-50%); width:min(560px,92vw); max-height:82vh; overflow:auto; background:var(--panel); border:1px solid var(--line); border-radius:18px; box-shadow:var(--shadow); padding:22px; }}
+.modal-head {{ display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:12px; }}
+.modal-head h3 {{ margin:0; font-size:20px; letter-spacing:-.02em; }}
+.modal-close {{ background:var(--panel2); color:var(--muted); border:1px solid var(--line); border-radius:8px; width:32px; height:32px; font-size:20px; line-height:1; cursor:pointer; }}
+.modal-close:hover {{ color:var(--text); border-color:var(--accent); }}
+.summary-row {{ display:flex; justify-content:space-between; gap:12px; padding:9px 4px; border-bottom:1px solid rgba(255,255,255,.05); font-size:14px; }}
+.summary-row dt {{ color:var(--muted); }}
+.summary-row dd {{ margin:0; font-weight:800; }}
+.summary-row.highlight dd {{ color:var(--warn); }}
+.summary-row.bad dd {{ color:var(--bad); }}
+.summary-row.good dd {{ color:var(--good); }}
+.summary-actions {{ display:flex; flex-wrap:wrap; gap:9px; margin-top:16px; }}
+.summary-actions button {{ flex:1 1 auto; min-height:42px; padding:9px 13px; border-radius:10px; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-weight:800; cursor:pointer; font-size:13px; }}
+.summary-actions button:hover {{ border-color:var(--accent); }}
+.summary-actions button.primary {{ background:var(--accent); color:#071018; border-color:var(--accent); }}
+.summary-actions button.primary:disabled {{ opacity:.45; cursor:not-allowed; }}
+.summary-list {{ margin:4px 0 0; padding:0; list-style:none; }}
+.summary-list li {{ display:flex; justify-content:space-between; gap:10px; padding:6px 2px; border-bottom:1px dashed rgba(255,255,255,.04); font-size:13px; }}
+.summary-list li span:first-child {{ color:var(--muted); }}
 @media (prefers-reduced-motion:reduce) {{ html {{ scroll-behavior:auto; }} *,*::before,*::after {{ animation-duration:.01ms!important; transition-duration:.01ms!important; }} }}
 @media (max-width:760px) {{ header {{ position:relative; }} .header-row {{ display:block; }} .progress-wrap {{ margin-top:14px; text-align:left; }} .queue-nav {{ top:0; }} .queue-nav>a {{ flex:none; }} .review-tools {{ flex:1 1 100%; margin-left:0; }} .review-tools input {{ width:100%; flex:1 1 100%; }} .property {{ flex-basis:100%; min-width:0; }} .property-primary {{ flex:1 1 95px; }} .card-top {{ display:block; }} .decision-state {{ display:inline-block; margin-top:8px; }} .actions button {{ flex:1 1 100%; max-width:none; }} .fallback-actions button {{ flex:1 1 calc(50% - 9px); }} .toolbar button {{ flex:1 1 145px; }} }}</style>
 </head>
@@ -348,9 +381,10 @@ textarea {{ width:100%; min-height:50px; margin-top:5px; border-radius:11px; bor
   </div>
   <div class="meta"><span>Generated {html.escape(now)}</span><span id="storageStatus">Checking decision storage…</span>{counts_html}</div>
   <div class="toolbar">
-    <button onclick="downloadDecisions()">Download JSON</button>
-    <button class="secondary" onclick="copyDecisions()">Copy JSON</button>
-    <button class="secondary" onclick="exportDecisions()">Preview JSON</button>
+    <button class="secondary" onclick="openSummary()">Review summary</button>
+    <button onclick="exportDecisions('download')">Download JSON</button>
+    <button class="secondary" onclick="exportDecisions('copy')">Copy JSON</button>
+    <button class="secondary" onclick="exportDecisions('preview')">Preview JSON</button>
     <button class="secondary danger" onclick="clearDecisions()">Reset decisions</button>
   </div>
   <textarea id="exportBox" readonly></textarea>
@@ -363,13 +397,21 @@ textarea {{ width:100%; min-height:50px; margin-top:5px; border-radius:11px; bor
 </div></nav>
 <main>
   <div class="agent-note"><b>How this works:</b> {html.escape(help_sentence)} <code>{payload}</code></div>
+  <div id="summaryWarning" class="summary-banner" hidden><b>Review incomplete</b> — see the review summary before exporting.</div>
   {cards}
 </main>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="modal-backdrop" id="summaryBackdrop" hidden></div>
+<div class="modal" id="summaryModal" role="dialog" aria-modal="true" aria-labelledby="summaryTitle" aria-describedby="summaryBody" hidden>
+  <div class="modal-head"><h3 id="summaryTitle">Review summary</h3><button type="button" class="modal-close" aria-label="Close summary" onclick="closeSummary()">×</button></div>
+  <div id="summaryBody" class="modal-body"></div>
+</div>
 <script>
 const STORAGE_KEY = '{storage_key}';
 const DOWNLOAD_NAME = '{download_name}';
 const REVIEW_META = {json.dumps(payload_meta, ensure_ascii=False)};
+const ACTION_SPECS = {json.dumps(action_specs, ensure_ascii=False)};
+const RISK_ORDER = {{ 'high': 3, 'medium': 2, 'low': 1, 'none': 0 }};
 let storageAvailable = false;
 function loadDecisions() {{
   try {{
@@ -447,34 +489,97 @@ document.querySelectorAll('.card textarea').forEach(ta => {{
     if (d) {{ d.note = ta.value; d.updated_at = new Date().toISOString(); persist(); }}
   }});
 }});
-function decisionPayload() {{
-  return {{ ...REVIEW_META, console_title: {json.dumps(spec.get('title', 'AI Review Console'))}, exported_at: new Date().toISOString(), decisions: Object.values(decisions) }};
+function actionMetaFor(decision) {{
+  return ACTION_SPECS[`${{decision.queue}}.${{decision.action}}`] || ACTION_SPECS[`_global.${{decision.action}}`] || {{}};
 }}
-function exportDecisions() {{
-  const box = document.getElementById('exportBox');
-  box.value = JSON.stringify(decisionPayload(), null, 2);
-  box.style.display = 'block';
-  box.focus(); box.select();
+function reviewSummary() {{
+  const allCards = document.querySelectorAll('.card');
+  const decided = allCards.length - document.querySelectorAll('.card:not(.done)').length;
+  const undecided = allCards.length - decided;
+  const byAction = {{}};
+  let highRisk = 0, irreversible = 0, irreversibleNoNote = 0;
+  Object.values(decisions).forEach(d => {{
+    const m = actionMetaFor(d);
+    byAction[d.label || d.action] = (byAction[d.label || d.action] || 0) + 1;
+    const risk = (m.risk || 'none');
+    if (RISK_ORDER[risk] >= RISK_ORDER.high) highRisk += 1;
+    if (m.reversible === false) {{ irreversible += 1; if (!(d.note || '').trim()) irreversibleNoNote += 1; }}
+  }});
+  const actionList = Object.entries(byAction).sort((a, b) => b[1] - a[1]);
+  const incomplete = undecided > 0;
+  const warnings = [];
+  if (incomplete) warnings.push(`${{undecided}} item(s) still undecided`);
+  if (highRisk > 0) warnings.push(`${{highRisk}} high-risk decision(s)`);
+  if (irreversibleNoNote > 0) warnings.push(`${{irreversibleNoNote}} irreversible decision(s) without a note`);
+  return {{ decided, undecided, total: allCards.length, incomplete, byAction: actionList, highRisk, irreversible, irreversibleNoNote, warnings }};
 }}
-async function copyDecisions() {{
-  const text = JSON.stringify(decisionPayload(), null, 2);
-  try {{ await navigator.clipboard.writeText(text); toast('Decision JSON copied'); }}
-  catch (_) {{ exportDecisions(); toast('Clipboard unavailable — JSON opened below'); }}
+function openSummary() {{
+  const s = reviewSummary();
+  const body = document.getElementById('summaryBody');
+  const rows = [
+    `<div class="summary-row"><dt>Decided</dt><dd class="${{s.incomplete ? '' : 'good'}}">${{s.decided}} of ${{s.total}}</dd></div>`,
+    s.incomplete ? `<div class="summary-row highlight"><dt>Undecided</dt><dd>${{s.undecided}}</dd></div>` : '',
+    `<div class="summary-row"><dt>High-risk decisions</dt><dd class="${{s.highRisk ? 'bad' : 'good'}}">${{s.highRisk}}</dd></div>`,
+    `<div class="summary-row"><dt>Irreversible</dt><dd class="${{s.irreversibleNoNote ? 'bad' : ''}}">${{s.irreversible}}${{s.irreversibleNoNote ? ' (' + s.irreversibleNoNote + ' without note)' : ''}}</dd></div>`,
+  ].join('');
+  const actionList = s.byAction.length
+    ? `<ul class="summary-list">${{s.byAction.map(([label, n]) => `<li><span>${{label}}</span><b>${{n}}</b></li>`).join('')}}</ul>`
+    : '';
+  const warningBlock = s.incomplete || s.highRisk || s.irreversibleNoNote
+    ? `<div class="summary-banner" style="margin:4px 0 10px"><b>Export warning:</b> ${{s.warnings.join('; ')}}.</div>`
+    : `<div class="summary-banner" style="color:#07370f;background:var(--good);margin:4px 0 10px"><b>Review complete</b> — ready to export.</div>`;
+  body.innerHTML = rows + warningBlock + '<div><h4 style="margin:8px 0 4px;font-size:14px">By action</h4></div>' + (actionList || '<p style="color:var(--muted);font-size:13px;margin:0">No decisions captured yet.</p>');
+  body.insertAdjacentHTML('beforeend', `
+    <div class="summary-actions">
+      <button type="button" class="primary" onclick="exportDecisions('download', true)">Download decision JSON</button>
+      <button type="button" onclick="exportDecisions('copy', true)">Copy JSON</button>
+      <button type="button" ${{s.incomplete ? '' : 'disabled'}} onclick="jumpTo('undecided')">Jump to first unresolved</button>
+    </div>`);
+  document.getElementById('summaryModal').hidden = false;
+  document.getElementById('summaryBackdrop').hidden = false;
+  document.getElementById('summaryModal').querySelector('.modal-close').focus();
+  document.getElementById('summaryWarning').hidden = !(s.incomplete || s.highRisk || s.irreversibleNoNote);
 }}
-function downloadDecisions() {{
-  const text = JSON.stringify(decisionPayload(), null, 2);
-  const date = new Date().toISOString().slice(0,10);
+function closeSummary() {{
+  document.getElementById('summaryModal').hidden = true;
+  document.getElementById('summaryBackdrop').hidden = true;
+}}
+function jumpTo(which) {{
+  closeSummary();
+  const target = which === 'undecided'
+    ? [...document.querySelectorAll('.card:not(.done)')].find(card => !card.hidden)
+    : null;
+  if (target) {{ target.scrollIntoView({{ behavior: 'smooth', block: 'center' }}); target.querySelector('button,textarea')?.focus({{ preventScroll: true }}); }}
+  else toast('Nothing to jump to');
+}}
+function decisionPayload(forceExport) {{
+  const s = reviewSummary();
+  return {{ ...REVIEW_META, console_title: {json.dumps(spec.get('title', 'AI Review Console'))}, exported_at: new Date().toISOString(), complete: !(forceExport ? false : s.incomplete), warnings: s.incomplete || s.highRisk || s.irreversibleNoNote ? s.warnings : [], decisions: Object.values(decisions) }};
+}}
+function exportDecisions(mode, fromSummary) {{
+  const s = reviewSummary();
+  const needsGate = (s.incomplete || s.highRisk || s.irreversibleNoNote) && !fromSummary;
+  if (needsGate) {{ openSummary(); return; }}
+  const text = JSON.stringify(decisionPayload(fromSummary), null, 2);
+  if (mode === 'preview') {{
+    const box = document.getElementById('exportBox');
+    box.value = text; box.style.display = 'block'; box.focus(); box.select(); toast('Decision JSON preview');
+    return;
+  }}
+  if (mode === 'copy') {{
+    navigator.clipboard.writeText(text).then(() => toast('Decision JSON copied'), () => {{ document.getElementById('exportBox').value = text; document.getElementById('exportBox').style.display = 'block'; toast('Clipboard unavailable — JSON opened below'); }});
+    return;
+  }}
+  const date = new Date().toISOString().slice(0, 10);
   const blob = new Blob([text], {{ type: 'application/json' }});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
-  a.download = DOWNLOAD_NAME + date + '.json';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  a.href = url; a.download = DOWNLOAD_NAME + date + '.json';
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   toast('Decision JSON downloaded');
 }}
+document.getElementById('summaryBackdrop').addEventListener('click', closeSummary);
+document.addEventListener('keydown', e => {{ if (e.key === 'Escape' && !document.getElementById('summaryModal').hidden) closeSummary(); }});
 function clearDecisions() {{
   if (!confirm('Clear decisions stored in this browser?')) return;
   decisions = {{}};
