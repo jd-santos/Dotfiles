@@ -82,6 +82,15 @@ The data JSON must expose a key matching each queue's `source` (e.g.
 - Anything with 20–100+ ambiguous items that would be painful to walk through
   one by one in chat
 
+## Open questions / roadmap (general, not instance-specific)
+
+These stay general and reusable, independent of any one domain:
+
+- What minimal schema should all decision consoles share?
+- Should downloaded decision JSON have a standard import/apply command?
+- Should future hosted versions save decisions directly (e.g. over Tailscale)?
+- How should Telegram/chat delivery be standardized for the HTML + JSON loop?
+
 ## Pitfalls
 
 - **JSON embedded in the console must stay literal JSON.** The generator already
