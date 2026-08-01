@@ -135,6 +135,10 @@ stow -R agents # restow after changes
 
 - **ship**: reviews a git branch, groups ready changes into commits, checks
   changelog needs, and pushes only after confirmation
+- **ai-review-console**: builds a portable, static HTML review console from
+  deterministic JSON data plus an agent-authored spec, then runs a separate safe
+  apply pass on exported decision JSON — for triage/reconciliation/backlog
+  reviews that need a human in the loop without one-by-one chat
 - **add-pi-feature**: adds pi coding agent features: skills, extensions, prompt templates, themes, custom tools, commands, and flags
 - **create-agents-md**: creates AGENTS.md files for AI agent context in codebases
 - **create-skill**: creates new SKILL.md files with proper structure and frontmatter
