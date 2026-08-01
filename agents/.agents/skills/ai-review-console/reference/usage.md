@@ -148,6 +148,25 @@ exported JSON always carries a `complete` flag (false when items were still
 undecided at export) plus a `warnings` array so a partial export is never
 mistaken for a fully reviewed batch.
 
+## Card layout: actions vs. information
+
+Each card deliberately separates **information from action** so a reviewer can
+parse a queue at a glance:
+
+- **Information** (title + details) is quiet: a sentence-case key/value list on
+  the card body, with no colored chips or all-caps shouting.
+- **Primary actions** are the loudest element — filled, high-contrast buttons —
+  so it is always obvious where to act. They have a clear selected state.
+- **Fallback/global actions** render as muted ghost buttons, visually secondary
+  to the queue's primary choices.
+- **High-risk or irreversible actions** get a distinct red/danger treatment at
+  rest, so a destructive choice is never ambiguous before you tap it.
+- **Lists of strings** (e.g. labels) render as `a · b` rather than raw JSON.
+
+This mapping is data-driven: an action gets the danger treatment when the spec
+marks it `risk: "high"` or `reversible: false` (see the optional per-action
+keys above).
+
 ## Common review domains
 
 - Reconciliation / alignment between two systems (e.g. project manager ↔ task

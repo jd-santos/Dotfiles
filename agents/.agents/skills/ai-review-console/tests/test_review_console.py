@@ -93,6 +93,26 @@ class ReviewConsoleRenderTests(unittest.TestCase):
             with self.subTest(marker=marker):
                 self.assertIn(marker, output)
 
+    def test_card_uses_detail_list_and_action_classes(self) -> None:
+        """Information is a quiet key/value list; actions are explicit buttons,
+        and high-risk/irreversible actions get a distinct danger treatment."""
+        spec = review_console.default_spec()
+        spec["queues"][0]["actions"].append(
+            {"id": "close", "label": "Close", "risk": "high", "reversible": False, "requires_note": True}
+        )
+        output = review_console.render_html(self.data, spec)
+
+        self.assertIn("<dl class='details'>", output)
+        self.assertIn("<div class='detail", output)
+        self.assertIn("class='action primary'", output)
+        self.assertIn("class='action primary danger'", output)
+        self.assertIn("class='action ghost'", output)
+        # old chip/circle affordances are gone from rendered markup
+        self.assertNotIn("class='property'", output)
+        self.assertNotIn("class='property-strip'", output)
+        self.assertNotIn("class='property-primary'", output)
+        self.assertNotIn("class='choice-dot'", output)
+
 
 if __name__ == "__main__":
     unittest.main()

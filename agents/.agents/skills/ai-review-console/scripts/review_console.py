@@ -121,7 +121,9 @@ def item_details(
             val = item.get(key)
             if val in (None, "", []):
                 continue
-            if isinstance(val, (list, dict)):
+            if isinstance(val, list) and all(isinstance(x, str) for x in val):
+                val = " \u00b7 ".join(val)
+            elif isinstance(val, (list, dict)):
                 val = json.dumps(val, ensure_ascii=False)
             details.append((key.replace("_", " "), str(val)))
         return details
@@ -184,39 +186,39 @@ def render_cards(data: dict[str, Any], spec: dict[str, Any]) -> str:
                 f"<div class='card-title'>{html.escape(title)}</div></div>"
             )
             chunks.append("<span class='decision-state'>Awaiting decision</span></div>")
-            chunks.append("<div class='property-strip'>")
+            chunks.append("<dl class='details'>")
             for k, v in details:
                 if len(v) > 500:
                     v = v[:500] + "\u2026"
-                key_class = " property-primary" if any(k.endswith(pk) for pk in primary_keys) else ""
+                detail_class = " primary" if any(k.endswith(pk) for pk in primary_keys) else ""
                 chunks.append(
-                    f"<div class='property{key_class}'><span>{html.escape(k)}</span>"
-                    f"<strong>{html.escape(v)}</strong></div>"
+                    f"<div class='detail{detail_class}'><dt>{html.escape(k)}</dt>"
+                    f"<dd>{html.escape(v)}</dd></div>"
                 )
-            chunks.append("</div>")
+            chunks.append("</dl>")
             queue_actions = queue.get("actions", [])
             chunks.append(
                 "<fieldset class='decision-panel'><legend>Choose one action</legend>"
-                "<div class='actions primary-actions'>"
+                "<div class='actions'>"
             )
             for action in queue_actions:
+                danger = " danger" if action.get("risk") == "high" or action.get("reversible") is False else ""
                 chunks.append(
-                    f"<button type='button' aria-pressed='false' data-action='{html.escape(action['id'])}'>"
-                    f"<span class='choice-dot'></span><span>{html.escape(action['label'])}</span></button>"
+                    f"<button type='button' class='action primary{danger}' aria-pressed='false' data-action='{html.escape(action['id'])}'>"
+                    f"<span>{html.escape(action['label'])}</span></button>"
                 )
-            chunks.append("</div>")
             if global_actions:
                 chunks.append(
-                    "<div class='fallback-label'>Or classify this another way</div>"
-                    "<div class='actions fallback-actions'>"
+                    "</div><div class='fallback-label'>Or classify another way</div>"
+                    "<div class='actions'>"
                 )
                 for action in global_actions:
+                    danger = " danger" if action.get("risk") == "high" or action.get("reversible") is False else ""
                     chunks.append(
-                        f"<button type='button' aria-pressed='false' data-action='{html.escape(action['id'])}'>"
-                        f"<span class='choice-dot'></span><span>{html.escape(action['label'])}</span></button>"
+                        f"<button type='button' class='action ghost{danger}' aria-pressed='false' data-action='{html.escape(action['id'])}'>"
+                        f"<span>{html.escape(action['label'])}</span></button>"
                     )
-                chunks.append("</div>")
-            chunks.append("</fieldset>")
+            chunks.append("</div></fieldset>")
             chunks.append(
                 f"<label class='note-label'>{html.escape(note_label)}<textarea placeholder='Optional note for the apply pass'></textarea></label>"
             )
@@ -326,23 +328,28 @@ h2 {{ margin:3px 0 0; font-size:clamp(20px,2.2vw,27px); letter-spacing:-.02em; }
 .card-title {{ font-weight:850; font-size:18px; margin-top:3px; line-height:1.3; }}
 .decision-state {{ flex:none; color:var(--muted); background:var(--panel2); border:1px solid var(--line); border-radius:999px; padding:5px 8px; font-size:11px; font-weight:750; }}
 .card.done .decision-state {{ color:#071108; background:var(--good); border-color:var(--good); }}
-.property-strip {{ display:flex; flex-wrap:wrap; gap:8px; margin:0 0 17px; padding:12px; background:rgba(7,10,15,.38); border:1px solid rgba(255,255,255,.04); border-radius:12px; }}
-.property {{ min-width:145px; flex:1 1 210px; padding:8px 10px; background:rgba(255,255,255,.025); border-radius:9px; overflow:hidden; }}
-.property span {{ display:block; color:var(--muted); font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; margin-bottom:3px; }}
-.property strong {{ display:block; font-size:13px; font-weight:650; white-space:pre-wrap; overflow-wrap:anywhere; }}
-.property-primary {{ flex:0 1 auto; min-width:105px; border:1px solid rgba(119,208,255,.18); background:rgba(119,208,255,.07); }}
-.property-primary strong {{ color:var(--accent); font-weight:850; }}
-.decision-panel {{ margin:16px 0 14px; padding:14px; border:2px solid rgba(119,208,255,.55); border-radius:14px; background:linear-gradient(135deg,rgba(119,208,255,.10),rgba(167,139,250,.06)); }}
-.decision-panel legend {{ padding:0 8px; color:#dff5ff; font-size:13px; font-weight:900; letter-spacing:.03em; text-transform:uppercase; }}
+.property-strip,.property,.property-primary,.choice-dot {{ display:none; }}
+.details {{ margin:0 0 18px; border-top:1px solid rgba(255,255,255,.06); }}
+.detail {{ display:flex; gap:14px; padding:9px 2px; border-bottom:1px solid rgba(255,255,255,.05); }}
+.detail dt {{ flex:0 0 118px; color:var(--muted); font-weight:600; text-transform:capitalize; }}
+.detail dd {{ margin:0; font-weight:600; overflow-wrap:anywhere; }}
+.detail.primary dd {{ color:var(--text); }}
+.decision-panel {{ margin:0 0 14px; padding:0; border:0; }}
+.decision-panel legend {{ padding:0; margin-bottom:10px; color:var(--muted); font-size:12px; font-weight:750; text-transform:uppercase; letter-spacing:.05em; }}
 .actions {{ display:flex; flex-wrap:wrap; gap:9px; margin:3px 0; }}
-.actions button {{ display:flex; align-items:center; gap:8px; flex:1 1 190px; max-width:360px; min-height:44px; background:#243148; color:var(--text); border:2px solid #41516c; border-radius:11px; padding:9px 12px; cursor:pointer; font-size:13px; font-weight:760; text-align:left; box-shadow:0 3px 10px rgba(0,0,0,.18); }}
-.actions button:hover {{ border-color:var(--accent); background:#2b3a55; transform:translateY(-1px); }}
-.choice-dot {{ flex:none; width:15px; height:15px; border:2px solid #8290a7; border-radius:50%; background:#111722; box-shadow:inset 0 0 0 3px #111722; }}
-.actions button.selected {{ background:var(--good); color:#071108; border-color:#b2f2ba; font-weight:900; box-shadow:0 0 0 3px rgba(118,217,133,.18); }}
-.actions button.selected .choice-dot {{ border-color:#071108; background:#071108; box-shadow:inset 0 0 0 3px var(--good); }}
-.fallback-label {{ color:var(--muted); font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; margin:14px 0 7px; padding-top:11px; border-top:1px solid rgba(119,208,255,.2); }}
-.fallback-actions button {{ min-height:38px; flex:0 1 auto; background:rgba(11,15,22,.55); border-width:1px; color:var(--muted); font-weight:650; box-shadow:none; }}
-.fallback-actions .choice-dot {{ width:13px; height:13px; }}
+.action {{ display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:40px; padding:8px 16px; border-radius:10px; border:1px solid transparent; font:inherit; font-size:13px; font-weight:750; cursor:pointer; transition:background .15s,color .15s,transform .15s; }}
+.action.primary {{ background:var(--accent); color:#071018; border-color:var(--accent); box-shadow:0 2px 8px rgba(0,0,0,.16); }}
+.action.primary:hover {{ background:#8fdcff; transform:translateY(-1px); }}
+.action.primary.selected {{ background:var(--good); color:#04120a; border-color:var(--good); box-shadow:0 0 0 3px rgba(94,201,122,.18); }}
+.action.ghost {{ background:transparent; color:var(--muted); }}
+.action.ghost:hover {{ color:var(--text); }}
+.action.ghost.selected {{ color:var(--good); font-weight:800; }}
+.action.danger {{ color:#f2a2a2; border-color:rgba(239,122,122,.55); background:rgba(239,122,122,.08); }}
+.action.danger.primary:hover {{ background:rgba(239,122,122,.18); }}
+.action.danger.primary.selected {{ background:var(--bad); color:#2a0808; border-color:var(--bad); }}
+.action.danger.ghost {{ border-color:transparent; background:transparent; color:#e08a8a; }}
+.action.danger.ghost:hover {{ color:#ffb1b1; }}
+.fallback-label {{ color:var(--muted); font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; margin:14px 0 7px; padding-top:11px; border-top:1px solid rgba(255,255,255,.06); }}
 .note-label {{ color:var(--muted); font-size:12px; display:block; }}
 textarea {{ width:100%; min-height:50px; margin-top:5px; border-radius:11px; border:1px solid var(--line); background:#090d13; color:var(--text); padding:9px; resize:vertical; }}
 #exportBox {{ min-height:180px; margin-top:12px; display:none; }}
@@ -371,7 +378,7 @@ textarea {{ width:100%; min-height:50px; margin-top:5px; border-radius:11px; bor
 .summary-list li {{ display:flex; justify-content:space-between; gap:10px; padding:6px 2px; border-bottom:1px dashed rgba(255,255,255,.04); font-size:13px; }}
 .summary-list li span:first-child {{ color:var(--muted); }}
 @media (prefers-reduced-motion:reduce) {{ html {{ scroll-behavior:auto; }} *,*::before,*::after {{ animation-duration:.01ms!important; transition-duration:.01ms!important; }} }}
-@media (max-width:760px) {{ header {{ position:relative; }} .header-row {{ display:block; }} .progress-wrap {{ margin-top:14px; text-align:left; }} .queue-nav {{ top:0; }} .queue-nav>a {{ flex:none; }} .review-tools {{ flex:1 1 100%; margin-left:0; }} .review-tools input {{ width:100%; flex:1 1 100%; }} .property {{ flex-basis:100%; min-width:0; }} .property-primary {{ flex:1 1 95px; }} .card-top {{ display:block; }} .decision-state {{ display:inline-block; margin-top:8px; }} .actions button {{ flex:1 1 100%; max-width:none; }} .fallback-actions button {{ flex:1 1 calc(50% - 9px); }} .toolbar button {{ flex:1 1 145px; }} }}</style>
+@media (max-width:760px) {{ header {{ position:relative; }} .header-row {{ display:block; }} .progress-wrap {{ margin-top:14px; text-align:left; }} .queue-nav {{ top:0; }} .queue-nav>a {{ flex:none; }} .review-tools {{ flex:1 1 100%; margin-left:0; }} .review-tools input {{ width:100%; flex:1 1 100%; }} .detail {{ display:block; padding:8px 2px; }} .detail dt {{ flex:none; margin-bottom:2px; }} .card-top {{ display:block; }} .decision-state {{ display:inline-block; margin-top:8px; }} .action {{ flex:1 1 100%; max-width:none; }} .fallback-label+.actions .action {{ flex:1 1 calc(50% - 9px); }} .toolbar button {{ flex:1 1 145px; }} }}</style>
 </head>
 <body>
 <header>
