@@ -135,6 +135,20 @@ General utility aliases.
 
 Detailed function reference with usage examples.
 
+### `pi()`
+
+Launch Pi with the OpenRouter API key resolved from 1Password when
+`OPENROUTER_API_KEY` is an `op://` reference.
+
+**Usage:** `pi [args...]`
+
+**Notes:**
+
+- Keeps the real OpenRouter key out of git and out of the parent shell
+- Falls back to the normal `pi` command if `op` is unavailable or locked
+
+---
+
 ### `cd()`
 
 Override of the default `cd` command that automatically lists directory contents.
@@ -142,12 +156,14 @@ Override of the default `cd` command that automatically lists directory contents
 **Usage:** `cd <directory>`
 
 **Example:**
+
 ```bash
 $ cd ~/projects
 # Automatically runs 'ls' to show directory contents
 ```
 
 **Notes:**
+
 - Skipped if PS1 is not set (non-interactive shells)
 - Improves navigation by showing what's in the directory you just entered
 
@@ -160,8 +176,9 @@ Create a new directory and immediately change into it (mkdir + cd combined).
 **Usage:** `mcd <directory_path>`
 
 **Example:**
+
 ```bash
-$ mcd ~/projects/my-new-project
+mcd ~/projects/my-new-project
 ```
 
 ---
@@ -173,11 +190,13 @@ Search your `.zshrc` file for aliases and functions matching a pattern.
 **Usage:** `showa <pattern>`
 
 **Example:**
+
 ```bash
-$ showa ls  # Shows all aliases/functions containing 'ls'
+showa ls  # Shows all aliases/functions containing 'ls'
 ```
 
 **Notes:**
+
 - Case-insensitive search
 - Opens results in a pager for easy navigation
 
@@ -190,12 +209,14 @@ Extract most known archive types with a single command.
 **Usage:** `extract <archive_file>`
 
 **Supported Formats:**
+
 - `.tar.bz2`, `.tar.gz`, `.bz2`, `.rar`, `.gz`, `.tar`, `.tbz2`, `.tgz`, `.zip`, `.Z`, `.7z`
 
 **Example:**
+
 ```bash
-$ extract archive.tar.gz
-$ extract file.zip
+extract archive.tar.gz
+extract file.zip
 ```
 
 **Dependencies:** tar, unzip, unrar, 7z (as needed)
@@ -209,9 +230,10 @@ Find the process ID of a running process by name.
 **Usage:** `findPid <process_name>`
 
 **Example:**
+
 ```bash
-$ findPid node      # Returns PID(s) of node processes
-$ findPid python
+findPid node      # Returns PID(s) of node processes
+findPid python
 ```
 
 **Dependencies:** lsof (list open files)
@@ -227,12 +249,14 @@ Activate a Python virtual environment in the current directory.
 **Supported Directory Names:** `venv` or `.venv`
 
 **Example:**
+
 ```bash
-$ cd my-python-project
-$ venv  # Activates the virtual environment
+cd my-python-project
+venv  # Activates the virtual environment
 ```
 
 **Notes:**
+
 - Checks for both `venv/bin/activate` and `.venv/bin/activate`
 - Returns an error if neither is found
 - Common workflow: Clone a Python project, then run `venv`
@@ -248,9 +272,10 @@ List processes owned by the current user with detailed information.
 **Output Columns:** PID, CPU%, Memory%, start time, elapsed time, BSD time, command
 
 **Example:**
+
 ```bash
-$ myPs           # List all user's processes
-$ myPs aux       # With additional flags
+myPs           # List all user's processes
+myPs aux       # With additional flags
 ```
 
 ---
@@ -272,6 +297,7 @@ Display useful host-related information (macOS specific).
 **Usage:** `ii`
 
 **Displays:**
+
 - Hostname
 - OS information
 - Logged-in users
@@ -280,6 +306,7 @@ Display useful host-related information (macOS specific).
 - Current network location
 
 **Notes:**
+
 - macOS specific: Uses `scselect` for network location
 - Uses colored output for better readability
 
@@ -292,12 +319,14 @@ Preview a GNU Stow operation, then ask before applying it.
 **Usage:** `stowp <stow_arguments>`
 
 **Example:**
+
 ```bash
-$ stowp nvim zsh
-$ stowp agents bin fzf ghostty git lint nvim opencode pgcli pi starship tmux zed zsh
+stowp nvim zsh
+stowp agents bin fzf ghostty git lint nvim opencode pgcli pi starship tmux zed zsh
 ```
 
 **Notes:**
+
 - Runs `stow --simulate` first
 - Stops if Stow reports conflicts
 - Applies the same arguments with `stow` only after confirmation
@@ -328,11 +357,13 @@ Change directory to the frontmost Finder window.
 **Usage:** `cdf`
 
 **Example:**
+
 ```bash
-$ cdf  # cd's to the folder currently open in Finder
+cdf  # cd's to the folder currently open in Finder
 ```
 
 **Notes:**
+
 - macOS specific: Uses AppleScript to interact with Finder
 - Falls back to Desktop if no Finder window is open
 - Useful for quick navigation when working with Finder
@@ -346,8 +377,9 @@ Search for a file using macOS Spotlight's metadata.
 **Usage:** `spotlight <filename>`
 
 **Example:**
+
 ```bash
-$ spotlight "my-document.txt"
+spotlight "my-document.txt"
 ```
 
 ---
@@ -357,6 +389,7 @@ $ spotlight "my-document.txt"
 The shell prompt shows your active AWS profile with color-coding.
 
 **Default colors:**
+
 - `production` profile: Red
 - `staging` profile: Orange
 - `development` profile: Green

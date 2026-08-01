@@ -28,6 +28,7 @@
 
 ## Done
 
+- [x] Refresh Pi GPT-5.6 defaults and OpenRouter shortlist
 - [x] Convert Pi `/ship` prompt into reusable `ship` skill
 - [x] Update Pi model defaults and scoped model list
 - [x] Rewrite Pi README into a readable overview with minimal reference docs

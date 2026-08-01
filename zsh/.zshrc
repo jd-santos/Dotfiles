@@ -392,6 +392,22 @@ fi
 # Pi coding agent
 export PI_CACHE_RETENTION=long  # extend prompt cache to 1h (saves cost on long sessions)
 
+# Resolve the OpenRouter 1Password reference only when Pi starts, not on every
+# shell launch. This keeps the public dotfiles limited to an op:// reference
+# while giving Pi a real API key for OpenRouter requests.
+pi () {
+  local openrouter_key="${OPENROUTER_API_KEY:-}"
+  if [[ "$openrouter_key" == op://* ]] && command -v op &>/dev/null; then
+    local resolved_openrouter_key
+    if resolved_openrouter_key="$(op read "$openrouter_key" 2>/dev/null)"; then
+      OPENROUTER_API_KEY="$resolved_openrouter_key" command pi "$@"
+      return
+    fi
+  fi
+
+  command pi "$@"
+}
+
 # ┌───────────────────────────────────────────────────────────────────┐
 # │ Prompt Configuration                                              │
 # └───────────────────────────────────────────────────────────────────┘

@@ -1,5 +1,5 @@
 {
-  "defaultThinkingLevel": "low",
+  "defaultThinkingLevel": "medium",
   "skills": [
     "~/.agents/skills"
   ],
@@ -7,11 +7,9 @@
   "enabledModels": [
     "openai-codex/gpt-5.6-sol",
     "openai-codex/gpt-5.6-terra",
-    "openai-codex/gpt-5.6-luna",
-    "openai-codex/gpt-5.5",
-    "openai-codex/gpt-5.4",
     "openrouter/deepseek/deepseek-v4-pro",
-    "openrouter/deepseek/deepseek-v4-flash"
+    "openrouter/deepseek/deepseek-v4-flash",
+    "openrouter/moonshotai/kimi-k3"
   ],
   "theme": "catppuccin-mocha",
   "quietStartup": true,

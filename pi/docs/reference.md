@@ -40,7 +40,7 @@ Current shared settings include:
 
 - Theme: `catppuccin-mocha`
 - Default model: `openai-codex/gpt-5.6-sol`
-- Thinking level: `low`
+- Thinking level: `medium`
 - Thinking block: visible on output
 - Startup: quiet
 - Packages: `npm:pi-mcp-adapter` and `npm:pi-lens`
@@ -54,13 +54,11 @@ Scoped model cycle:
 
 - `openai-codex/gpt-5.6-sol`
 - `openai-codex/gpt-5.6-terra`
-- `openai-codex/gpt-5.6-luna`
-- `openai-codex/gpt-5.5`
-- `openai-codex/gpt-5.4`
 - `openrouter/deepseek/deepseek-v4-pro`
 - `openrouter/deepseek/deepseek-v4-flash`
+- `openrouter/moonshotai/kimi-k3`
 
-OpenRouter standby routes verified in Pi 0.80.10, intentionally not in the
+OpenRouter standby routes verified in Pi 0.83.0, intentionally not in the
 `Ctrl+P` cycle:
 
 - GPT pro:
@@ -69,12 +67,16 @@ OpenRouter standby routes verified in Pi 0.80.10, intentionally not in the
   - `openrouter/openai/gpt-5.6-luna-pro`
   - `openrouter/openai/gpt-5.5-pro`
   - `openrouter/openai/gpt-5.4-pro`
-- Kimi: `openrouter/moonshotai/kimi-k3`
 - GLM: `openrouter/z-ai/glm-5.2`
 - Qwen: `openrouter/qwen/qwen3.7-max`, `openrouter/qwen/qwen3.7-plus`
 - Gemma 4:
   - `openrouter/google/gemma-4-31b-it`
   - `openrouter/google/gemma-4-26b-a4b-it`
+
+The zsh `pi()` wrapper resolves `OPENROUTER_API_KEY` through `op read` when the
+variable is an `op://` reference, then launches Pi with the resolved key. This
+keeps the real OpenRouter key out of git while letting the OpenRouter routes work
+from the normal `pi` command.
 
 A resumed session can restore its previous model and override the configured
 default for that session. Use `/new` or `pi --no-session` to start from the
