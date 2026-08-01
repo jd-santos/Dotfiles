@@ -19,9 +19,29 @@
 
 ## Up Next
 
+- [ ] Improve the AI Review Console UI and review workflow
+  - [ ] 1. Add progressive disclosure inside cards (summary, details, evidence/raw item)
+  - [ ] 2. Show recommendation provenance: why surfaced, recommendation source, and supporting evidence
+  - [ ] 3. Add operational risk, reversibility, evidence-strength, and ambiguity signals; avoid uncalibrated confidence percentages
+  - [ ] 4. Improve navigation and triage with search, filters, keyboard shortcuts, and previous/next-undecided controls
+  - [ ] 5. Add pre-export validation and a decision summary, including incomplete and high-risk review warnings
+  - [ ] 6. Represent stale snapshots, invalid data, apply conflicts, and recovery paths as first-class states
+  - [ ] 7. Improve accessibility: keyboard operation, focus styling, ARIA state/live updates, reduced motion, and non-color status cues
+  - [ ] 8. Enrich action specs with descriptions, risk, reversibility, rationale requirements, and optional confirmations
+  - [ ] 9. Import decision JSON to resume or transfer a review, with schema/snapshot compatibility checks
+  - [ ] 10. Refine the mobile review experience with compact details and persistent navigation
 - [ ] Revisit `commit-message-writer` skill for progressive disclosure and tone
 
 ## Backlog
+
+### AI Review Console — future platform work
+
+- [ ] A. Add risk-tiered approval queues and escalation rules for reversible, ambiguous, and irreversible actions
+- [ ] B. Build a snapshot-aware apply loop with review IDs, schema versions, item fingerprints, staleness checks, and apply reports
+- [ ] C. Add safe bulk decisions with explicit selection criteria, exception previews, and per-item exported decisions
+- [ ] D. Add counterfactual previews showing the concrete before/after effect of a proposed action
+- [ ] E. Add constrained reusable review components such as diffs, comparisons, ranked candidates, timelines, graphs, and evidence lists
+- [ ] F. Explore an optional Tailscale-hosted mode for draft persistence, review status, completed artifacts, and notifications while retaining static HTML/JSON portability
 
 - [ ] Extend `/usage` with cached pricing, JSON export, per-project filtering, and trend deltas
 - [ ] Consider a richer `/usage` table renderer if the widget output is too dense
