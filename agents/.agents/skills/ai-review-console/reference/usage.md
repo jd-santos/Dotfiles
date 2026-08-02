@@ -155,6 +155,11 @@ parse a queue at a glance:
 
 - **Information** (title + details) is quiet: a sentence-case key/value list on
   the card body, with no colored chips or all-caps shouting.
+- **Pills are reserved for interactive elements.** Fully-rounded capsule
+  treatment (`border-radius: 999px`) is only for things you can tap: queue-nav
+  links and action buttons. Informational badges (header meta chips, queue
+  counts, decision-state labels) use a small `6px` radius — visibly distinct
+  from pills so nothing that isn't clickable looks tappable.
 - **Primary actions** are the loudest element — filled, high-contrast buttons —
   so it is always obvious where to act. They have a clear selected state.
 - **Fallback/global actions** render as muted ghost buttons, visually secondary

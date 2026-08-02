@@ -292,7 +292,7 @@ h1 {{ margin:3px 0 5px; font-size:clamp(24px,3.2vw,38px); letter-spacing:-.035em
 .progress-fill {{ height:100%; width:0; background:linear-gradient(90deg,var(--accent),var(--accent2)); transition:width .25s ease; }}
 .meta,.toolbar,.queue-nav {{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }}
 .meta {{ margin-top:12px; }}
-.meta span {{ background:var(--panel2); color:var(--muted); border:1px solid var(--line); border-radius:999px; padding:5px 9px; font-size:12px; }}
+.meta span {{ background:var(--panel2); color:var(--muted); border:1px solid var(--line); border-radius:6px; padding:5px 9px; font-size:12px; }}
 .meta span.storage-warning {{ color:#1b1200; background:var(--warn); border-color:var(--warn); font-weight:850; }}
 .toolbar {{ margin-top:10px; }}
 button {{ font:inherit; }}
@@ -318,7 +318,7 @@ main {{ max-width:1180px; margin:0 auto; padding:26px clamp(16px,4vw,42px) 100px
 .queue-head {{ display:flex; justify-content:space-between; align-items:end; gap:16px; margin-bottom:14px; }}
 h2 {{ margin:3px 0 0; font-size:clamp(20px,2.2vw,27px); letter-spacing:-.02em; }}
 .queue p {{ margin:5px 0 0; color:var(--muted); max-width:780px; }}
-.count {{ background:var(--panel2); color:var(--accent); border:1px solid var(--line); border-radius:999px; padding:6px 10px; font-weight:800; }}
+.count {{ background:var(--panel2); color:var(--accent); border:1px solid var(--line); border-radius:6px; padding:6px 10px; font-weight:800; }}
 .empty {{ color:var(--good); background:rgba(118,217,133,.07); border:1px solid rgba(118,217,133,.25); padding:13px 15px; border-radius:14px; }}
 .card {{ background:linear-gradient(145deg,rgba(24,30,42,.98),rgba(18,23,33,.98)); border:1px solid var(--line); border-radius:18px; padding:18px; margin:12px 0; box-shadow:var(--shadow); transition:opacity .2s,border-color .2s,transform .2s; }}
 .card:hover {{ border-color:#3b4a62; transform:translateY(-1px); }}
@@ -326,7 +326,7 @@ h2 {{ margin:3px 0 0; font-size:clamp(20px,2.2vw,27px); letter-spacing:-.02em; }
 .hide-decided .card.done {{ display:none; }}
 .card-top {{ display:flex; justify-content:space-between; align-items:flex-start; gap:18px; margin-bottom:12px; }}
 .card-title {{ font-weight:850; font-size:18px; margin-top:3px; line-height:1.3; }}
-.decision-state {{ flex:none; color:var(--muted); background:var(--panel2); border:1px solid var(--line); border-radius:999px; padding:5px 8px; font-size:11px; font-weight:750; }}
+.decision-state {{ flex:none; color:var(--muted); background:var(--panel2); border:1px solid var(--line); border-radius:6px; padding:5px 8px; font-size:11px; font-weight:750; }}
 .card.done .decision-state {{ color:#071108; background:var(--good); border-color:var(--good); }}
 .property-strip,.property,.property-primary,.choice-dot {{ display:none; }}
 .details {{ margin:0 0 18px; border-top:1px solid rgba(255,255,255,.06); }}
