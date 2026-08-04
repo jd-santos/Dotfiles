@@ -19,42 +19,16 @@
 
 ## Up Next
 
-- [ ] Improve the AI Review Console UI and review workflow
-  - [ ] 1. Add progressive disclosure inside cards (summary, details, evidence/raw item)
-  - [ ] 2. Show recommendation provenance: why surfaced, recommendation source, and supporting evidence
-  - [ ] 3. Add operational risk, reversibility, evidence-strength, and ambiguity signals; avoid uncalibrated confidence percentages
-  - [x] 4. Improve navigation and triage with search, queue/state filters, J/K shortcuts, and previous/next-undecided controls
-  - [x] 5. Add pre-export validation and a decision summary, including incomplete and high-risk review warnings
-    - [x] Review summary panel (decided/undecided, per-action breakdown, high-risk, irreversible-without-note)
-    - [x] Export gated behind a warning when incomplete / high-risk / irreversible-without-note
-    - [x] `complete` + `warnings` fields in exported JSON so partial exports are not mistaken for complete
-    - [x] Minimal action metadata (`risk`, `reversible`, `requires_note`, `description`) to power the warnings
-  - [ ] 6. Represent stale snapshots, invalid data, apply conflicts, and recovery paths as first-class states
-  - [ ] 7. Improve accessibility
-    - [x] Expose selected actions with `aria-pressed` and status updates through a live region
-    - [x] Add visible keyboard focus and respect reduced-motion preferences
-    - [ ] Audit semantic headings, high-zoom/sticky layout behavior, contrast, and full screen-reader flow
-  - [ ] 8. Enrich action specs with descriptions, risk, reversibility, rationale requirements, and optional confirmations (descriptions/risk/reversibility/requires_note done; optional per-action confirmation friction pending)
-  - [ ] 9. Import decision JSON to resume or transfer a review, with schema/snapshot compatibility checks
-  - [ ] 10. Refine the mobile review experience with compact details and persistent navigation
 - [ ] Revisit `commit-message-writer` skill for progressive disclosure and tone
 
 ## Backlog
-
-### AI Review Console — future platform work
-
-- [ ] A. Add risk-tiered approval queues and escalation rules for reversible, ambiguous, and irreversible actions
-- [ ] B. Build a snapshot-aware apply loop with review IDs, schema versions, item fingerprints, staleness checks, and apply reports
-- [ ] C. Add safe bulk decisions with explicit selection criteria, exception previews, and per-item exported decisions
-- [ ] D. Add counterfactual previews showing the concrete before/after effect of a proposed action
-- [ ] E. Add constrained reusable review components such as diffs, comparisons, ranked candidates, timelines, graphs, and evidence lists
-- [ ] F. Explore an optional Tailscale-hosted mode for draft persistence, review status, completed artifacts, and notifications while retaining static HTML/JSON portability
 
 - [ ] Extend `/usage` with cached pricing, JSON export, per-project filtering, and trend deltas
 - [ ] Consider a richer `/usage` table renderer if the widget output is too dense
 
 ## Done
 
+- [x] Extract Offgrid Review into `jd-santos/offgrid-review` and track the standalone skill
 - [x] Refresh Pi GPT-5.6 defaults and OpenRouter shortlist
 - [x] Convert Pi `/ship` prompt into reusable `ship` skill
 - [x] Update Pi model defaults and scoped model list

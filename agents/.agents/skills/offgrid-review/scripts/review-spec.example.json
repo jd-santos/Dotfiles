@@ -1,0 +1,139 @@
+{
+  "title": "Offgrid Review",
+  "subtitle": "Review the evidence, select every compatible action, and export decision JSON. Nothing is changed from this page.",
+  "global_actions": [
+    {
+      "id": "defer",
+      "label": "Defer for later",
+      "description": "Leave the item unresolved for a future review.",
+      "exclusive": true
+    },
+    {
+      "id": "needs_human",
+      "label": "Needs another reviewer",
+      "description": "Route the item to a person with more context.",
+      "exclusive": true
+    },
+    {
+      "id": "ignore",
+      "label": "No action needed",
+      "description": "Record that the item was reviewed without follow-up.",
+      "exclusive": true
+    }
+  ],
+  "queues": [
+    {
+      "id": "pending_decisions",
+      "title": "Pending decisions",
+      "description": "Review each item and select every compatible follow-up.",
+      "source": "pending_items",
+      "empty": "Nothing to review in this queue.",
+      "question": "Which actions should be taken?",
+      "selection_mode": "multiple",
+      "detail_keys": [
+        "status",
+        "priority",
+        "due",
+        "labels",
+        "path",
+        "description"
+      ],
+      "primary_keys": ["status", "priority", "due"],
+      "actions": [
+        {
+          "id": "accept",
+          "label": "Accept the proposal",
+          "description": "Carry the proposed values into the apply pass.",
+          "risk": "low",
+          "reversible": true,
+          "conflicts_with": ["needs_changes"]
+        },
+        {
+          "id": "needs_changes",
+          "label": "Request changes",
+          "description": "Keep the item open and describe the required edits.",
+          "risk": "low",
+          "reversible": true,
+          "requires_note": true,
+          "conflicts_with": ["accept"]
+        },
+        {
+          "id": "add_follow_up",
+          "label": "Add a follow-up",
+          "description": "Create a separate follow-up after the main decision.",
+          "risk": "low",
+          "reversible": true
+        },
+        {
+          "id": "close",
+          "label": "Close permanently",
+          "description": "Close and archive the linked item.",
+          "risk": "high",
+          "reversible": false,
+          "requires_note": true,
+          "exclusive": true
+        }
+      ]
+    },
+    {
+      "id": "review_backlog",
+      "title": "Review backlog",
+      "description": "This queue demonstrates an explicitly exclusive decision.",
+      "source": "backlog_items",
+      "empty": "No backlog items to review.",
+      "question": "What is the backlog outcome?",
+      "selection_mode": "single",
+      "detail_keys": ["state", "priority", "url", "type"],
+      "primary_keys": ["state", "priority"],
+      "actions": [
+        {
+          "id": "promote",
+          "label": "Promote to active work",
+          "description": "Move the item into the active queue."
+        },
+        {
+          "id": "keep",
+          "label": "Keep in backlog",
+          "description": "Leave the item in its current queue."
+        }
+      ]
+    },
+    {
+      "id": "plan_review",
+      "title": "Plan review",
+      "description": "Review long-form sections, a table, and a portable diagram in the same workbench.",
+      "source": "plan_items",
+      "empty": "No plans need review.",
+      "question": "What feedback should return to the agent?",
+      "selection_mode": "multiple",
+      "detail_keys": ["status", "owner", "updated"],
+      "primary_keys": ["status", "updated"],
+      "actions": [
+        {
+          "id": "approve_direction",
+          "label": "Approve the direction",
+          "description": "Keep the proposed structure and proceed to implementation.",
+          "risk": "low",
+          "reversible": true,
+          "conflicts_with": ["revise_direction"]
+        },
+        {
+          "id": "revise_direction",
+          "label": "Revise the direction",
+          "description": "Return the plan with targeted changes.",
+          "risk": "low",
+          "reversible": true,
+          "requires_note": true,
+          "conflicts_with": ["approve_direction"]
+        },
+        {
+          "id": "capture_follow_up",
+          "label": "Capture follow-up work",
+          "description": "Keep the direction and record additional work separately.",
+          "risk": "low",
+          "reversible": true
+        }
+      ]
+    }
+  ]
+}

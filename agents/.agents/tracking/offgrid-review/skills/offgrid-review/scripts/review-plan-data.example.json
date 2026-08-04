@@ -1,0 +1,148 @@
+{
+  "date": "2026-08-03",
+  "counts": {
+    "document_blocks": 8,
+    "review_decisions": 1
+  },
+  "plan_document": {
+    "overview": {
+      "title": "Proposal overview",
+      "body": "Evolve Offgrid Review from a queue-only reviewer into a shared workbench for operational items and complete planning documents.",
+      "points": [
+        "Keep one offline HTML artifact and one apply boundary",
+        "Choose visual blocks according to the review question",
+        "Preserve a pure-text path for every diagram or chart"
+      ]
+    },
+    "context": {
+      "title": "Why this belongs in the same engine",
+      "body": "Queue review and plan review ask the same fundamental question: what should a human approve, reject, annotate, or defer? The presentation changes, but persistence, risk signaling, review summaries, and exported decisions do not.\n\nA document-oriented review therefore adds semantic blocks rather than a second product."
+    },
+    "decision_table": {
+      "title": "Presentation choices",
+      "columns": ["Review need", "Preferred block", "Fallback"],
+      "rows": [
+        ["Explain intent", "Overview or prose", "Plain paragraphs"],
+        ["Compare states", "Table", "Row-by-row text"],
+        ["Show sequence", "Flow or timeline", "Ordered step list"],
+        ["Show relationships", "Dependency graph", "Dependency statements"],
+        ["Compare quantities", "Bar or line chart", "Data table"],
+        ["Handle a special visual", "Sanitized SVG", "Required text alternative"]
+      ]
+    },
+    "flow": {
+      "title": "Review and apply flow",
+      "description": "A proposal moves through deterministic preparation, human review, export, and verified application.",
+      "nodes": [
+        {
+          "id": "prepare",
+          "title": "Prepare",
+          "description": "Gather facts and author the spec"
+        },
+        {
+          "id": "review",
+          "title": "Review",
+          "description": "Inspect, decide, and annotate"
+        },
+        {
+          "id": "export",
+          "title": "Export",
+          "description": "Download structured JSON"
+        },
+        {
+          "id": "apply",
+          "title": "Apply",
+          "description": "Verify live state first"
+        }
+      ],
+      "edges": [
+        {"from": "prepare", "to": "review"},
+        {"from": "review", "to": "export"},
+        {"from": "export", "to": "apply"}
+      ]
+    },
+    "timeline": {
+      "title": "Delivery sequence",
+      "events": [
+        {
+          "step": "Stage 1",
+          "title": "Stabilize the shared schema",
+          "description": "Add semantic blocks without changing existing queue specs."
+        },
+        {
+          "step": "Stage 2",
+          "title": "Ship structured visuals",
+          "description": "Render flows, timelines, dependency graphs, and charts from JSON."
+        },
+        {
+          "step": "Stage 3",
+          "title": "Evaluate specialized workflows",
+          "description": "Split a subskill only when a domain needs different review behavior."
+        }
+      ]
+    },
+    "dependencies": {
+      "title": "Implementation dependencies",
+      "description": "Document review depends on the shared artifact and safety contracts.",
+      "nodes": [
+        {
+          "id": "artifact",
+          "title": "Artifact contract",
+          "description": "Stable JSON shapes",
+          "level": 0
+        },
+        {
+          "id": "blocks",
+          "title": "Block renderers",
+          "description": "Escaped HTML and SVG",
+          "level": 1
+        },
+        {
+          "id": "decisions",
+          "title": "Decision model",
+          "description": "Actions and notes",
+          "level": 1
+        },
+        {
+          "id": "export",
+          "title": "Decision export",
+          "description": "Shared approval artifact",
+          "level": 2
+        },
+        {
+          "id": "apply",
+          "title": "Verified apply",
+          "description": "Live-state check",
+          "level": 3
+        }
+      ],
+      "edges": [
+        {"from": "blocks", "to": "artifact"},
+        {"from": "decisions", "to": "artifact"},
+        {"from": "export", "to": "blocks"},
+        {"from": "export", "to": "decisions"},
+        {"from": "apply", "to": "export"}
+      ]
+    },
+    "chart": {
+      "title": "Illustrative review volume",
+      "description": "Synthetic data showing how plan review may reduce line-by-line chat responses.",
+      "chart_type": "bar",
+      "unit": " items",
+      "values": [
+        {"label": "Chat replies", "value": 34},
+        {"label": "Review blocks", "value": 8},
+        {"label": "Decisions", "value": 3}
+      ]
+    },
+    "custom_svg": {
+      "title": "Portable feedback loop",
+      "svg": "<svg viewBox=\"0 0 640 220\" role=\"img\"><title>Portable feedback loop</title><desc>Three stages connect review, decision JSON, and verified apply.</desc><rect x=\"40\" y=\"70\" width=\"150\" height=\"70\" rx=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"/><rect x=\"245\" y=\"70\" width=\"150\" height=\"70\" rx=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"/><rect x=\"450\" y=\"70\" width=\"150\" height=\"70\" rx=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"/><line x1=\"190\" y1=\"105\" x2=\"245\" y2=\"105\" stroke=\"currentColor\" stroke-width=\"2\"/><line x1=\"395\" y1=\"105\" x2=\"450\" y2=\"105\" stroke=\"currentColor\" stroke-width=\"2\"/><text x=\"115\" y=\"110\" text-anchor=\"middle\" fill=\"currentColor\" font-size=\"18\">Review</text><text x=\"320\" y=\"110\" text-anchor=\"middle\" fill=\"currentColor\" font-size=\"18\">Decision JSON</text><text x=\"525\" y=\"110\" text-anchor=\"middle\" fill=\"currentColor\" font-size=\"18\">Verified apply</text></svg>",
+      "fallback": [
+        "Review: a human inspects evidence and records explicit choices",
+        "Decision JSON: the console exports a portable approval artifact",
+        "Verified apply: a separate pass checks live state before mutation"
+      ]
+    }
+  }
+}

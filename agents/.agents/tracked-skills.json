@@ -29,6 +29,16 @@
       "skill_name": "orient",
       "last_synced_commit": "ae8412fb1b9118bfb2fad9872048f9384f797098",
       "last_synced_at": "2026-05-15"
+    },
+    {
+      "name": "offgrid-review",
+      "repo": "https://github.com/jd-santos/offgrid-review",
+      "ref": "main",
+      "tracking_repo": "offgrid-review",
+      "source_path": "skills/offgrid-review",
+      "skill_name": "offgrid-review",
+      "last_synced_commit": "e5dc3bd8c2170dc4e79424bef5a84076306de844",
+      "last_synced_at": "2026-08-03"
     }
   ]
 }

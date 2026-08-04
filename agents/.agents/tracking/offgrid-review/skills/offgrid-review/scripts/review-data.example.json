@@ -1,0 +1,100 @@
+{
+  "date": "2026-08-01",
+  "counts": {
+    "pending_items": 2,
+    "backlog_items": 1,
+    "plan_items": 1
+  },
+  "pending_items": [
+    {
+      "id": "item-a",
+      "title": "Example decision A",
+      "status": "Ready",
+      "priority": "p1",
+      "due": "2026-08-05",
+      "labels": ["demo", "review"],
+      "path": "some/path/a",
+      "description": "A short description of what is being reviewed."
+    },
+    {
+      "id": "item-b",
+      "title": "Example decision B",
+      "status": "Blocked",
+      "priority": "p2",
+      "due": "",
+      "labels": ["demo"],
+      "path": "some/path/b",
+      "description": "This item can demonstrate a rationale note or deferral."
+    }
+  ],
+  "backlog_items": [
+    {
+      "id": "back-a",
+      "title": "Backlog review item",
+      "state": "Inbox",
+      "priority": "p3",
+      "url": "https://example.com/item",
+      "type": "task"
+    }
+  ],
+  "plan_items": [
+    {
+      "id": "plan-a",
+      "title": "Portable review workflow",
+      "status": "Draft",
+      "owner": "Review agent",
+      "updated": "2026-08-01",
+      "sections": [
+        {
+          "id": "goal",
+          "title": "Goal",
+          "body": "Generate one offline review file from deterministic data and an agent-authored specification. Return structured decisions to a separate apply pass."
+        },
+        {
+          "id": "states",
+          "title": "Decision states",
+          "kind": "table",
+          "columns": ["State", "Meaning", "Export behavior"],
+          "rows": [
+            ["Unresolved", "No action selected", "Warn before export"],
+            ["Resolved", "One or more compatible actions selected", "Include in decisions"],
+            ["Conflict", "Selected actions contradict", "Mark export invalid"]
+          ]
+        },
+        {
+          "id": "flow",
+          "title": "Review flow",
+          "kind": "diagram",
+          "body": "Each step remains inspectable and portable.",
+          "nodes": [
+            {
+              "id": "gather",
+              "title": "Gather",
+              "description": "Snapshot deterministic facts"
+            },
+            {
+              "id": "review",
+              "title": "Review",
+              "description": "Select actions and add comments"
+            },
+            {
+              "id": "export",
+              "title": "Export",
+              "description": "Return decision JSON"
+            },
+            {
+              "id": "apply",
+              "title": "Apply",
+              "description": "Verify state before mutation"
+            }
+          ],
+          "edges": [
+            {"from": "Gather", "to": "Review"},
+            {"from": "Review", "to": "Export"},
+            {"from": "Export", "to": "Apply"}
+          ]
+        }
+      ]
+    }
+  ]
+}

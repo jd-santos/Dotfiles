@@ -1,0 +1,103 @@
+{
+  "title": "Offline Review Workflow Proposal",
+  "subtitle": "Review the proposed document model, its visual vocabulary, and the decision required before implementation.",
+  "agent_help": "Read the proposal in order, inspect each visual or its text alternative, comment on specific blocks, then record the final decision.",
+  "document_id": "plan_review",
+  "document_title": "Planning proposal",
+  "document_description": "A complete planning document rendered through the same decision engine as queue review.",
+  "payload_meta": {
+    "review_kind": "planning_document",
+    "example": true
+  },
+  "global_actions": [
+    {
+      "id": "defer",
+      "label": "Defer for later",
+      "description": "Leave the proposal unresolved for a future review.",
+      "exclusive": true
+    },
+    {
+      "id": "needs_human",
+      "label": "Needs another reviewer",
+      "description": "Route the plan to a person with different context.",
+      "exclusive": true
+    }
+  ],
+  "blocks": [
+    {
+      "type": "overview",
+      "id": "overview",
+      "source": "plan_document.overview"
+    },
+    {
+      "type": "prose",
+      "id": "context",
+      "source": "plan_document.context"
+    },
+    {
+      "type": "table",
+      "id": "presentation_choices",
+      "source": "plan_document.decision_table"
+    },
+    {
+      "type": "flow",
+      "id": "review_flow",
+      "source": "plan_document.flow"
+    },
+    {
+      "type": "timeline",
+      "id": "delivery_sequence",
+      "source": "plan_document.timeline"
+    },
+    {
+      "type": "dependency_graph",
+      "id": "dependencies",
+      "source": "plan_document.dependencies"
+    },
+    {
+      "type": "chart",
+      "id": "review_volume",
+      "source": "plan_document.chart"
+    },
+    {
+      "type": "svg",
+      "id": "feedback_loop",
+      "source": "plan_document.custom_svg"
+    },
+    {
+      "type": "decision",
+      "id": "direction",
+      "title": "Direction decision",
+      "body": "Choose every outcome that should return to the agent. Conflicting choices remain visible until resolved.",
+      "question": "What should happen with this proposal?",
+      "selection_mode": "multiple",
+      "actions": [
+        {
+          "id": "approve_direction",
+          "label": "Approve the direction",
+          "description": "Proceed with the shared semantic-block model.",
+          "risk": "low",
+          "reversible": true,
+          "conflicts_with": ["revise_direction"]
+        },
+        {
+          "id": "revise_direction",
+          "label": "Request revisions",
+          "description": "Return targeted changes before implementation.",
+          "risk": "low",
+          "reversible": true,
+          "requires_note": true,
+          "conflicts_with": ["approve_direction"]
+        },
+        {
+          "id": "capture_follow_up",
+          "label": "Capture follow-up work",
+          "description": "Approve the direction and record additional work separately.",
+          "risk": "low",
+          "reversible": true
+        }
+      ]
+    }
+  ],
+  "queues": []
+}

@@ -135,19 +135,27 @@ stow -R agents # restow after changes
 
 - **ship**: reviews a git branch, groups ready changes into commits, checks
   changelog needs, and pushes only after confirmation
-- **ai-review-console**: builds a portable, static HTML review console from
-  deterministic JSON data plus an agent-authored spec, then runs a separate safe
-  apply pass on exported decision JSON — for triage/reconciliation/backlog
-  reviews that need a human in the loop without one-by-one chat
-- **add-pi-feature**: adds pi coding agent features: skills, extensions, prompt templates, themes, custom tools, commands, and flags
-- **create-agents-md**: creates AGENTS.md files for AI agent context in codebases
-- **create-skill**: creates new SKILL.md files with proper structure and frontmatter
-- **tracked-skills**: adds new tracked repos, reviews upstream tracked skills, pulls subtree updates after approval, and syncs exposed skills
+- **offgrid-review**: tracked from
+  [`jd-santos/offgrid-review`](https://github.com/jd-santos/offgrid-review);
+  builds single-file offline workbenches for structured items and complete
+  planning documents, with explicit decisions, granular notes, semantic
+  visuals, and a separate safe apply pass
+- **add-pi-feature**: adds pi coding agent features: skills, extensions, prompt
+  templates, themes, custom tools, commands, and flags
+- **create-agents-md**: creates AGENTS.md files for AI agent context in
+  codebases
+- **create-skill**: creates new SKILL.md files with proper structure and
+  frontmatter
+- **tracked-skills**: adds new tracked repos, reviews upstream tracked skills,
+  pulls subtree updates after approval, and syncs exposed skills
 - **technical-writing-style**: casual-professional tone guide; anti-AI-slop
-- **commit-message-writer**: Scoped Commits format inspired by [scopedcommits.com](https://scopedcommits.com/)
-- **changelog-writer**: human-readable `CHANGELOG.md` entries based on [Keep a Changelog](https://keepachangelog.com/) with optional SemVer
+- **commit-message-writer**: Scoped Commits format inspired by
+  [scopedcommits.com](https://scopedcommits.com/)
+- **changelog-writer**: human-readable `CHANGELOG.md` entries based on
+  [Keep a Changelog](https://keepachangelog.com/) with optional SemVer
 - **todo-manager**: creates and manages TODO.md files
-- **project-issue-note**: creates and updates Markdown project, issue, or feature notes with YAML frontmatter for repo-local tracking
+- **project-issue-note**: creates and updates Markdown project, issue, or
+  feature notes with YAML frontmatter for repo-local tracking
 
 ### Meta
 
