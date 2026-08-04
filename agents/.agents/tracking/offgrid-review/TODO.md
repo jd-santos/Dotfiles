@@ -22,3 +22,5 @@
 - [ ] Explore an optional hosted mode while preserving offline artifacts
 
 ## Done
+
+- [x] Publish the public README, generated screenshots, capture script, and changelog
