@@ -8,10 +8,10 @@ description: >-
   one by one in chat. Examples include aligning two systems, inbox triage,
   classification, backlog prioritization, and LLM-authored plan review. The console is read-only by design: it captures decisions, and
   a verified apply pass makes changes later.
-version: 1.0.0
+version: 1.1.0
 author: jd-santos
 category: workflow
-allowed-tools: Bash(python3 **/scripts/review_console.py *), Read
+allowed-tools: Bash(uvx --from git+https://github.com/jd-santos/offgrid-review.git offgrid-review *), Read
 ---
 
 # Offgrid Review
@@ -99,14 +99,16 @@ and include title, description, and fallback text.
 ### 3. Generate the console
 
 ```bash
-python3 scripts/review_console.py \
+uvx --from git+https://github.com/jd-santos/offgrid-review.git offgrid-review \
   --data review-data.json \
   --spec review-spec.json \
   --out review.html
 ```
 
-See `reference/usage.md` for the quickstart and custom-spec example. No
-third-party dependencies. It uses only the Python standard library.
+See `reference/usage.md` for the quickstart and custom-spec example. The
+Python package has no third-party runtime dependencies. UVX is the recommended
+acquisition and execution method, not a package dependency. Use
+`uvx offgrid-review` after the first PyPI release.
 
 ### 4. Human reviews and exports decisions
 
@@ -130,12 +132,11 @@ Use the exported decision JSON to make changes, following `reference/apply-pass.
 
 ## Deliverables in this skill
 
-- `scripts/review_console.py`: the standard-library generator.
-- `scripts/review-spec.example.json`: multi-select, single-select, and plan
-  review examples.
-- `scripts/review-data.example.json`: structured queue and sectioned-plan data.
-- `scripts/review-plan-spec.example.json`: semantic planning-document example.
-- `scripts/review-plan-data.example.json`: planning-document source data.
+- `examples/review-spec.json`: multi-select, single-select, and plan review
+  examples.
+- `examples/review-data.json`: structured queue and sectioned-plan data.
+- `examples/review-plan-spec.json`: semantic planning-document example.
+- `examples/review-plan-data.json`: planning-document source data.
 - `reference/artifact-contract.md`: data, spec, and export schemas.
 - `reference/apply-pass.md`: the safe multi-action apply contract.
 - `reference/usage.md`: setup, interaction behavior, and constraints.
@@ -155,8 +156,9 @@ Use the exported decision JSON to make changes, following `reference/apply-pass.
 - **Don't drift into an apply surface.** If you find the console "just applying"
   a change, stop. That belongs in the apply pass, gated by the exported
   decisions.
-- **The generator is not the intelligence.** Frame new reviews by writing a new
-  spec, not by editing the generator.
+- **The CLI is not the intelligence.** Frame new reviews by writing a new spec,
+  not by changing the renderer. This skill is the agent discovery and workflow
+  layer; the published CLI is the deterministic execution layer.
 - **Use semantic blocks first.** Flow, timeline, dependency graph, and chart
   renderers provide deterministic visuals and text alternatives.
 - **Never embed supplied SVG directly.** The generator must parse and serialize

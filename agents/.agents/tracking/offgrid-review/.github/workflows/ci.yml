@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.14"]
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.10.2"
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      - name: Sync the locked project
+        run: uv sync --locked
+
+      - name: Run tests
+        run: uv run --frozen python -m unittest discover -s tests -p 'test_*.py' -q
+
+  build:
+    name: Build distributions
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.10.2"
+          enable-cache: true
+
+      - name: Build wheel and source distribution
+        run: uv build
+
+      - name: Smoke-test the wheel through UVX
+        shell: bash
+        run: |
+          set -euo pipefail
+          wheel="$(find dist -name '*.whl' -print -quit)"
+          work="$(mktemp -d)"
+          uvx --from "$wheel" offgrid-review --version
+          uvx --from "$wheel" offgrid-review \
+            --data skills/offgrid-review/examples/review-data.json \
+            --spec skills/offgrid-review/examples/review-spec.json \
+            --out "$work/review.html"
+          test -s "$work/review.html"

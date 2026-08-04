@@ -11,7 +11,7 @@ system.
 [Quick start](#quick-start) · [Agent skill](#agent-skill) ·
 [Core concepts](#core-concepts) · [Reference](#reference)
 
-![A planning document open in Offgrid Review's dark theme, with document contents, review progress, annotations, and decision export controls](docs/images/planning-review-dark.png)
+![A planning document open in Offgrid Review's dark theme, with document contents, review progress, annotations, and decision export controls](https://raw.githubusercontent.com/jd-santos/offgrid-review/main/docs/images/planning-review-dark.png)
 
 _One engine handles complete documents and queue-based review._
 
@@ -40,45 +40,62 @@ the review begins.
 
 ## Quick start
 
-Offgrid Review requires Python 3.10 or later and uses only the standard library.
+With [uv](https://docs.astral.sh/uv/getting-started/installation/) installed,
+run the command without managing a Python environment. Until the first PyPI
+release, UVX can build it directly from the public repository:
+
+```bash
+uvx --from git+https://github.com/jd-santos/offgrid-review.git offgrid-review \
+  --data review-data.json \
+  --spec review-spec.json \
+  --out review.html
+```
+
+Open `review.html` in a browser. Select one or more compatible actions, add
+notes where needed, and use **Download JSON** to export the result.
+
+Offgrid Review supports Python 3.10 or later and has no third-party runtime
+dependencies. PyPI will distribute the first tagged package; UVX is the
+recommended runner, not a package dependency. After the first PyPI release, the invocation shortens to `uvx offgrid-review`.
+A persistent installation will also be available:
+
+```bash
+uv tool install offgrid-review
+offgrid-review --version
+```
+
+<details>
+<summary>Generate the checked-in queue and planning examples</summary>
 
 ```bash
 git clone https://github.com/jd-santos/offgrid-review.git
 cd offgrid-review
 
-python3 skills/offgrid-review/scripts/review_console.py \
-  --data skills/offgrid-review/scripts/review-data.example.json \
-  --spec skills/offgrid-review/scripts/review-spec.example.json \
+uvx --from git+https://github.com/jd-santos/offgrid-review.git offgrid-review \
+  --data skills/offgrid-review/examples/review-data.json \
+  --spec skills/offgrid-review/examples/review-spec.json \
   --out /tmp/offgrid-review.html
-```
 
-Open `/tmp/offgrid-review.html` in a browser. Select one or more compatible
-actions, add notes where needed, and use **Download JSON** to export the result.
-
-<details>
-<summary>Generate the planning-document example</summary>
-
-```bash
-python3 skills/offgrid-review/scripts/review_console.py \
-  --data skills/offgrid-review/scripts/review-plan-data.example.json \
-  --spec skills/offgrid-review/scripts/review-plan-spec.example.json \
+uvx --from git+https://github.com/jd-santos/offgrid-review.git offgrid-review \
+  --data skills/offgrid-review/examples/review-plan-data.json \
+  --spec skills/offgrid-review/examples/review-plan-spec.json \
   --out /tmp/offgrid-review-plan.html
 ```
 
 </details>
 
-Start with the [usage guide](skills/offgrid-review/reference/usage.md) when
+Start with the [usage guide](https://github.com/jd-santos/offgrid-review/blob/main/skills/offgrid-review/reference/usage.md) when
 building a new review. The
-[artifact contract](skills/offgrid-review/reference/artifact-contract.md)
+[artifact contract](https://github.com/jd-santos/offgrid-review/blob/main/skills/offgrid-review/reference/artifact-contract.md)
 documents the complete data, specification, annotation, and decision formats.
 
 ## Agent skill
 
 The reusable skill lives at
-[`skills/offgrid-review`](skills/offgrid-review). It guides an agent through
-collecting read-only source data, writing the review specification, generating
-the artifact, and handling the exported decisions through a separate apply
-pass.
+[`skills/offgrid-review`](https://github.com/jd-santos/offgrid-review/tree/main/skills/offgrid-review). It tells an agent when this
+workflow fits, how to frame the data and specification, and how to preserve the
+review/apply boundary. The skill invokes the same published CLI used by direct
+users; it does not carry a second renderer implementation.
 
 Agent systems that discover `skills/<name>/SKILL.md` can use the repository
 directly. For systems that load skills from `~/.agents/skills`, copy or sync the
@@ -89,7 +106,7 @@ cp -R skills/offgrid-review ~/.agents/skills/offgrid-review
 ```
 
 Direct `npx skills` installation is on the
-[roadmap](TODO.md), but is not documented as supported yet.
+[roadmap](https://github.com/jd-santos/offgrid-review/blob/main/TODO.md), but is not documented as supported yet.
 
 ## Core concepts
 
@@ -102,7 +119,7 @@ media without bringing an application server with it.
 ### Review and apply stay separate
 
 The browser page is a decision-capture surface. It cannot mutate the system
-being reviewed. The [apply-pass guide](skills/offgrid-review/reference/apply-pass.md)
+being reviewed. The [apply-pass guide](https://github.com/jd-santos/offgrid-review/blob/main/skills/offgrid-review/reference/apply-pass.md)
 requires implementations to re-fetch current state, detect stale data, and act
 only on explicitly approved decisions.
 
@@ -132,52 +149,61 @@ reach the generated page.
 
 ### Queue review in the light theme
 
-![A queue review showing filters, evidence, compatible actions, risk signals, and review progress](docs/images/queue-review-light.png)
+![A queue review showing filters, evidence, compatible actions, risk signals, and review progress](https://raw.githubusercontent.com/jd-santos/offgrid-review/main/docs/images/queue-review-light.png)
 
 ### Mobile review
 
-![A planning review on a narrow screen with progress, review content, a floating contents control, and a persistent action tray](docs/images/mobile-review-dark.png)
+![A planning review on a narrow screen with progress, review content, a floating contents control, and a persistent action tray](https://raw.githubusercontent.com/jd-santos/offgrid-review/main/docs/images/mobile-review-dark.png)
 
 ### Mobile contents navigation
 
-![The nonmodal document contents drawer open over a mobile planning review](docs/images/mobile-contents-dark.png)
+![The nonmodal document contents drawer open over a mobile planning review](https://raw.githubusercontent.com/jd-santos/offgrid-review/main/docs/images/mobile-contents-dark.png)
 
 </details>
 
 ## Reference
 
-- [Usage guide](skills/offgrid-review/reference/usage.md): commands, review
+- [Usage guide](https://github.com/jd-santos/offgrid-review/blob/main/skills/offgrid-review/reference/usage.md): commands, review
   specifications, interaction behavior, and file-viewer constraints
-- [Artifact contract](skills/offgrid-review/reference/artifact-contract.md):
+- [Artifact contract](https://github.com/jd-santos/offgrid-review/blob/main/skills/offgrid-review/reference/artifact-contract.md):
   source data, review specs, generated artifacts, annotations, and decision JSON
-- [Apply-pass guide](skills/offgrid-review/reference/apply-pass.md): verification,
+- [Apply-pass guide](https://github.com/jd-santos/offgrid-review/blob/main/skills/offgrid-review/reference/apply-pass.md): verification,
   mutation boundaries, error handling, and reporting
-- [Product](skills/offgrid-review/PRODUCT.md): purpose, users, constraints, and
+- [Product](https://github.com/jd-santos/offgrid-review/blob/main/skills/offgrid-review/PRODUCT.md): purpose, users, constraints, and
   product principles
-- [Design](skills/offgrid-review/DESIGN.md): interface tokens, component rules,
+- [Design](https://github.com/jd-santos/offgrid-review/blob/main/skills/offgrid-review/DESIGN.md): interface tokens, component rules,
   responsive behavior, and accessibility expectations
-- [Changelog](CHANGELOG.md): notable project changes
+- [Release guide](https://github.com/jd-santos/offgrid-review/blob/main/docs/releasing.md): package checks and Trusted Publishing setup
+- [Changelog](https://github.com/jd-santos/offgrid-review/blob/main/CHANGELOG.md): notable project changes
 
 ## Roadmap
 
 Near-term work includes recommendation provenance, stale-snapshot handling,
 decision import, accessibility review, and validated `npx skills` installation.
-See [TODO.md](TODO.md) for the current list.
+See [TODO.md](https://github.com/jd-santos/offgrid-review/blob/main/TODO.md) for the current list.
 
 ## Development
 
-Run the regression suite:
+Create the locked development environment and run the regression suite:
 
 ```bash
-python3 -m unittest discover \
-  -s skills/offgrid-review/tests \
-  -p 'test_*.py'
+uv sync --locked
+uv run python -m unittest discover -s tests -p 'test_*.py'
 ```
+
+Build the wheel and source distribution:
+
+```bash
+uv build
+```
+
+See the [release guide](https://github.com/jd-santos/offgrid-review/blob/main/docs/releasing.md)
+for versioning, local wheel checks, and PyPI Trusted Publishing setup.
 
 Regenerate the README screenshots with a local Chrome or Chromium installation:
 
 ```bash
-python3 scripts/capture_screenshots.py
+uv run python scripts/capture_screenshots.py
 ```
 
 Pass `--chrome /path/to/chrome` when the executable is not in a standard

@@ -7,13 +7,11 @@ from __future__ import annotations
 import argparse
 import shutil
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILL = ROOT / "skills" / "offgrid-review"
-GENERATOR = SKILL / "scripts" / "review_console.py"
+EXAMPLES = ROOT / "skills" / "offgrid-review" / "examples"
 DEFAULT_OUTPUT = ROOT / "docs" / "images"
 
 CHROME_CANDIDATES = (
@@ -46,12 +44,15 @@ def find_chrome(explicit: str | None) -> Path:
 def generate(data_name: str, spec_name: str, output: Path) -> None:
     subprocess.run(
         [
-            sys.executable,
-            str(GENERATOR),
+            "uv",
+            "run",
+            "--project",
+            str(ROOT),
+            "offgrid-review",
             "--data",
-            str(SKILL / "scripts" / data_name),
+            str(EXAMPLES / data_name),
             "--spec",
-            str(SKILL / "scripts" / spec_name),
+            str(EXAMPLES / spec_name),
             "--out",
             str(output),
         ],
@@ -111,8 +112,8 @@ def main() -> None:
         work = Path(temp)
         queue = work / "queue.html"
         plan = work / "plan.html"
-        generate("review-data.example.json", "review-spec.example.json", queue)
-        generate("review-plan-data.example.json", "review-plan-spec.example.json", plan)
+        generate("review-data.json", "review-spec.json", queue)
+        generate("review-plan-data.json", "review-plan-spec.json", plan)
 
         variants = (
             (queue, "queue-light.html", "queue-review-light.png", "light", False, 1440, 900),

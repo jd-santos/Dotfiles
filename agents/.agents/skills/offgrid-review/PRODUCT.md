@@ -77,9 +77,11 @@ light and dark themes, responsive mobile actions, review summaries, risk-aware
 pre-export checks,
 local persistence when available, and decision JSON export.
 
-The implementation uses a Python standard-library generator with embedded
-HTML, CSS, and JavaScript. Generated consoles require no server, network
-access, build process, or third-party runtime dependency.
+The implementation is distributed as a Python CLI with embedded HTML, CSS, and
+JavaScript. The package uses only the Python standard library at runtime. PyPI
+provides versioned distribution and UVX is the recommended runner. Generated
+consoles require no server, network access, build process, or third-party
+runtime dependency.
 
 The generated page is a decision-capture surface. It must not mutate Todoist,
 Obsidian, or any other external system. Applying decisions remains a separate,
@@ -116,22 +118,24 @@ danger. Light and dark themes receive equal support.
 
 ## Evidence on Hand
 
-- `scripts/review_console.py`: dependency-free generator and current interface
-  implementation.
-- `scripts/review-data.example.json`: example deterministic input data.
-- `scripts/review-spec.example.json`: example review framing and action
-  metadata.
-- `scripts/review-plan-data.example.json` and
-  `scripts/review-plan-spec.example.json`: complete planning-document demo.
+- `src/offgrid_review/renderer.py`: dependency-free renderer implementation.
+- `src/offgrid_review/cli.py`: argument parsing, file handling, and public
+  command behavior.
+- `examples/review-data.json`: example deterministic input data.
+- `examples/review-spec.json`: example review framing and action metadata.
+- `examples/review-plan-data.json` and `examples/review-plan-spec.json`:
+  complete planning-document demo.
 - `reference/artifact-contract.md`: current data, specification, console, and
   decision artifact contract.
 - `reference/apply-pass.md`: verified apply-pass boundary and safety rules.
 - `reference/usage.md`: supported workflows, interaction behavior, and known
   file-viewer constraints.
 - `DESIGN.md`: interface system, visual rules, and responsive behavior.
-- `tests/test_review_console.py`: checks workbench layout, multi-select and
+- `tests/test_renderer.py`: checks workbench layout, multi-select and
   single-select behavior, granular annotations, plan renderers, themes, risk
   metadata, summaries, export validation, and the interface contract.
+- `tests/test_cli.py`: checks generation, starter-spec output, version metadata,
+  expected errors, and exit codes.
 
 There are no user studies, external testimonials, or performance benchmarks on
 hand. Future work must not invent them.

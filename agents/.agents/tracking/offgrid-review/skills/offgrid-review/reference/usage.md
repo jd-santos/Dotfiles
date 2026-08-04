@@ -1,21 +1,19 @@
 # Offgrid Review Usage
 
-The generator at `scripts/review_console.py` uses only the Python standard
-library. It writes one offline HTML file with embedded styles, behavior, and
-review data.
+The `offgrid-review` Python CLI uses only the standard library at runtime. It
+writes one offline HTML file with embedded styles, behavior, and review data.
+PyPI distributes the package, and UVX is the recommended runner.
 
 ## Quickstart
 
 ```bash
-cd scripts
-
-python3 review_console.py \
-  --data review-data.example.json \
-  --spec review-spec.example.json \
+uvx --from git+https://github.com/jd-santos/offgrid-review.git offgrid-review \
+  --data review-data.json \
+  --spec review-spec.json \
   --out review.html
 
 # Write a generic starting spec to a new path.
-python3 review_console.py \
+uvx --from git+https://github.com/jd-santos/offgrid-review.git offgrid-review \
   --write-default-spec \
   --spec my-review-spec.json
 ```
@@ -23,23 +21,26 @@ python3 review_console.py \
 Open `review.html`, record decisions, then download or copy the exported JSON.
 Send that file to the separate apply pass.
 
-Generate the included planning-document demo with:
+Generate the checked-in planning-document example from the repository root:
 
 ```bash
-python3 review_console.py \
-  --data review-plan-data.example.json \
-  --spec review-plan-spec.example.json \
+uvx --from git+https://github.com/jd-santos/offgrid-review.git offgrid-review \
+  --data skills/offgrid-review/examples/review-plan-data.json \
+  --spec skills/offgrid-review/examples/review-plan-spec.json \
   --out review-plan.html
 ```
 
-This second demo uses the same engine, persistence, summary, and export model as
-the queue example.
+This second example uses the same engine, persistence, summary, and export model
+as the queue example. UVX fetches the package on first use and then reuses its
+cached environment. After the first PyPI release, use `uvx offgrid-review` or
+`uv tool install offgrid-review` when the command should remain installed before
+a machine goes offline.
 
 ## Workflow
 
 1. A read-only script snapshots deterministic source data as JSON.
 2. An agent writes the review spec for the current question.
-3. `review_console.py` creates the static console.
+3. `offgrid-review` creates the static console.
 4. A human selects actions and adds notes.
 5. The console exports decision JSON.
 6. The apply pass re-fetches live state before making approved changes.
@@ -284,7 +285,7 @@ external references, unknown namespaces, and oversized input. A rejected
 visual shows an error and preserves the required fallback. Original custom SVG
 source is not copied into annotation snapshots.
 
-See `review-plan-spec.example.json` and `review-plan-data.example.json` for a
+See `examples/review-plan-spec.json` and `examples/review-plan-data.json` for a
 complete document demo.
 
 ## Review navigation

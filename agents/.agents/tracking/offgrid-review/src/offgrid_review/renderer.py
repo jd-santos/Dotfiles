@@ -1,20 +1,13 @@
-#!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Generate a portable Offgrid Review artifact from deterministic JSON.
+"""Render portable Offgrid Review artifacts from deterministic JSON.
 
-The generator combines read-only source data with an agent-authored review spec
-and writes one offline HTML file. The page captures decisions and annotations.
-It never applies them to an external system.
-
-Usage:
-  review_console.py --data review-data.json --spec review-spec.json \
-                    --out Review.html
-  review_console.py --write-default-spec
+The renderer combines read-only source data with an agent-authored review spec
+and returns one offline HTML document. The page captures decisions and
+annotations. It never applies them to an external system.
 """
 
 from __future__ import annotations
 
-import argparse
 import datetime as dt
 import html
 import json
@@ -22,13 +15,7 @@ import math
 import re
 import textwrap
 import xml.etree.ElementTree as ET
-from pathlib import Path
 from typing import Any
-
-SCRIPT_DIR = Path(__file__).resolve().parent
-DEFAULT_SPEC = SCRIPT_DIR / "review-spec.json"
-DEFAULT_DATA = Path("review-data.json")
-DEFAULT_OUT = Path("review-console.html")
 
 
 REVIEW_CSS = r"""
@@ -2778,20 +2765,6 @@ updateDocumentToc();
 """
 
 
-def load_json(path: Path) -> dict[str, Any]:
-    try:
-        with path.open("r", encoding="utf-8") as file:
-            return json.load(file)
-    except (OSError, json.JSONDecodeError) as error:
-        raise SystemExit(f"Could not read JSON from {path}: {error}") from error
-
-
-def save_default_spec(path: Path) -> None:
-    if path.exists():
-        return
-    path.write_text(json.dumps(default_spec(), indent=2), encoding="utf-8")
-
-
 def default_spec() -> dict[str, Any]:
     return {
         "title": "Offgrid Review",
@@ -4190,38 +4163,3 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 </body>
 </html>
 """
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Generate a static Offgrid Review artifact from data and a review spec."
-    )
-    parser.add_argument(
-        "--data", type=Path, default=DEFAULT_DATA, help="Path to deterministic data JSON."
-    )
-    parser.add_argument(
-        "--spec", type=Path, default=DEFAULT_SPEC, help="Path to the review spec JSON."
-    )
-    parser.add_argument("--out", type=Path, default=DEFAULT_OUT, help="Output HTML path.")
-    parser.add_argument(
-        "--write-default-spec", action="store_true", help="Write the example spec and exit."
-    )
-    args = parser.parse_args()
-
-    if args.write_default_spec:
-        args.spec.write_text(json.dumps(default_spec(), indent=2), encoding="utf-8")
-        print(args.spec)
-        return 0
-
-    save_default_spec(args.spec)
-    data = load_json(args.data)
-    spec = load_json(args.spec)
-    html_text = render_html(data, spec)
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(html_text, encoding="utf-8")
-    print(args.out)
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

@@ -1,0 +1,37 @@
+[build-system]
+requires = ["uv_build>=0.10.2,<0.11.0"]
+build-backend = "uv_build"
+
+[project]
+name = "offgrid-review"
+version = "0.1.0"
+description = "Build single-file offline workbenches for structured review and decisions."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+keywords = ["agent", "cli", "human-in-the-loop", "offline", "review"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Software Development :: User Interfaces",
+  "Topic :: Utilities",
+]
+dependencies = []
+
+[project.scripts]
+offgrid-review = "offgrid_review.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/jd-santos/offgrid-review"
+Repository = "https://github.com/jd-santos/offgrid-review"
+Issues = "https://github.com/jd-santos/offgrid-review/issues"
+Changelog = "https://github.com/jd-santos/offgrid-review/blob/main/CHANGELOG.md"

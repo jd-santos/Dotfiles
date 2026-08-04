@@ -153,11 +153,14 @@ with no action remain annotation-only feedback.
 Generate the console with:
 
 ```bash
-python3 review_console.py \
+uvx --from git+https://github.com/jd-santos/offgrid-review.git offgrid-review \
   --data review-data.json \
   --spec review-spec.json \
   --out review.html
 ```
+
+After the first PyPI release, the shorter `uvx offgrid-review` invocation uses
+the same command interface.
 
 Properties:
 

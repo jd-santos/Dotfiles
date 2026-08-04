@@ -4,16 +4,24 @@
 
 from __future__ import annotations
 
-import importlib.util
+import json
 import unittest
 from pathlib import Path
 
+from offgrid_review import renderer as review_console
 
-SCRIPT = Path(__file__).parents[1] / "scripts" / "review_console.py"
-SPEC = importlib.util.spec_from_file_location("review_console", SCRIPT)
-assert SPEC and SPEC.loader
-review_console = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(review_console)
+
+ROOT = Path(__file__).parents[1]
+EXAMPLES = ROOT / "skills" / "offgrid-review" / "examples"
+
+
+def load_example(name: str) -> dict[str, object]:
+    try:
+        value = json.loads((EXAMPLES / name).read_text())
+    except (OSError, json.JSONDecodeError) as error:
+        raise AssertionError(f"Could not load example {name}: {error}") from error
+    assert isinstance(value, dict)
+    return value
 
 
 class ReviewConsoleRenderTests(unittest.TestCase):
@@ -205,6 +213,7 @@ class ReviewConsoleRenderTests(unittest.TestCase):
 
         self.assertIsNone(error)
         self.assertIsNotNone(sanitized)
+        assert sanitized is not None
         self.assertIn("<title>Release path</title>", sanitized)
         self.assertIn('viewBox="0 0 120 60"', sanitized)
         self.assertNotIn("<script", sanitized)
@@ -313,9 +322,8 @@ class ReviewConsoleRenderTests(unittest.TestCase):
                 self.assertIn(marker, output)
 
     def test_planning_demo_covers_every_semantic_block_type(self) -> None:
-        scripts = SCRIPT.parent
-        data = review_console.load_json(scripts / "review-plan-data.example.json")
-        spec = review_console.load_json(scripts / "review-plan-spec.example.json")
+        data = load_example("review-plan-data.json")
+        spec = load_example("review-plan-spec.json")
 
         output = review_console.render_html(data, spec)
 
@@ -400,9 +408,8 @@ class ReviewConsoleRenderTests(unittest.TestCase):
         self.assertIn("border-color: var(--risk-border)", output)
 
     def test_document_only_review_replaces_item_tools_with_a_responsive_toc(self) -> None:
-        scripts = SCRIPT.parent
-        data = review_console.load_json(scripts / "review-plan-data.example.json")
-        spec = review_console.load_json(scripts / "review-plan-spec.example.json")
+        data = load_example("review-plan-data.json")
+        spec = load_example("review-plan-spec.json")
 
         output = review_console.render_html(data, spec)
 
