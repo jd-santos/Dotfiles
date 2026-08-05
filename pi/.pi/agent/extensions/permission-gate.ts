@@ -10,13 +10,14 @@
  * Default mode: prompts for write/edit and unrecognized bash commands.
  * Two-step prompt: first choose once/always/deny, then pick the scope.
  *
- * Chained bash commands (cd && ls) are split, each part checked, and all
- * command patterns (cd, ls) listed in the allow/deny UI.
+ * Chained bash commands (cd && ls) are split with quote awareness, each part
+ * is checked, and all command patterns (cd, ls) are listed in the rule UI.
+ * Complex shell syntax and command families that can execute arbitrary code
+ * stay behind an explicit permission prompt.
  *
- * SECURITY NOTE: This is a convenience gate, not a security sandbox.
- * Command splitting is naive (no quoting/subshell awareness), and wrapped
- * commands like `sh -c "cat .env"` bypass pattern checks. The LLM already
- * has full shell access; this extension only surfaces risky operations.
+ * SECURITY NOTE: This is a convenience gate, not a security sandbox. The
+ * analysis is conservative but is not a complete shell parser. The LLM already
+ * has full shell access; this extension surfaces risky operations before they run.
  */
 
 /// <reference path="../types.d.ts" />
@@ -26,43 +27,120 @@ import type {
 	ExtensionContext,
 } from "@mariozechner/pi-coding-agent";
 
-// Bash commands that auto-allow without prompting (read-only safe list).
-const ALLOW_PATTERNS: RegExp[] = [
+// Commands with predictable, inspection-only behavior. Commands that can
+// execute another program or mutate through their own arguments are handled by
+// explicit validators below or left behind the permission prompt.
+const SAFE_INSPECTION_PATTERNS: RegExp[] = [
 	/^#.*$/,
 	/^cd(\s|$)/,
 	/^ls(\s|$)/,
 	/^pwd(\s|$)/,
-	/^cat\s/,
-	/^head\s/,
-	/^tail\s/,
-	/^wc\s/,
-	/^file\s/,
-	/^which\s/,
-	/^dirname\s/,
-	/^basename\s/,
-	/^realpath\s/,
-	/^readlink\s/,
-	/^stat\s/,
+	/^cat(\s|$)/,
+	/^head(\s|$)/,
+	/^tail(\s|$)/,
+	/^wc(\s|$)/,
+	/^file(\s|$)/,
+	/^which(\s|$)/,
+	/^type(\s|$)/,
+	/^command\s+-v(\s|$)/,
+	/^dirname(\s|$)/,
+	/^basename(\s|$)/,
+	/^realpath(\s|$)/,
+	/^readlink(\s|$)/,
+	/^stat(\s|$)/,
 	/^du(\s|$)/,
 	/^tree(\s|$)/,
-	/^find\s/,
-	/^grep\s/,
-	/^rg\s/,
-	/^fd\s/,
+	/^find(\s|$)/,
+	/^grep(\s|$)/,
+	/^rg(\s|$)/,
+	/^fd(\s|$)/,
 	/^sort(\s|$)/,
 	/^uniq(\s|$)/,
-	/^cut\s/,
-	/^tr\s/,
-	/^awk\s/,
-	/^sed\s/,
+	/^cut(\s|$)/,
+	/^tr(\s|$)/,
+	/^awk(\s|$)/,
+	/^sed(\s|$)/,
 	/^nl(\s|$)/,
 	/^ps(\s|$)/,
+	/^pgrep(\s|$)/,
 	/^echo(\s|$)/,
-	/^printf\s/,
-	/^git\s+(status|diff|log|branch|show|rev-parse|ls-files|grep)(\s|$)/,
+	/^printf(\s|$)/,
+	/^true$/,
+	/^false$/,
+	/^test(\s|$)/,
+	/^\[(\s|$)/,
+	/^jq(\s|$)/,
+	/^cmp(\s|$)/,
+	/^comm(\s|$)/,
+	/^uname(\s|$)/,
+	/^sw_vers(\s|$)/,
+	/^shasum(\s|$)/,
+	/^md5(\s|$)/,
+	/^xmllint(\s|$)/,
+	/^pdfinfo(\s|$)/,
+	/^plutil\s+(-lint|-p)(\s|$)/,
 ];
 
-// Sensitive file access — always blocked, regardless of mode.
+// These command families are intentionally never inferred as safe. They can
+// execute arbitrary code, install packages, use the network, or mutate state.
+const PROMPT_ONLY_COMMANDS = new Set([
+	".",
+	"bash",
+	"bun",
+	"curl",
+	"dash",
+	"deno",
+	"env",
+	"eval",
+	"fish",
+	"gh",
+	"make",
+	"node",
+	"npm",
+	"npx",
+	"parallel",
+	"perl",
+	"pip",
+	"pip3",
+	"pnpm",
+	"python",
+	"python3",
+	"ruby",
+	"sh",
+	"source",
+	"ssh",
+	"uv",
+	"uvx",
+	"wget",
+	"xargs",
+	"yarn",
+	"zsh",
+]);
+
+const READ_ONLY_GIT_COMMANDS = new Set([
+	"cat-file",
+	"check-ignore",
+	"cherry",
+	"count-objects",
+	"describe",
+	"diff",
+	"diff-index",
+	"diff-tree",
+	"for-each-ref",
+	"grep",
+	"log",
+	"ls-files",
+	"ls-tree",
+	"merge-base",
+	"name-rev",
+	"rev-list",
+	"rev-parse",
+	"show",
+	"show-ref",
+	"status",
+]);
+
+// Sensitive file access is always blocked, regardless of mode.
 const DENY_PATTERNS: RegExp[] = [
 	/^(cat|head|tail)\s+.*\.env/,
 	/^(cat|head|tail)\s+.*(credentials|secret|password|token)/i,
@@ -71,10 +149,13 @@ const DENY_PATTERNS: RegExp[] = [
 	/^(cat|head|tail)\s+.*\.ssh\/id_/,
 ];
 
-type PermissionRule =
+type BashPolicy = "git-read" | "git-all";
+
+export type PermissionRule =
 	| { type: "tool"; tool: string }
 	| { type: "directory"; prefix: string }
-	| { type: "bash"; pattern: RegExp }
+	| { type: "bash"; commands: string[] }
+	| { type: "bashPolicy"; policy: BashPolicy }
 	| { type: "yolo" };
 
 interface SessionRules {
@@ -82,47 +163,404 @@ interface SessionRules {
 	deny: PermissionRule[];
 }
 
-// Naive command splitting — does not understand quoting, subshells,
-// command substitution, or eval. Used for hint/pattern generation.
-// Security-sensitive checks (sensitive file deny) check both raw
-// command and split parts, but neither catches wrapped commands
-// like `sh -c "cat .env"`. This gate is a convenience layer, not a
-// security sandbox.
-function splitCommandParts(command: string): string[] {
-	return command
-		.split(/;|&&|\|\||\||\n/)
-		.map((s) => s.trim())
-		.filter(Boolean);
+export interface BashCommandAnalysis {
+	parts: string[];
+	complex: boolean;
+	reasons: string[];
 }
 
-function extractCommandPatterns(command: string): string[] {
-	const parts = splitCommandParts(command);
-	const patterns = new Set<string>();
-	for (const part of parts) {
-		const token = part.split(/\s+/)[0];
-		if (token) patterns.add(token);
-	}
-	return Array.from(patterns).sort();
+function isShellOperatorBoundary(char: string | undefined): boolean {
+	return char === undefined || /\s|[;&|(){}]/.test(char);
 }
 
-function escapeRegExp(text: string): string {
-	return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function isComplexBashCommand(command: string): boolean {
+function isNonMutatingDevNullRedirect(command: string, index: number): boolean {
+	const suffix = command.slice(index);
 	return (
-		command.includes("\n") ||
-		/<<-?\s*['"]?\w+['"]?/.test(command) ||
-		command.includes("$(") ||
-		command.includes("`")
+		/^(?:>>?|<)\s*\/dev\/null(?:\s|$|[;&|])/.test(suffix) ||
+		/^>&\d/.test(suffix)
 	);
 }
 
-function extractScopeableCommandPatterns(command: string): string[] {
-	// Complex bash commands often include embedded script content, heredoc markers,
-	// or shell fragments that are not meaningful command scopes. In those cases we
-	// skip pattern scopes and only offer directory, tool, or yolo options.
-	return isComplexBashCommand(command) ? [] : extractCommandPatterns(command);
+/**
+ * Split common shell chains without treating quoted separators as operators.
+ * This is intentionally conservative rather than a complete shell parser.
+ */
+export function analyzeBashCommand(command: string): BashCommandAnalysis {
+	const parts: string[] = [];
+	const reasons = new Set<string>();
+	let current = "";
+	let quote: "'" | '"' | undefined;
+	let escaped = false;
+
+	const pushPart = () => {
+		const part = current.trim();
+		if (part) parts.push(part);
+		current = "";
+	};
+
+	for (let i = 0; i < command.length; i++) {
+		const char = command[i];
+		const next = command[i + 1];
+
+		if (escaped) {
+			current += char;
+			escaped = false;
+			continue;
+		}
+
+		if (char === "\\" && quote !== "'") {
+			current += char;
+			escaped = true;
+			continue;
+		}
+
+		if (quote) {
+			if (quote === '"' && (char === "`" || (char === "$" && next === "("))) {
+				reasons.add("command substitution");
+			}
+			current += char;
+			if (char === quote) quote = undefined;
+			continue;
+		}
+
+		if (char === "'" || char === '"') {
+			quote = char;
+			current += char;
+			continue;
+		}
+
+		if (char === "`" || (char === "$" && next === "(")) {
+			reasons.add("command substitution");
+			current += char;
+			continue;
+		}
+
+		if (char === "\n") {
+			reasons.add("multiline shell");
+			pushPart();
+			continue;
+		}
+
+		if (char === ";") {
+			pushPart();
+			continue;
+		}
+
+		if ((char === "&" && next === "&") || (char === "|" && next === "|")) {
+			pushPart();
+			i++;
+			continue;
+		}
+
+		if (char === "|") {
+			pushPart();
+			continue;
+		}
+
+		if (
+			(char === ">" || char === "<") &&
+			!isNonMutatingDevNullRedirect(command, i)
+		) {
+			reasons.add("redirection");
+		}
+
+		if (char === "(" || char === ")") {
+			reasons.add("shell grouping");
+		}
+		if (
+			(char === "{" || char === "}") &&
+			isShellOperatorBoundary(command[i - 1]) &&
+			isShellOperatorBoundary(next)
+		) {
+			reasons.add("shell grouping");
+		}
+
+		current += char;
+	}
+
+	pushPart();
+	if (quote || escaped) reasons.add("incomplete quoting");
+
+	if (
+		parts.some((part) =>
+			/^(if|then|elif|else|fi|for|while|until|do|done|case|esac|function)\b/.test(
+				part,
+			),
+		)
+	) {
+		reasons.add("shell control flow");
+	}
+
+	return { parts, complex: reasons.size > 0, reasons: Array.from(reasons) };
+}
+
+function splitShellWords(command: string): string[] {
+	const words: string[] = [];
+	let current = "";
+	let quote: "'" | '"' | undefined;
+	let escaped = false;
+
+	const pushWord = () => {
+		if (current) words.push(current);
+		current = "";
+	};
+
+	for (const char of command.trim()) {
+		if (escaped) {
+			current += char;
+			escaped = false;
+			continue;
+		}
+		if (char === "\\" && quote !== "'") {
+			escaped = true;
+			continue;
+		}
+		if (quote) {
+			if (char === quote) quote = undefined;
+			else current += char;
+			continue;
+		}
+		if (char === "'" || char === '"') {
+			quote = char;
+			continue;
+		}
+		if (/\s/.test(char)) pushWord();
+		else current += char;
+	}
+	pushWord();
+	return words;
+}
+
+function extractCommandPattern(part: string): string | undefined {
+	const words = splitShellWords(part);
+	let index = 0;
+	while (
+		index < words.length &&
+		/^[A-Za-z_][A-Za-z0-9_]*=/.test(words[index])
+	) {
+		index++;
+	}
+	return words[index];
+}
+
+function extractCommandPatterns(parts: string[]): string[] {
+	const patterns = new Set<string>();
+	for (const part of parts) {
+		const token = extractCommandPattern(part);
+		if (token) patterns.add(token);
+	}
+	return Array.from(patterns).sort((a, b) => a.localeCompare(b));
+}
+
+function hasPromptOnlyArguments(part: string): boolean {
+	const command = extractCommandPattern(part);
+	if (!command) return true;
+	if (
+		PROMPT_ONLY_COMMANDS.has(command) ||
+		/^python\d+(?:\.\d+)*$/.test(command)
+	) {
+		return true;
+	}
+	if (
+		/^find\b/.test(part) &&
+		/\s-(delete|exec|execdir|ok|okdir|fprint|fprintf|fls)\b/.test(part)
+	) {
+		return true;
+	}
+	if (
+		/^sed\b/.test(part) &&
+		/(?:^|\s)(?:-i\S*|--in-place(?:=\S*)?)(?:\s|$)/.test(part)
+	) {
+		return true;
+	}
+	if (/^rg\b/.test(part) && /(?:^|\s)--pre(?:\s|=|$)/.test(part)) return true;
+	if (
+		/^fd\b/.test(part) &&
+		/(?:^|\s)(?:-x|-X|--exec|--exec-batch)(?:\s|=|$)/.test(part)
+	) {
+		return true;
+	}
+	if (/^sort\b/.test(part) && /(?:^|\s)(?:-o|--output)(?:\s|=|$)/.test(part))
+		return true;
+	if (
+		/^tree\b/.test(part) &&
+		/(?:^|\s)(?:-o\S*|--output(?:=\S*)?)(?:\s|$)/.test(part)
+	) {
+		return true;
+	}
+	if (/^file\b/.test(part) && /(?:^|\s)(?:-C|--compile)(?:\s|$)/.test(part))
+		return true;
+	if (
+		/^awk\b/.test(part) &&
+		(/\bsystem\s*\(|\|\s*getline\b/.test(part) || />/.test(part))
+	) {
+		return true;
+	}
+	if (
+		/^xmllint\b/.test(part) &&
+		/(?:^|\s)(?:--shell|--output)(?:\s|=|$)/.test(part)
+	) {
+		return true;
+	}
+	return false;
+}
+
+function gitSubcommandIndex(words: string[]): number | undefined {
+	if (words[0] !== "git") return undefined;
+	const optionsWithValues = new Set([
+		"-C",
+		"-c",
+		"--config-env",
+		"--git-dir",
+		"--namespace",
+		"--work-tree",
+	]);
+	let index = 1;
+	while (index < words.length) {
+		const word = words[index];
+		if (word === "--") return index + 1;
+		if (optionsWithValues.has(word)) {
+			index += 2;
+			continue;
+		}
+		if (/^--(config-env|git-dir|namespace|work-tree)=/.test(word)) {
+			index++;
+			continue;
+		}
+		if (word.startsWith("-")) {
+			index++;
+			continue;
+		}
+		return index;
+	}
+	return undefined;
+}
+
+export function isReadOnlyGitCommandPart(part: string): boolean {
+	const words = splitShellWords(part);
+	const subcommandIndex = gitSubcommandIndex(words);
+	if (subcommandIndex === undefined || subcommandIndex >= words.length)
+		return false;
+	const subcommand = words[subcommandIndex];
+	const args = words.slice(subcommandIndex + 1);
+
+	if (
+		args.some((arg) => /^(--output(?:=|$)|--ext-diff$|--textconv$)/.test(arg))
+	) {
+		return false;
+	}
+	if (READ_ONLY_GIT_COMMANDS.has(subcommand)) return true;
+	if (subcommand === "remote") {
+		return (
+			args.length === 0 ||
+			args.every((arg) => ["-v", "--verbose"].includes(arg)) ||
+			args[0] === "get-url"
+		);
+	}
+	if (subcommand === "config") {
+		if (
+			args.some((arg) =>
+				/^(--add|--edit|--remove-section|--rename-section|--replace-all|--unset|--unset-all|set|unset|rename-section|remove-section)$/.test(
+					arg,
+				),
+			)
+		) {
+			return false;
+		}
+		if (
+			args.some((arg) =>
+				/^(--get|--get-all|--get-regexp|--get-urlmatch|--list|get|get-all|get-regexp|get-urlmatch|list)$/.test(
+					arg,
+				),
+			)
+		) {
+			return true;
+		}
+		return args.filter((arg) => !arg.startsWith("-")).length === 1;
+	}
+	if (subcommand === "worktree") return args[0] === "list";
+	if (subcommand === "stash") return args[0] === "list" || args[0] === "show";
+	if (subcommand === "tag") {
+		return (
+			args.length === 0 || args.some((arg) => arg === "-l" || arg === "--list")
+		);
+	}
+	if (subcommand === "branch") {
+		if (
+			args.some((arg) =>
+				/^(-d|-D|-m|-M|-c|-C|--delete|--move|--copy|--edit-description|--set-upstream-to|--unset-upstream)(?:=|$)/.test(
+					arg,
+				),
+			)
+		) {
+			return false;
+		}
+		const hasListMode = args.some((arg) => arg === "-l" || arg === "--list");
+		const positional = args.filter((arg) => !arg.startsWith("-"));
+		return positional.length === 0 || hasListMode;
+	}
+	if (subcommand === "reflog") {
+		return !args.some((arg) =>
+			["delete", "drop", "expire", "write"].includes(arg),
+		);
+	}
+	return false;
+}
+
+function isAllGitCommandPart(part: string): boolean {
+	return splitShellWords(part)[0] === "git";
+}
+
+export function canInferCommandSafety(analysis: BashCommandAnalysis): boolean {
+	return analysis.reasons.every((reason) => reason === "multiline shell");
+}
+
+export function isSafeCommandPart(part: string): boolean {
+	if (hasPromptOnlyArguments(part)) return false;
+	if (isReadOnlyGitCommandPart(part)) return true;
+	if (/^date(?:\s|$)/.test(part)) {
+		const args = splitShellWords(part).slice(1);
+		return args.every(
+			(arg) => arg === "-u" || arg === "-j" || arg.startsWith("+"),
+		);
+	}
+	return SAFE_INSPECTION_PATTERNS.some((pattern) => pattern.test(part));
+}
+
+function isBashRule(rule: PermissionRule): boolean {
+	return rule.type === "bash" || rule.type === "bashPolicy";
+}
+
+export function bashRuleMatchesPart(
+	rule: PermissionRule,
+	part: string,
+): boolean {
+	if (rule.type === "bash") {
+		const command = extractCommandPattern(part);
+		return command ? rule.commands.includes(command) : false;
+	}
+	if (rule.type === "bashPolicy") {
+		return rule.policy === "git-read"
+			? isReadOnlyGitCommandPart(part)
+			: isAllGitCommandPart(part);
+	}
+	return false;
+}
+
+export function areBashPartsCovered(
+	parts: string[],
+	rules: PermissionRule[],
+): boolean {
+	return (
+		parts.length > 0 &&
+		parts.every(
+			(part) =>
+				isSafeCommandPart(part) ||
+				rules.some(
+					(rule) => isBashRule(rule) && bashRuleMatchesPart(rule, part),
+				),
+		)
+	);
 }
 
 function parentDir(path: string): string {
@@ -259,20 +697,32 @@ export default function (pi: ExtensionAPI) {
 	function getPermissionDecision(
 		toolName: string,
 		path?: string,
-		patterns?: string[],
+		parts?: string[],
+		allowBashRules = true,
 	): { decision: "allow" | "deny" | "prompt"; matchedRule?: string } {
 		if (yolo) return { decision: "allow" };
 
 		for (const rule of rules.deny) {
-			if (matchRule(rule, toolName, path, patterns)) {
+			if (matchRule(rule, toolName, path, parts)) {
 				return { decision: "deny", matchedRule: formatRule(rule) };
 			}
 		}
+
 		for (const rule of rules.allow) {
-			if (matchRule(rule, toolName, path, patterns)) {
+			if (!isBashRule(rule) && matchRule(rule, toolName, path, parts)) {
 				return { decision: "allow", matchedRule: formatRule(rule) };
 			}
 		}
+
+		if (
+			toolName === "bash" &&
+			allowBashRules &&
+			parts &&
+			areBashPartsCovered(parts, rules.allow)
+		) {
+			return { decision: "allow", matchedRule: "covered bash commands" };
+		}
+
 		return { decision: "prompt" };
 	}
 
@@ -280,7 +730,7 @@ export default function (pi: ExtensionAPI) {
 		rule: PermissionRule,
 		toolName: string,
 		path?: string,
-		patterns?: string[],
+		parts?: string[],
 	): boolean {
 		switch (rule.type) {
 			case "yolo":
@@ -290,7 +740,10 @@ export default function (pi: ExtensionAPI) {
 			case "directory":
 				return path ? pathStartsWith(path, rule.prefix) : false;
 			case "bash":
-				return patterns ? patterns.some((p) => rule.pattern.test(p)) : false;
+			case "bashPolicy":
+				return parts
+					? parts.some((part) => bashRuleMatchesPart(rule, part))
+					: false;
 			default:
 				return unreachable(rule);
 		}
@@ -305,26 +758,35 @@ export default function (pi: ExtensionAPI) {
 			case "directory":
 				return `${rule.prefix} (dir)`;
 			case "bash":
-				return `${rule.pattern.source} (pattern)`;
+				return `${rule.commands.join(", ")} (commands)`;
+			case "bashPolicy":
+				return rule.policy === "git-read"
+					? "read-only Git"
+					: "all Git operations";
 			default:
 				return unreachable(rule);
 		}
 	}
 
 	function makePatternRule(token: string): PermissionRule {
-		return {
-			type: "bash",
-			pattern: new RegExp(`^${escapeRegExp(token)}(\\s|$)`),
-		};
+		return { type: "bash", commands: [token] };
 	}
 
-	function makeMultiPatternRule(tokens: string[]): PermissionRule {
-		return {
-			type: "bash",
-			pattern: new RegExp(
-				`^(?:${tokens.map((token) => escapeRegExp(token)).join("|")})(\\s|$)`,
-			),
-		};
+	function makeMultiPatternRules(tokens: string[]): PermissionRule[] {
+		const commandTokens = tokens.filter((token) => token !== "git");
+		const result: PermissionRule[] = [];
+		if (commandTokens.length > 0) {
+			result.push({
+				type: "bash",
+				commands: [...new Set(commandTokens)].sort((a, b) =>
+					a.localeCompare(b),
+				),
+			});
+		}
+		if (tokens.includes("git")) {
+			result.push({ type: "bashPolicy", policy: "git-all" });
+		}
+		return result;
 	}
 
 	function pushRule(target: PermissionRule[], rule: PermissionRule): void {
@@ -378,29 +840,8 @@ export default function (pi: ExtensionAPI) {
 	}
 
 	function extractDisplayCommandNames(command: string): string[] {
-		const parts = command
-			.split(/;|&&|\|\||\|/)
-			.map((part) => part.trim())
-			.filter(Boolean);
-		const names: string[] = [];
-		const seen = new Set<string>();
-
-		for (const part of parts) {
-			const tokens = part.split(/\s+/).filter(Boolean);
-			let commandToken: string | undefined;
-			for (const token of tokens) {
-				if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(token)) continue;
-				if (!/^[A-Za-z0-9_.-]+$/.test(token)) continue;
-				commandToken = token;
-				break;
-			}
-			if (commandToken && !seen.has(commandToken)) {
-				seen.add(commandToken);
-				names.push(commandToken);
-			}
-		}
-
-		return names;
+		const analysis = analyzeBashCommand(command);
+		return extractCommandPatterns(analysis.parts).slice(0, 6);
 	}
 
 	function permissionPromptTitle(
@@ -590,16 +1031,31 @@ export default function (pi: ExtensionAPI) {
 
 		// Command patterns
 		if (isBash && patterns && patterns.length > 0) {
-			for (const p of patterns) {
+			for (const pattern of patterns) {
+				if (pattern === "git") {
+					scopeOptions.push(
+						{
+							label: "🔎 Read-only Git inspection",
+							rules: [{ type: "bashPolicy", policy: "git-read" }],
+							notifyLabel: "read-only Git inspection",
+						},
+						{
+							label: "⌨️  All Git operations for this session",
+							rules: [{ type: "bashPolicy", policy: "git-all" }],
+							notifyLabel: "all Git operations",
+						},
+					);
+					continue;
+				}
 				scopeOptions.push({
-					label: `⌨️  ${p} …`,
-					rules: [makePatternRule(p)],
+					label: `⌨️  ${pattern} …`,
+					rules: [makePatternRule(pattern)],
 				});
 			}
 			if (patterns.length > 1) {
 				scopeOptions.push({
 					label: `⌨️  All command patterns (${patterns.join(", ")})`,
-					rules: [makeMultiPatternRule(patterns)],
+					rules: makeMultiPatternRules(patterns),
 				});
 			}
 		}
@@ -627,8 +1083,8 @@ export default function (pi: ExtensionAPI) {
 		const selected = scopeOptions.find((o) => o.label === scopeChoice);
 		if (selected) {
 			for (const rule of selected.rules) {
-				pushRule(rules.allow, rule);
 				if (rule.type === "yolo") yolo = true;
+				else pushRule(rules.allow, rule);
 			}
 			const notifyLabel =
 				selected.notifyLabel ??
@@ -726,7 +1182,9 @@ export default function (pi: ExtensionAPI) {
 				patterns.length > 1 &&
 				scopeChoice === `⌨️  All command patterns (${patterns.join(", ")})`
 			) {
-				pushRule(rules.deny, makeMultiPatternRule(patterns));
+				for (const rule of makeMultiPatternRules(patterns)) {
+					pushRule(rules.deny, rule);
+				}
 				ctx.ui.notify(`🔴 All patterns — blocked from now on.`, "warning");
 				updateStatus(ctx);
 				return;
@@ -798,9 +1256,12 @@ export default function (pi: ExtensionAPI) {
 		// ── Bash ─────────────────────────────────────────────────────
 		if (toolName === "bash") {
 			const command = String(input.command ?? "").trim();
-			const parts = splitCommandParts(command);
-			const patterns = extractCommandPatterns(command);
-			const scopeablePatterns = extractScopeableCommandPatterns(command);
+			const analysis = analyzeBashCommand(command);
+			const parts = analysis.parts;
+			const canInferSafety = canInferCommandSafety(analysis);
+			const scopeablePatterns = analysis.complex
+				? []
+				: extractCommandPatterns(parts);
 			const bashDirectoryPath = scopePathForDirectory(ctx.cwd);
 
 			// Sensitive files: check raw command first, then each split part.
@@ -829,7 +1290,12 @@ export default function (pi: ExtensionAPI) {
 				}
 			}
 
-			const check = getPermissionDecision(toolName, ctx.cwd, patterns);
+			const check = getPermissionDecision(
+				toolName,
+				ctx.cwd,
+				parts,
+				canInferSafety,
+			);
 			if (check.decision === "deny") {
 				if (ctx.hasUI && check.matchedRule) {
 					ctx.ui.notify(`Blocked by rule: ${check.matchedRule}`, "warning");
@@ -842,10 +1308,11 @@ export default function (pi: ExtensionAPI) {
 				};
 			}
 
-			// Read-only safe-list: ALL parts must be safe
-			const allSafe = parts.every((part) =>
-				ALLOW_PATTERNS.some((p) => p.test(part)),
-			);
+			// Static safety requires every command part and simple shell syntax.
+			const allSafe =
+				canInferSafety &&
+				parts.length > 0 &&
+				parts.every((part) => isSafeCommandPart(part));
 			if (allSafe) return undefined;
 
 			if (readonly) {
