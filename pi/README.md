@@ -121,7 +121,7 @@ MCP servers are defined in `.config/mcp/mcp.json`:
 | `ui-read-and-shortcuts.ts` | Read previews, slash command key hints, editor banner, model-source notices | Modified read tool display, autocomplete hints, editor border/banner |
 | `footer.ts` | Owns the multiline footer layout | Working directory, branch, model/context/cost tokens, permission mode, statuses, summary |
 
-The permission gate is a visibility and consent layer, not a sandbox. It blocks known sensitive bash read patterns and prompts before risky operations, but Pi still has shell access. See [docs/reference.md](docs/reference.md#permission-gate) for the exact rule order and command parsing notes.
+The permission gate is a visibility and consent layer, not a sandbox. It uses quote-aware command-chain analysis, auto-allows predictable inspection commands, and keeps interpreters, package managers, network tools, execution wrappers, and complex shell syntax behind a prompt. Session scopes include separate options for read-only Git inspection and all Git operations. See [docs/reference.md](docs/reference.md#permission-gate) for the exact rule order and command parsing notes.
 
 ## Prompt templates
 

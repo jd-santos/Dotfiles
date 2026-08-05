@@ -10,6 +10,13 @@
   - [ ] Smoke test Python and heredoc bash prompts in Pi
   - [x] Polish permission-gate prompt layout and add full-command toggle
   - [x] Add combined write + edit allow scope for write/edit prompts
+  - [x] Analyze recent Pi bash tool calls without loading conversation content
+  - [x] Expand static inspection policies for commands with predictable read-only behavior
+  - [x] Keep interpreters, execution wrappers, package managers, network tools, and complex shell syntax behind prompts
+  - [x] Require every command in a chain to be covered by static safety or session allow rules
+  - [x] Add separate read-only Git and all Git session scopes
+  - [x] Add helper-level regression tests for command analysis and rule coverage
+  - [x] Sync Pi README and reference documentation
 - [ ] Add Pi analytics and git helper extensions
   - [x] Implement `lg.ts` as a scripted git summary command with `--staged` and `--all` modes
   - [x] Implement `tps-tracker.ts` with live footer status and final notification

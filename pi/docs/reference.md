@@ -124,7 +124,9 @@ Allow scopes:
 - Current directory, parent directory, or grandparent directory
 - Current tool type
 - Both write and edit tool types, for write and edit prompts
-- Individual bash command patterns, such as `rg` or `npm`
+- Individual bash command patterns, such as `rg`
+- Read-only Git inspection
+- All Git operations for the session
 - All command patterns in a bash command
 - Everything, which is full yolo mode
 
@@ -150,12 +152,13 @@ For bash:
 
 1. Known sensitive file read patterns block.
 2. Session deny rules block.
-3. Safe-listed commands allow when every part of the command chain is safe.
-4. Read-only mode blocks anything not already safe-listed.
-5. Session allow rules allow.
-6. Otherwise, prompt.
+3. Simple commands auto-allow when every part of the command chain passes a static inspection policy.
+4. Read-only mode blocks anything not already covered by a static inspection policy.
+5. Broad session scopes, such as the current directory or bash tool type, allow.
+6. Command-specific session rules allow only when every part is covered by either a static inspection policy or a matching session rule.
+7. Otherwise, prompt.
 
-Yolo mode is represented as an allow rule. Known sensitive bash reads are checked before yolo can allow the command.
+Yolo mode is explicit session state. Known sensitive bash reads are checked before yolo can allow the command.
 
 ### Safe bash commands
 
@@ -163,21 +166,27 @@ The safe list is meant for read-only inspection. It includes commands such as:
 
 - `cd`, `ls`, `pwd`
 - `cat`, `head`, `tail`, `wc`, `file`, `stat`, `du`, `tree`
-- `which`, `dirname`, `basename`, `realpath`, `readlink`
+- `which`, `type`, `command -v`, `dirname`, `basename`, `realpath`, `readlink`
 - `find`, `grep`, `rg`, `fd`, `sort`, `uniq`, `cut`, `tr`, `awk`, `sed`, `nl`
-- `ps`, `echo`, `printf`
-- `git status`, `git diff`, `git log`, `git branch`, `git show`, `git rev-parse`, `git ls-files`, `git grep`
+- `jq`, `cmp`, `comm`, `xmllint`, `pdfinfo`, `plutil -lint`, `plutil -p`
+- `ps`, `pgrep`, `uname`, `sw_vers`, `shasum`, `md5`
+- `true`, `false`, `test`, `[`, `echo`, `printf`
+- Read-only Git operations such as status, diff, log, show, revision queries, ref queries, config reads, remote listing, worktree listing, and branch listing
 - Comment-only bash lines
 
-For chained commands, every part must be safe-listed to auto-allow.
+Argument checks keep mutating or executable variants behind prompts. Examples include `find -exec`, `find -delete`, `fd --exec`, `sed -i`, `rg --pre`, `sort -o`, `tree -o`, `file --compile`, `xmllint --output`, AWK execution or output redirection, and Git output or mutation options.
+
+Interpreters, package managers, network tools, and execution wrappers are never inferred as safe. This includes shells, Python, Node, Ruby, Perl, `uv`, npm-family commands, `gh`, `curl`, `wget`, `ssh`, `env`, and `xargs`.
+
+For chained commands, every part must be covered by the static inspection policies or an explicit session rule.
 
 ### Chained and complex commands
 
-The gate splits bash commands on `&&`, `||`, `;`, `|`, and newlines. It uses those pieces for safe-list checks, deny checks, and command-pattern scopes.
+The gate recognizes unquoted `&&`, `||`, `;`, `|`, and newlines. Quoted separators stay inside their command, so inline scripts such as `python -c 'a;b'` no longer produce misleading command scopes.
 
-Complex commands do not get pattern-scope options. This avoids saving noisy or misleading rules for heredocs, command substitution, backticks, and multi-line scripts. Directory, tool, and yolo scopes are still available.
+Commands with multiline shell, command substitution, backticks, redirection outside `/dev/null`, shell grouping, incomplete quoting, or control flow are classified as complex and do not get command-pattern scope options. A multiline chain can still auto-allow when every line independently passes a static inspection policy. Directory, tool, and yolo scopes remain available for other complex commands.
 
-Safety note: this is a visibility and consent layer, not a sandbox. Command splitting is naive and does not understand quoting, subshells, command substitution, or `eval`. Wrapped commands such as `sh -c "cat .env"` can bypass pattern checks. Pi already has shell access, so the extension's job is to surface risky operations before they run.
+Safety note: this is a visibility and consent layer, not a sandbox. The scanner is conservative but is not a complete shell parser. Wrapped commands can still obscure their behavior. Pi already has shell access, so the extension's job is to surface risky operations before they run.
 
 ## Format on save
 
