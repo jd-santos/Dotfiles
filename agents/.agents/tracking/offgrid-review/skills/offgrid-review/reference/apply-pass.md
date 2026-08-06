@@ -8,6 +8,11 @@ the exported JSON, verifies live state, and performs only the approved actions.
 Require all of the following:
 
 - A human delivered the exported decision JSON.
+- `schema_version` is supported by the apply implementation.
+- `generator_version`, `review_id`, `data_fingerprint`, `spec_fingerprint`, and
+  `artifact_fingerprint` are present and well-formed.
+- The artifact fingerprint matches the schema and source fingerprints in the
+  export.
 - `valid` is `true`, or a human explicitly resolved each warning.
 - The apply implementation understands every selected action ID.
 - Annotation-only entries, including document-block comments, are not treated
@@ -32,6 +37,8 @@ must report that the review was partial.
 ## Safe loop
 
 ```text
+reject unsupported schema or inconsistent artifact identity
+
 for each decision in decisions:
     reviewed = decision.item
     live = fetch_current(reviewed)
@@ -82,6 +89,9 @@ verification boundary and produce the same concrete result report.
 
 ## Failure handling
 
+- Unsupported schema: stop before applying any decision and request a new
+  export or compatible apply implementation.
+- Inconsistent identity fields: reject the file as malformed.
 - Stale snapshot: skip and report the changed fields.
 - Unknown action: stop that decision and ask for an updated apply mapping.
 - Conflicting actions: do not choose one silently.

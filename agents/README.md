@@ -138,9 +138,8 @@ stow -R agents # restow after changes
 - **offgrid-review**: tracked from
   [`jd-santos/offgrid-review`](https://github.com/jd-santos/offgrid-review);
   uses a dependency-free Python CLI through UVX to build single-file offline
-  workbenches for structured items and complete planning documents, with
-  explicit decisions, granular notes, semantic visuals, and a separate safe
-  apply pass
+  workbenches for decision batches, proposals, and complete plans, with evidence,
+  annotations, machine-readable decisions, and a separate verified apply pass
 - **add-pi-feature**: adds pi coding agent features: skills, extensions, prompt
   templates, themes, custom tools, commands, and flags
 - **create-agents-md**: creates AGENTS.md files for AI agent context in

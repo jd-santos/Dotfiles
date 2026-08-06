@@ -8,7 +8,8 @@ import json
 import unittest
 from pathlib import Path
 
-from offgrid_review import renderer as review_console
+import offgrid_review as review_console
+from offgrid_review.identity import artifact_identity, script_json
 
 
 ROOT = Path(__file__).parents[1]
@@ -61,8 +62,6 @@ class ReviewConsoleRenderTests(unittest.TestCase):
             'aria-live="polite"',
             "<fieldset class='decision-panel'>",
             "prefers-reduced-motion",
-            "function applyFilters()",
-            "function moveToUnresolved(direction)",
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, output)
@@ -79,20 +78,6 @@ class ReviewConsoleRenderTests(unittest.TestCase):
         self.assertIn("data-selection-mode='single'", single_output)
         self.assertIn("class='action-input' type='radio'", single_output)
         self.assertIn("Choose one option.", single_output)
-
-    def test_exports_multi_action_decisions_with_legacy_single_action_aliases(self) -> None:
-        output = self.render()
-
-        for marker in (
-            "function normalizeDecision(entry)",
-            "Array.isArray(entry.actions)",
-            "action: actions.length === 1 ? actions[0].id : null",
-            "label: actions.length === 1 ? actions[0].label : null",
-            "decisions: entries.filter(entry => entry.actions.length > 0)",
-            "annotations: entries",
-        ):
-            with self.subTest(marker=marker):
-                self.assertIn(marker, output)
 
     def test_embeds_risk_conflict_and_note_metadata(self) -> None:
         self.spec["queues"][0]["actions"].append(
@@ -113,7 +98,6 @@ class ReviewConsoleRenderTests(unittest.TestCase):
         self.assertIn('"requires_note": true', output)
         self.assertIn('"conflicts_with": ["approve"]', output)
         self.assertIn("class='action-option danger'", output)
-        self.assertIn("function conflictPairs(entry)", output)
 
     def test_renders_granular_item_action_and_plan_section_notes(self) -> None:
         self.spec["queues"][0]["presentation"] = "plan"
@@ -160,12 +144,8 @@ class ReviewConsoleRenderTests(unittest.TestCase):
             'id="summaryPanel"',
             'id="summaryBody"',
             'id="summaryWarning"',
-            "function reviewSummary()",
-            "function openSummary()",
-            "function closeSummary()",
-            "complete: !summary.incomplete",
-            "valid: summary.conflicts === 0 && summary.missingRequiredNotes === 0",
-            "warnings: summary.warnings",
+            'id="summaryTrigger" aria-expanded="false" aria-controls="summaryPanel"',
+            'aria-labelledby="summaryTitle" hidden',
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, output)
@@ -191,13 +171,18 @@ class ReviewConsoleRenderTests(unittest.TestCase):
             with self.subTest(marker=marker):
                 self.assertIn(marker, output)
 
-    def test_keeps_embedded_json_literal_and_neutralizes_script_closers(self) -> None:
-        self.data["example_items"][0]["description"] = "</script><b>unsafe</b>"
+    def test_embedded_json_survives_html_raw_text_tokenizer_sequences(self) -> None:
+        hostile = "<!--<script></script><b>unsafe</b>\u2028next"
+        self.data["example_items"][0]["description"] = hostile
         output = self.render()
 
-        self.assertIn(r"<\/script><b>unsafe<\/b>", output)
-        self.assertNotIn("</script><b>unsafe</b>", output)
+        self.assertIn(r"\u003c!--\u003cscript\u003e\u003c/script\u003e", output)
+        self.assertNotIn(hostile, output)
         self.assertIn("JSON.parse(raw.textContent)", output)
+        self.assertEqual(
+            script_json({"value": hostile}),
+            r'{"value": "\u003c!--\u003cscript\u003e\u003c/script\u003e\u003cb\u003eunsafe\u003c/b\u003e\u2028next"}',
+        )
 
     def test_sanitizes_the_allowed_svg_subset(self) -> None:
         source = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 60">
@@ -407,6 +392,17 @@ class ReviewConsoleRenderTests(unittest.TestCase):
         self.assertIn("background: var(--risk-surface)", output)
         self.assertIn("border-color: var(--risk-border)", output)
 
+    def test_embeds_versioned_identity_and_apache_runtime_license(self) -> None:
+        output = self.render()
+        identity = artifact_identity(self.data, self.spec)
+
+        self.assertIn('"schema_version": 1', output)
+        self.assertIn(identity["artifact_fingerprint"], output)
+        self.assertIn("SPDX-License-Identifier: Apache-2.0", output)
+        self.assertIn("Apache License", output)
+        self.assertIn("Download decisions", output)
+        self.assertIn("Copy decisions", output)
+
     def test_document_only_review_replaces_item_tools_with_a_responsive_toc(self) -> None:
         data = load_example("review-plan-data.json")
         spec = load_example("review-plan-spec.json")
@@ -422,10 +418,6 @@ class ReviewConsoleRenderTests(unittest.TestCase):
             "href='#plan-review-overview'",
             "data-toc-target='plan-review-direction'",
             "aria-label='Document contents'",
-            "function openContentsDrawer()",
-            "function closeContentsDrawer(returnFocus = false)",
-            "function updateDocumentToc()",
-            "scheduleDocumentTocUpdate();",
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, output)

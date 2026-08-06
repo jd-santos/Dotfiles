@@ -1,0 +1,90 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Copyright 2026 JD Santos -->
+<!--
+@@OUTPUT_LICENSE@@
+-->
+<html lang="@@LANGUAGE@@">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>@@TITLE@@</title>
+<style>@@REVIEW_CSS@@</style>
+</head>
+<body>
+<!--
+THESIS: Review is one continuous workbench, not a dashboard of decorative cards. Evidence, decisions, and annotations remain visibly related.
+OWN-WORLD: Neutral work surfaces, blush selection fields, deep berry controls, fine rules, compact native form controls, and equal light and dark themes.
+STORY: The reviewer sees what needs judgment, inspects the evidence, selects every compatible action, adds targeted context, checks the review, and exports JSON.
+FIRST VIEWPORT: A queue rail anchors the left, the active evidence fills the center, and its decision inspector holds the right. Export stays in the top work bar.
+FORM: User-pinned Review Workbench from the seventh grounded position; seed key shape-pinned-review-workbench-v1.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+-->
+<header class="app-header">
+  <div class="header-inner">
+    <div class="title-block">
+      <div class="title-row"><h1>@@TITLE@@</h1></div>
+      <div class="title-meta"><span class="review-status">Review only</span><span class="title-meta-separator" aria-hidden="true">·</span>
+        <div class="about-review" id="aboutReview">
+          <button type="button" class="about-trigger" id="aboutTrigger" aria-label="About this review" aria-expanded="false" aria-describedby="aboutTooltip"><svg viewBox="0 0 18 18" aria-hidden="true" focusable="false"><circle cx="9" cy="9" r="7.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6.8 6.7a2.3 2.3 0 0 1 4.5.7c0 1.8-2.3 2-2.3 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="9" cy="13.1" r=".8" fill="currentColor"/></svg></button>
+          <div class="about-tooltip" id="aboutTooltip" role="tooltip"><p>@@SUBTITLE@@</p><p>This file records review decisions and notes. It does not apply changes.</p></div>
+        </div>
+      </div>
+    </div>
+    <div class="progress-block" aria-label="Review progress">
+      <div class="progress-line"><span id="progressLabel"><strong>0 of @@TOTAL_CARDS@@</strong> items resolved</span><span id="progressPercent">0%</span></div>
+      <div class="progress-track" aria-hidden="true"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+    <div class="header-actions">
+      <button type="button" class="header-link" id="summaryTrigger" aria-expanded="false" aria-controls="summaryPanel" onclick="openSummary()">Review summary</button>
+      <button type="button" class="button-primary" onclick="exportDecisions('download')">Download decisions</button>
+    </div>
+  </div>
+</header>
+<div class="workspace">
+  <aside class="@@RAIL_CLASS@@" aria-label="Review navigation">
+    @@QUEUE_SECTION@@
+    @@TOC_SECTION@@
+    @@TOOLS_SECTION@@
+    <details class="rail-section rail-meta">
+      <summary>Review file details</summary>
+      <dl class="meta-list">
+        <div><dt>Generated</dt><dd>@@GENERATED_AT@@</dd></div>
+        <div><dt>Generator</dt><dd>Offgrid Review @@GENERATOR_VERSION@@</dd></div>
+        <div><dt>Review ID</dt><dd>@@REVIEW_ID@@</dd></div>
+        <div><dt>Decision storage</dt><dd id="storageStatus">Checking storage</dd></div>
+        @@COUNT_ROWS@@
+      </dl>
+      <label class="theme-label" for="themeSelect">Theme
+        <select id="themeSelect" aria-label="Theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
+      </label>
+      <div class="review-nav-buttons" style="margin-top:12px"><button type="button" onclick="exportDecisions('copy')">Copy decisions</button><button type="button" onclick="exportDecisions('preview')">Preview decisions</button></div>
+      <button type="button" class="button" style="width:100%;margin-top:8px;color:var(--danger)" onclick="clearDecisions()">Reset review</button>
+    </details>
+  </aside>
+  <main class="review-main">
+    <div class="agent-note"><strong>How this works:</strong> @@HELP_SENTENCE@@</div>
+    <div id="stateNotice" class="summary-banner" role="status" hidden></div>
+    <div id="summaryWarning" class="summary-banner" hidden></div>
+    @@CARDS@@
+  </main>
+</div>
+<textarea id="exportBox" readonly aria-label="Decision JSON preview"></textarea>
+<aside class="summary-panel" id="summaryPanel" aria-labelledby="summaryTitle" hidden>
+  <div class="summary-head"><h2 id="summaryTitle">Review summary</h2><button type="button" class="summary-close" onclick="closeSummary(true)">Close</button></div>
+  <div id="summaryBody"></div>
+</aside>
+<div class="mobile-tray" id="mobileTray">
+  <div class="mobile-tray-bar">
+    <button type="button" id="mobilePrevious" aria-label="Previous unresolved item">Prev</button>
+    <div class="mobile-tray-title"><strong id="mobileTrayItem">Review item</strong><span id="mobileTrayState">Unresolved</span></div>
+    <button type="button" id="mobileNext" aria-label="Next unresolved item">Next</button>
+    <button type="button" id="mobileTrayToggle" aria-expanded="false" aria-controls="mobileTrayBody">Actions</button>
+  </div>
+  <div class="mobile-tray-body" id="mobileTrayBody" hidden></div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>@@REVIEW_JS@@</script>
+</body>
+</html>

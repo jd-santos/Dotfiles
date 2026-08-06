@@ -186,9 +186,10 @@ are not part of the system.
 ### Buttons
 
 Primary buttons use berry fill and theme-specific high-contrast text. Secondary
-buttons use the current surface with a strong neutral border. Header utilities
-use text controls so export remains the only filled rectangle. All buttons
-expose a three-pixel visible focus outline.
+buttons use the current surface with a strong neutral border. Header utilities use text controls so **Download decisions** remains the only
+filled rectangle. All buttons expose a three-pixel visible focus outline. When
+the nonmodal summary closes, focus returns to its trigger unless the action is
+moving the reviewer directly to another control.
 
 ### Inputs and fields
 
@@ -233,6 +234,8 @@ Document-only reviews omit redundant queue and item
 filters. Review-file metadata and theme selection live in one disclosure below
 navigation. Previous and next unresolved controls preserve the same wording on
 every breakpoint. Mobile navigation follows the active item in the bottom tray.
+Grid children use shrinkable tracks and `min-width: 0` where needed so document
+content reflows at 200 percent text scaling instead of being clipped.
 
 ## Design basis
 

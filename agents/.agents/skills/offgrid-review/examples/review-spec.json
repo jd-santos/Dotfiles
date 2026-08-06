@@ -1,5 +1,6 @@
 {
   "title": "Offgrid Review",
+  "review_id": "queue-example",
   "subtitle": "Review the evidence, select every compatible action, and export decision JSON. Nothing is changed from this page.",
   "global_actions": [
     {

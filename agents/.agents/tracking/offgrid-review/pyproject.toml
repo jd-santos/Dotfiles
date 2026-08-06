@@ -9,12 +9,13 @@ description = "Build single-file offline workbenches for structured review and d
 readme = "README.md"
 requires-python = ">=3.10"
 license = "GPL-3.0-or-later"
-license-files = ["LICENSE"]
+license-files = ["LICENSE", "LICENSES/*", "NOTICE"]
+authors = [{ name = "JD Santos" }]
 keywords = ["agent", "cli", "human-in-the-loop", "offline", "review"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: Console",
-  "Operating System :: OS Independent",
+  "Operating System :: MacOS",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.10",
@@ -27,8 +28,15 @@ classifiers = [
 ]
 dependencies = []
 
+[dependency-groups]
+test = ["playwright>=1.55,<2"]
+
 [project.scripts]
 offgrid-review = "offgrid_review.cli:main"
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
 
 [project.urls]
 Homepage = "https://github.com/jd-santos/offgrid-review"

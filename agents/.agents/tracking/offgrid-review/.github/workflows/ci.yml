@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Check out the repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Install uv and Python
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
@@ -34,14 +36,45 @@ jobs:
       - name: Run tests
         run: uv run --frozen python -m unittest discover -s tests -p 'test_*.py' -q
 
-  build:
-    name: Build distributions
+  browser:
+    name: Browser regressions
     runs-on: ubuntu-latest
-    needs: test
 
     steps:
       - name: Check out the repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.10.2"
+          python-version: "3.14"
+          enable-cache: true
+
+      - name: Sync browser test dependencies
+        run: uv sync --locked --group test
+
+      - name: Install Chromium
+        run: uv run --frozen --group test playwright install --with-deps chromium
+
+      - name: Check embedded JavaScript syntax
+        run: uv run --frozen python scripts/check_runtime_syntax.py
+
+      - name: Run browser regressions
+        run: uv run --frozen --group test python -m unittest discover -s tests/browser -p 'test_*.py' -q
+
+  build:
+    name: Build distributions
+    runs-on: ubuntu-latest
+    needs: [test, browser]
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Install uv
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
@@ -64,3 +97,6 @@ jobs:
             --spec skills/offgrid-review/examples/review-spec.json \
             --out "$work/review.html"
           test -s "$work/review.html"
+          grep -q 'SPDX-License-Identifier: Apache-2.0' "$work/review.html"
+          grep -q '"artifact_fingerprint": "sha256:' "$work/review.html"
+          grep -q 'Download decisions' "$work/review.html"

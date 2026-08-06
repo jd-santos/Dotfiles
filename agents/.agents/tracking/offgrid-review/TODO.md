@@ -2,21 +2,25 @@
 
 ## In Progress
 
-## Up Next
-
-- [ ] Publish `offgrid-review` 0.1.0 after explicit confirmation
+- [ ] Finish the `0.1.0` release
+  - [x] Rearchitect and harden the release candidate
+  - [x] Add browser and distribution regression coverage
+  - [ ] Decide when the candidate is ready to publish
   - [ ] Configure the protected GitHub `pypi` environment
   - [ ] Register the pending PyPI Trusted Publisher
-  - [x] Push the release candidate and confirm CI
+  - [x] Confirm the hardened CI workflow succeeds on `main`
+  - [ ] Replace temporary Git-source commands with `uvx offgrid-review`
   - [ ] Publish GitHub release `v0.1.0`
   - [ ] Verify `uvx offgrid-review@0.1.0` from PyPI
+  - [ ] Sync the published skill and tested package contract into Dotfiles
+
+## Up Next
+
+- [ ] Run Ruff cleanup and decide whether Ruff belongs in CI
 - [ ] Show recommendation provenance and supporting evidence
 - [ ] Add operational risk, reversibility, evidence-strength, and ambiguity signals
-- [ ] Add stale snapshot, invalid data, apply conflict, and recovery states
-- [ ] Audit headings, high-zoom layout, contrast, and screen-reader flow
 - [ ] Add optional per-action confirmation friction
 - [ ] Import decision JSON with schema and snapshot compatibility checks
-- [ ] Validate and document `npx skills` installation
 
 ## Backlog
 
@@ -29,5 +33,6 @@
 
 ## Done
 
+- [x] Rearchitect and harden the pre-PyPI package, artifact contract, browser runtime, validation, accessibility, licensing, tests, and release automation
 - [x] Build the dependency-free Python CLI release candidate with UVX, CI, and a thin agent skill
 - [x] Publish the public README, generated screenshots, capture script, and changelog

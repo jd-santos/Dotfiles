@@ -1,40 +1,35 @@
 # Offgrid Review Usage
 
-The `offgrid-review` Python CLI uses only the standard library at runtime. It
-writes one offline HTML file with embedded styles, behavior, and review data.
-PyPI distributes the package, and UVX is the recommended runner.
+The `offgrid-review` Python CLI is the deterministic compiler underneath the
+agent workflow. It combines source data and a review specification into one
+offline HTML file with embedded styles, behavior, and review content. The
+package uses only the Python standard library at runtime.
 
-## Quickstart
+## Try the checked-in examples
 
 ```bash
-uvx --from git+https://github.com/jd-santos/offgrid-review.git offgrid-review \
-  --data review-data.json \
-  --spec review-spec.json \
+git clone --depth 1 https://github.com/jd-santos/offgrid-review.git
+cd offgrid-review
+
+uvx --from . offgrid-review \
+  --data skills/offgrid-review/examples/review-data.json \
+  --spec skills/offgrid-review/examples/review-spec.json \
   --out review.html
 
-# Write a generic starting spec to a new path.
-uvx --from git+https://github.com/jd-santos/offgrid-review.git offgrid-review \
-  --write-default-spec \
-  --spec my-review-spec.json
-```
-
-Open `review.html`, record decisions, then download or copy the exported JSON.
-Send that file to the separate apply pass.
-
-Generate the checked-in planning-document example from the repository root:
-
-```bash
-uvx --from git+https://github.com/jd-santos/offgrid-review.git offgrid-review \
+uvx --from . offgrid-review \
   --data skills/offgrid-review/examples/review-plan-data.json \
   --spec skills/offgrid-review/examples/review-plan-spec.json \
   --out review-plan.html
 ```
 
-This second example uses the same engine, persistence, summary, and export model
-as the queue example. UVX fetches the package on first use and then reuses its
-cached environment. After the first PyPI release, use `uvx offgrid-review` or
-`uv tool install offgrid-review` when the command should remain installed before
-a machine goes offline.
+Open either HTML file, record decisions, then download or copy the exported
+JSON. Send that file to the separate apply pass.
+
+The first example is a decision batch. The second is a complete document review.
+Both use the same persistence, summary, validation, and export model. The CLI is
+developed and manually tested on macOS. CI exercises Ubuntu, but broader Linux
+compatibility and WSL have not been manually verified. Native Windows is
+unsupported.
 
 ## Workflow
 
@@ -55,6 +50,7 @@ Actions are multi-select by default:
 ```json
 {
   "title": "My Review",
+  "review_id": "my-review",
   "subtitle": "Review proposed changes. Nothing is applied from this page.",
   "global_actions": [
     {
@@ -106,6 +102,38 @@ The data JSON needs a matching source key:
   ]
 }
 ```
+
+Save those objects as `review-spec.json` and `review-data.json`, then generate
+the workbench from the current GitHub release candidate:
+
+```bash
+uvx --from git+https://github.com/jd-santos/offgrid-review.git offgrid-review \
+  --data review-data.json \
+  --spec review-spec.json \
+  --out review.html
+```
+
+The CLI can also write a generic starter specification:
+
+```bash
+uvx --from git+https://github.com/jd-santos/offgrid-review.git offgrid-review \
+  --write-default-spec \
+  --spec starter-spec.json
+```
+
+The starter spec expects data under `example_items`. The command refuses to
+replace an existing specification unless you pass `--force`.
+
+After the first PyPI release, replace the Git-source prefix with
+`uvx offgrid-review`. UVX selects the latest available version on its first
+invocation and then reuses its cached environment. Use
+`--refresh-package offgrid-review` when you explicitly want it to check for a
+newer package.
+
+The CLI validates both inputs before writing HTML. Queue items need stable IDs,
+action and block IDs must be unique in their scopes, conflict references must
+resolve, and queue sources must be arrays. Expected failures return exit code 2
+with JSON-path errors instead of a traceback. Each input file has a 25 MB limit.
 
 ## Selection behavior
 
@@ -199,7 +227,7 @@ A dictionary item can include structured sections:
         { "id": "decide", "title": "Decide" }
       ],
       "edges": [
-        { "from": "Inspect", "to": "Decide" }
+        { "from": "inspect", "to": "decide" }
       ]
     }
   ]
@@ -317,6 +345,11 @@ risk, and red for validation errors or urgent danger.
 
 ## Summary and export
 
+Each export identifies the schema version, generator version, review ID, source
+data fingerprint, specification fingerprint, and combined artifact
+fingerprint. The apply pass should reject an unsupported schema and use the
+fingerprints when deciding whether source data is stale.
+
 The summary reports:
 
 - Resolved and unresolved items.
@@ -335,7 +368,10 @@ selection, `action` and `label` are also populated for older apply scripts.
 
 ## Optional top-level keys
 
-- `storage_key`: browser storage key override.
+- `review_id`: stable namespace for browser state and exported decisions. When
+  omitted, the generator derives it from the title.
+- `storage_key`: browser storage namespace override. The generator appends the
+  schema version and review ID.
 - `download_prefix`: downloaded filename prefix.
 - `note_label`: item-note label.
 - `agent_help`: short visible workflow instruction.
@@ -356,6 +392,10 @@ selection, `action` and `label` are also populated for older apply scripts.
 - `empty`: empty-queue message.
 
 ## File-viewer constraints
+
+The generated HTML and decision JSON contain complete source snapshots,
+including values hidden behind disclosures. Anyone who receives either file can
+inspect those values. Do not include secrets or unrelated private data.
 
 Some Telegram, iOS, and local-file viewers block `localStorage` or clipboard
 access. The console catches those failures, keeps the current session usable,

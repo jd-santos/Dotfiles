@@ -16,35 +16,37 @@ or knowing how it was generated.
 
 ## Product Purpose
 
-Offgrid Review is a baseline human-in-the-loop review toolkit. It turns
-structured JSON and an agent-authored review specification into a portable
-interface for inspecting items, recording explicit decisions, and returning
-those decisions to an agent as JSON.
+Offgrid Review gives agent-assisted work a focused human interface for decisions
+that are too complex for a yes or no in chat. An agent gathers evidence and
+frames the available options, proposed changes, or plan; the reviewer compares,
+annotates, and decides in a portable workbench; the result returns to the agent
+as machine-readable JSON.
 
 Its original purpose was data processing and tagging review. The first concrete
 use case compared Obsidian notes with corresponding Todoist tasks to resolve
 conflicting priorities, statuses, and other mismatches.
 
-The same engine also supports human review of LLM-authored plans through
+The same engine also supports human review of agent-prepared plans through
 semantic overview, prose, table, flow, timeline, dependency graph, chart,
 constrained SVG, and decision blocks. Item review and plan review use one
 workbench, artifact contract, and apply boundary. Use-case subskills can
 supply specialized data and framing without replacing the engine.
 
-Success means a reviewer can give structured feedback faster and more
-accurately than they could through line-by-line chat or a spreadsheet, then hand
-the resulting decision artifact back to an agent without tying the workflow to
-a particular platform.
+Success means a reviewer can give precise feedback faster and more accurately
+than they could through line-by-line chat or a spreadsheet, then hand the
+resulting decision artifact back to an agent without tying the workflow to a
+particular platform.
 
 ## Positioning
 
-The workbench is a portable offline review surface: JSON goes in, a single
-reviewable HTML file comes out, and explicit human decisions return as JSON.
+The workbench is the human-facing part of an agent workflow. The agent prepares
+the evidence and questions, a single offline HTML file carries the review, and
+explicit human decisions return as JSON.
 
 Unlike chat, it gives the reviewer a purpose-built interface for scanning,
-comparing, and deciding across many items. Unlike a spreadsheet, it can be
-authored around the exact question an agent needs answered and returned
-directly to the agent as a structured approval artifact.
+comparing, annotating, and deciding across a batch of related work. Unlike a
+spreadsheet, it can be authored around the exact question an agent needs
+answered and returned directly as a machine-readable approval artifact.
 
 The reusable value is both the generator and a consistent design language for
 human review. Specific workflows should be framed through data and
@@ -54,7 +56,7 @@ specifications rather than hardcoded into the core interface.
 
 The expected workflow is:
 
-1. A deterministic script or agent-prepared artifact produces structured JSON.
+1. A deterministic script or agent produces source data as JSON.
 2. An agent writes a review specification for the current question.
 3. The generator produces one static HTML file.
 4. The human reviews it in a browser or file viewer, often through Telegram and
@@ -68,20 +70,28 @@ in-session in those environments.
 
 ## Capabilities and Constraints
 
-Current capabilities include queue-based and document-oriented review,
-multi-select and explicit single-select actions, item/action/section/block
-notes, record comparisons, semantic document blocks, generated SVG flows and
-graphs, charts with source tables, sanitized custom SVG, search, filtering,
-keyboard navigation, accessible on-demand help, responsive document contents,
-light and dark themes, responsive mobile actions, review summaries, risk-aware
-pre-export checks,
-local persistence when available, and decision JSON export.
+Current capabilities include decision batches implemented through queues,
+complete document review, multi-select and explicit single-select actions,
+item, action, section, and block notes, record comparisons, semantic document
+blocks, generated SVG flows and graphs, charts with source tables, sanitized
+custom SVG, search, filtering, keyboard navigation, accessible on-demand help,
+responsive document contents, light and dark themes, responsive mobile actions,
+review summaries, risk-aware pre-export checks, artifact-scoped local
+persistence when available, path-aware input validation, versioned artifact
+identity, and decision JSON export.
 
-The implementation is distributed as a Python CLI with embedded HTML, CSS, and
-JavaScript. The package uses only the Python standard library at runtime. PyPI
-provides versioned distribution and UVX is the recommended runner. Generated
-consoles require no server, network access, build process, or third-party
-runtime dependency.
+The implementation is distributed as a Python CLI. Validation, identity, queue
+rendering, document rendering, SVG handling, page assembly, and the browser
+runtime have separate package boundaries. The package uses only the Python
+standard library at runtime. PyPI will provide distribution after the first
+release, and UVX is the recommended runner. Generated consoles require no
+server, network access, build process, or third-party runtime dependency.
+
+The Python generator and aggregate package use GPL-3.0-or-later. Output-facing
+runtime assets and reusable renderer templates also carry Apache-2.0 terms, and
+each generated file embeds the Apache license and notice. This keeps the
+portable handoff artifact separate from the generator's GPL distribution
+boundary.
 
 The generated page is a decision-capture surface. It must not mutate Todoist,
 Obsidian, or any other external system. Applying decisions remains a separate,
@@ -118,9 +128,14 @@ danger. Light and dark themes receive equal support.
 
 ## Evidence on Hand
 
-- `src/offgrid_review/renderer.py`: dependency-free renderer implementation.
 - `src/offgrid_review/cli.py`: argument parsing, file handling, and public
   command behavior.
+- `src/offgrid_review/validation.py`: path-aware data and specification checks.
+- `src/offgrid_review/identity.py`: canonical fingerprints and artifact
+  identity.
+- `src/offgrid_review/rendering/`: queue, document, SVG, and page rendering.
+- `src/offgrid_review/resources/`: Apache-2.0-licensed HTML, CSS, JavaScript,
+  notice, and output license resources.
 - `examples/review-data.json`: example deterministic input data.
 - `examples/review-spec.json`: example review framing and action metadata.
 - `examples/review-plan-data.json` and `examples/review-plan-spec.json`:
@@ -134,8 +149,12 @@ danger. Light and dark themes receive equal support.
 - `tests/test_renderer.py`: checks workbench layout, multi-select and
   single-select behavior, granular annotations, plan renderers, themes, risk
   metadata, summaries, export validation, and the interface contract.
-- `tests/test_cli.py`: checks generation, starter-spec output, version metadata,
-  expected errors, and exit codes.
+- `tests/test_identity.py` and `tests/test_validation.py`: check deterministic
+  identity, input contracts, uniqueness, limits, and failure messages.
+- `tests/browser/test_workbench.py`: checks persistence, stale-state rejection,
+  hostile raw-text data, mobile document review, focus return, and reflow.
+- `tests/test_cli.py`: checks generation, protected starter-spec output, version
+  metadata, expected errors, limits, and exit codes.
 
 There are no user studies, external testimonials, or performance benchmarks on
 hand. Future work must not invent them.

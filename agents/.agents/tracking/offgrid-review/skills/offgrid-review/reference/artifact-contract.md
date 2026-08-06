@@ -28,7 +28,8 @@ Top-level shape:
 Rules:
 
 - Data collection is read-only.
-- Each item contains the identifiers required to find the live record again.
+- Each queue item has a non-empty `id`. A two-record comparison uses an array
+  of objects where every object has a non-empty `id`.
 - The snapshot includes enough raw state for the apply pass to detect changes.
 - Factual collection stays separate from agent recommendations.
 - Each queue's `source` matches one top-level array key.
@@ -46,6 +47,8 @@ The spec frames the current review. The generator is not the intelligence.
 ### Top-level fields
 
 - `title`: reviewer-facing title.
+- `review_id`: optional stable namespace for browser state and exports. The
+  title slug is used when this is omitted.
 - `subtitle`: short context exposed through the header's **About** control.
 - `agent_help`: optional replacement for the visible workflow instruction.
 - `document_id`, `document_title`, `document_description`: document-mode
@@ -54,9 +57,11 @@ The spec frames the current review. The generator is not the intelligence.
 - `global_actions`: outcomes available on every queue item and document
   decision.
 - `note_label`: label for the item-level note.
-- `storage_key`: optional browser-storage key override.
+- `storage_key`: optional browser-storage namespace override. The schema
+  version and review ID are appended.
 - `download_prefix`: optional decision filename prefix.
-- `payload_meta`: static fields copied into the export.
+- `payload_meta`: static fields copied into the export. It cannot replace
+  canonical identity, validity, decision, annotation, or timestamp fields.
 - `language`: HTML language code, default `en`.
 - `queues`: zero or more review groups. A spec must provide `queues`, `blocks`,
   or both.
@@ -89,8 +94,9 @@ Every action requires `id` and `label`. Optional fields are:
 - `exclusive`: selecting this action clears other selections on the item.
 - `conflicts_with`: action IDs that cannot be exported with this action.
 
-Global actions default to `exclusive: true`. Action IDs should be unique within
-a card.
+Global actions default to `exclusive: true`. Action IDs must be unique within a
+card, and a local action cannot reuse a global action ID on the same surface.
+Every `conflicts_with` reference must resolve to an available action.
 
 ### Item plan sections
 
@@ -150,7 +156,8 @@ with no action remain annotation-only feedback.
 
 ## 3. Static HTML console
 
-Generate the console with:
+After creating the data and specification described above, generate the console
+from Git while `0.1.0` is being prepared:
 
 ```bash
 uvx --from git+https://github.com/jd-santos/offgrid-review.git offgrid-review \
@@ -159,12 +166,15 @@ uvx --from git+https://github.com/jd-santos/offgrid-review.git offgrid-review \
   --out review.html
 ```
 
-After the first PyPI release, the shorter `uvx offgrid-review` invocation uses
-the same command interface.
+This Git-source command is temporary. Use `uvx offgrid-review` after
+publication. Exact version pins are only needed for reproducibility.
 
 Properties:
 
 - One offline file with embedded CSS, JavaScript, data, and review framing.
+- Embedded schema, generator, review, data, specification, and artifact identity.
+- Apache-2.0-licensed output runtime and templates, with the required license
+  and notice carried inside the file.
 - No external-system writes.
 - Native checkbox and radio controls with semantic grouping.
 - Item, action, plan-section, and document-block annotations.
@@ -178,8 +188,11 @@ Properties:
 - Local browser persistence when available, with session-only fallback.
 - Summary and validation before copy or download.
 
-The default storage key remains `reviewConsole:<title-slug>:v1`. The page
-migrates older single-action entries when it loads them.
+The default storage key is `offgridReview:v<schema_version>:<review_id>`.
+Stored data uses an envelope containing the schema version, artifact
+fingerprint, and decisions. The page ignores an envelope from another schema or
+artifact, filters unknown item and action IDs, and shows a recovery message.
+Pre-release title-only storage is not migrated.
 
 ## 4. Decision JSON
 
@@ -187,6 +200,12 @@ Example export:
 
 ```json
 {
+  "schema_version": 1,
+  "generator_version": "0.1.0",
+  "review_id": "my-review",
+  "data_fingerprint": "sha256:...",
+  "spec_fingerprint": "sha256:...",
+  "artifact_fingerprint": "sha256:...",
   "console_title": "My Review",
   "exported_at": "2026-08-01T12:00:00.000Z",
   "complete": true,
@@ -217,6 +236,13 @@ Example export:
 }
 ```
 
+`schema_version` identifies the decision contract. `generator_version` records
+the package that produced it. The data and specification fingerprints are
+SHA-256 hashes of canonical JSON using sorted object keys, UTF-8, no
+insignificant whitespace, and non-ASCII characters left literal. `artifact_fingerprint` hashes a canonical object
+containing `schema_version`, `data_fingerprint`, and `spec_fingerprint`. An
+apply implementation must reject unsupported schemas instead of guessing.
+
 `actions` is canonical. For compatibility with older apply scripts, `action`
 and `label` are populated when exactly one action is selected. Both are `null`
 for a multi-action decision.
@@ -233,3 +259,7 @@ annotation entry as approval.
 
 `complete` counts queue items and document decision blocks. Informational
 blocks and annotation-only feedback do not make a review incomplete.
+
+The HTML and decision export contain source snapshots. Fields hidden behind a
+disclosure remain present in the file. Preparers must exclude secrets and
+unrelated private data before generation.

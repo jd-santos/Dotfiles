@@ -1,5 +1,6 @@
 {
   "title": "Offline Review Workflow Proposal",
+  "review_id": "planning-example",
   "subtitle": "Review the proposed document model, its visual vocabulary, and the decision required before implementation.",
   "agent_help": "Read the proposal in order, inspect each visual or its text alternative, comment on specific blocks, then record the final decision.",
   "document_id": "plan_review",

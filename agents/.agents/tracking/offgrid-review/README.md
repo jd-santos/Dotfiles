@@ -1,153 +1,193 @@
 # Offgrid Review
 
-Offgrid Review turns deterministic JSON and a review specification into one
-self-contained HTML workbench. Reviewers inspect evidence, record explicit
-decisions and annotations, then return structured JSON.
+Offgrid Review gives you a focused interface for decisions that are too complex
+for a yes or no in chat. Your agent prepares the evidence, options, proposed
+changes, or plan; you review and annotate them in a portable workbench, then
+return machine-readable decisions for a verified apply pass.
 
-The generated file needs no server, build process, package install, or runtime
-network access. It captures decisions but never applies them to an external
-system.
+The result is one self-contained HTML file that works offline and can move
+through chat, email, shared storage, or removable media.
 
-[Quick start](#quick-start) · [Agent skill](#agent-skill) ·
-[Core concepts](#core-concepts) · [Reference](#reference)
+[Quick start](#quick-start) · [What it handles](#what-it-handles) ·
+[Direct CLI use](#direct-cli-use) · [Reference](#reference)
 
 ![A planning document open in Offgrid Review's dark theme, with document contents, review progress, annotations, and decision export controls](https://raw.githubusercontent.com/jd-santos/offgrid-review/main/docs/images/planning-review-dark.png)
 
-_One engine handles complete documents and queue-based review._
-
-## How it works
-
-1. A read-only script or agent gathers deterministic source data as JSON.
-2. A review specification defines the questions, evidence, actions, and document
-   blocks needed for this review.
-3. The generator combines both inputs into one offline HTML file.
-4. A person reviews the file and downloads decision JSON.
-5. A separate apply pass verifies current state before making approved changes.
-
-```text
-source data + review specification
-              ↓
-       offline HTML review
-              ↓
-         decision JSON
-              ↓
-      verified apply pass
-```
-
-This pattern is useful when a person needs to review more structured material
-than fits comfortably in chat, but the underlying facts can be gathered before
-the review begins.
+_One workbench handles decision batches, proposals, and complete plans._
 
 ## Quick start
 
-With [uv](https://docs.astral.sh/uv/getting-started/installation/) installed,
-run the command without managing a Python environment. Until the first PyPI
-release, UVX can build it directly from the public repository:
+Install Git and [uv](https://docs.astral.sh/uv/getting-started/installation/)
+on the machine where your agent runs.
+
+### 1. Install the agent skill from GitHub
+
+For agent systems that load skills from `~/.agents/skills`:
 
 ```bash
-uvx --from git+https://github.com/jd-santos/offgrid-review.git offgrid-review \
-  --data review-data.json \
-  --spec review-spec.json \
-  --out review.html
+git clone --depth 1 https://github.com/jd-santos/offgrid-review.git
+mkdir -p ~/.agents/skills
+cp -R offgrid-review/skills/offgrid-review ~/.agents/skills/
 ```
 
-Open `review.html` in a browser. Select one or more compatible actions, add
-notes where needed, and use **Download JSON** to export the result.
+Reload your agent's skills if the host requires it. Other agent systems can use
+[`skills/offgrid-review/SKILL.md`](https://github.com/jd-santos/offgrid-review/blob/main/skills/offgrid-review/SKILL.md)
+directly.
 
-Offgrid Review supports Python 3.10 or later and has no third-party runtime
-dependencies. PyPI will distribute the first tagged package; UVX is the
-recommended runner, not a package dependency. After the first PyPI release, the invocation shortens to `uvx offgrid-review`.
-A persistent installation will also be available:
+### 2. Ask your agent to prepare a workbench
 
-```bash
-uv tool install offgrid-review
-offgrid-review --version
+For example:
+
+> Use Offgrid Review to prepare these proposed changes for review. Gather the
+> current facts read-only, include the relevant evidence and available options,
+> and leave application for a separate verified pass.
+
+The agent gathers the source data, writes the review specification, and runs the
+generator. It returns a portable HTML file rather than walking through every
+question in chat.
+
+### 3. Review and return the decisions
+
+Open the HTML file, compare the evidence, choose every compatible action, and
+add comments where needed. Use **Copy decisions** or **Download decisions** to
+return the JSON to your agent.
+
+The apply pass should re-fetch current state, reject stale inputs, and perform
+only the actions recorded in that decision file.
+
+The skill currently runs the CLI from this public Git repository. After the
+first PyPI release, it will use the unversioned `uvx offgrid-review` command,
+which does not require documentation updates for each package release.
+
+## How it works
+
+```text
+agent gathers evidence and frames the questions
+                      ↓
+          portable HTML review workbench
+                      ↓
+         human decisions and annotations
+                      ↓
+       agent verifies state and applies changes
 ```
 
-<details>
-<summary>Generate the checked-in queue and planning examples</summary>
+The generator is deterministic. The agent decides what evidence and questions
+to include; the browser workbench captures the human response; a separate apply
+pass handles mutation.
 
-```bash
-git clone https://github.com/jd-santos/offgrid-review.git
-cd offgrid-review
+## What it handles
 
-uvx --from git+https://github.com/jd-santos/offgrid-review.git offgrid-review \
-  --data skills/offgrid-review/examples/review-data.json \
-  --spec skills/offgrid-review/examples/review-spec.json \
-  --out /tmp/offgrid-review.html
+### Decision batches
 
-uvx --from git+https://github.com/jd-santos/offgrid-review.git offgrid-review \
-  --data skills/offgrid-review/examples/review-plan-data.json \
-  --spec skills/offgrid-review/examples/review-plan-spec.json \
-  --out /tmp/offgrid-review-plan.html
-```
+Reconciliation, triage, classification, prioritization, and other work with many
+related decisions can be grouped into one review. Each item can show evidence,
+comparisons, recommendations, risk, reversibility, compatible actions, and
+required rationale.
 
-</details>
+### Proposals and plans
 
-Start with the [usage guide](https://github.com/jd-santos/offgrid-review/blob/main/skills/offgrid-review/reference/usage.md) when
-building a new review. The
-[artifact contract](https://github.com/jd-santos/offgrid-review/blob/main/skills/offgrid-review/reference/artifact-contract.md)
-documents the complete data, specification, annotation, and decision formats.
+Complete documents can combine prose, decisions, tables, flows, timelines,
+dependency graphs, charts, and constrained SVG. Reviewers can comment on
+individual sections and return a direction decision without reducing the plan
+to a sequence of chat messages.
 
-## Agent skill
+### Explicit handoffs
 
-The reusable skill lives at
-[`skills/offgrid-review`](https://github.com/jd-santos/offgrid-review/tree/main/skills/offgrid-review). It tells an agent when this
-workflow fits, how to frame the data and specification, and how to preserve the
-review/apply boundary. The skill invokes the same published CLI used by direct
-users; it does not carry a second renderer implementation.
+Every artifact and export carries a schema version, generator version, review
+ID, and deterministic data and specification fingerprints. Browser state is
+loaded only when it belongs to the current artifact.
 
-Agent systems that discover `skills/<name>/SKILL.md` can use the repository
-directly. For systems that load skills from `~/.agents/skills`, copy or sync the
-whole skill directory:
+The generated page captures decisions but cannot mutate the system being
+reviewed. Anyone who receives the HTML or exported JSON can inspect its embedded
+source snapshots, including fields hidden behind disclosures. Do not include
+secrets or unrelated private data.
 
-```bash
-cp -R skills/offgrid-review ~/.agents/skills/offgrid-review
-```
-
-Direct `npx skills` installation is on the
-[roadmap](https://github.com/jd-santos/offgrid-review/blob/main/TODO.md), but is not documented as supported yet.
-
-## Core concepts
-
-### One portable artifact
-
-The data, review specification, interface, styles, and behavior are embedded in
-one HTML file. It can move through chat, email, shared storage, or removable
-media without bringing an application server with it.
-
-### Review and apply stay separate
-
-The browser page is a decision-capture surface. It cannot mutate the system
-being reviewed. The [apply-pass guide](https://github.com/jd-santos/offgrid-review/blob/main/skills/offgrid-review/reference/apply-pass.md)
-requires implementations to re-fetch current state, detect stale data, and act
-only on explicitly approved decisions.
-
-### Structure replaces conversational ambiguity
-
-Actions, risk, reversibility, rationale, conflicts, completion state, and
-annotations remain machine-readable. Compatible actions use multi-select by
-default; single-choice questions must declare that constraint explicitly.
-
-### Queue review and document review share an engine
-
-Queues support reconciliation, triage, classification, and backlog work.
-Semantic document blocks support prose, decisions, tables, flows, timelines,
-dependency graphs, charts, and constrained SVG. Both modes share persistence,
-validation, export, and apply boundaries.
-
-### Visuals keep a text path
+### Visuals with a text path
 
 Every diagram and chart has a visible text alternative. Charts also retain
 their source-value tables. Custom SVG passes a strict allowlist before it can
 reach the generated page.
 
+## Direct CLI use
+
+The CLI is the deterministic compiler underneath the agent workflow. To try it
+with the checked-in example:
+
+```bash
+# Skip the clone if you already installed the skill from this checkout.
+git clone --depth 1 https://github.com/jd-santos/offgrid-review.git
+cd offgrid-review
+
+uvx --from . offgrid-review \
+  --data skills/offgrid-review/examples/review-data.json \
+  --spec skills/offgrid-review/examples/review-spec.json \
+  --out review.html
+```
+
+Open `review.html` in a browser. The command expects three explicit paths:
+
+- `--data`: the source snapshot and evidence as JSON
+- `--spec`: the questions, actions, presentation, and review framing as JSON
+- `--out`: the HTML workbench to create
+
+Once you have your own data and specification, run the current release candidate
+directly from GitHub:
+
+```bash
+uvx --from git+https://github.com/jd-santos/offgrid-review.git offgrid-review \
+  --data path/to/review-data.json \
+  --spec path/to/review-spec.json \
+  --out review.html
+```
+
+The CLI can write a generic starter specification, but you still need to provide
+data with matching source keys:
+
+```bash
+uvx --from git+https://github.com/jd-santos/offgrid-review.git offgrid-review \
+  --write-default-spec \
+  --spec review-spec.json
+```
+
+After the first PyPI release, the normal command becomes:
+
+```bash
+uvx offgrid-review \
+  --data path/to/review-data.json \
+  --spec path/to/review-spec.json \
+  --out review.html
+```
+
+UVX uses the latest available version on its first invocation and then reuses
+its cached environment. Run
+`uvx --refresh-package offgrid-review offgrid-review` when you explicitly want
+UV to check for a newer release. Exact pins such as `offgrid-review@0.1.0` are
+reserved for reproducibility and release verification.
+
+Offgrid Review supports Python 3.10 or later and has no third-party runtime
+dependencies. Development and manual testing currently happen on macOS. CI
+exercises Ubuntu, but broader Linux compatibility has not been manually
+verified. Native Windows is unsupported; WSL is unverified.
+
+## Agent skill
+
+The reusable skill is the discovery and workflow layer. It tells an agent when
+a dedicated workbench is a better fit than chat, how to gather source data
+without mutating it, how to frame the questions, and how to preserve the
+review/apply boundary. It invokes the same CLI available to direct users and
+does not carry a second renderer implementation.
+
+See the [usage guide](https://github.com/jd-santos/offgrid-review/blob/main/skills/offgrid-review/reference/usage.md)
+for custom data and specifications, and the
+[artifact contract](https://github.com/jd-santos/offgrid-review/blob/main/skills/offgrid-review/reference/artifact-contract.md)
+for the complete input and decision formats.
+
 ## More screenshots
 
 <details>
-<summary>Queue, mobile, and contents navigation examples</summary>
+<summary>Decision batch, mobile, and contents navigation examples</summary>
 
-### Queue review in the light theme
+### Decision batch in the light theme
 
 ![A queue review showing filters, evidence, compatible actions, risk signals, and review progress](https://raw.githubusercontent.com/jd-santos/offgrid-review/main/docs/images/queue-review-light.png)
 
@@ -176,19 +216,22 @@ reach the generated page.
 - [Release guide](https://github.com/jd-santos/offgrid-review/blob/main/docs/releasing.md): package checks and Trusted Publishing setup
 - [Changelog](https://github.com/jd-santos/offgrid-review/blob/main/CHANGELOG.md): notable project changes
 
-## Roadmap
-
-Near-term work includes recommendation provenance, stale-snapshot handling,
-decision import, accessibility review, and validated `npx skills` installation.
-See [TODO.md](https://github.com/jd-santos/offgrid-review/blob/main/TODO.md) for the current list.
-
 ## Development
 
-Create the locked development environment and run the regression suite:
+Create the locked development environment and run the Python regression suite:
 
 ```bash
 uv sync --locked
 uv run python -m unittest discover -s tests -p 'test_*.py'
+```
+
+Run the focused browser regressions separately:
+
+```bash
+uv sync --locked --group test
+uv run --group test playwright install chromium
+uv run --group test python -m unittest discover -s tests/browser -p 'test_*.py'
+uv run python scripts/check_runtime_syntax.py
 ```
 
 Build the wheel and source distribution:
@@ -211,4 +254,9 @@ location.
 
 ## License
 
-Offgrid Review is licensed under GPL-3.0-or-later. See [LICENSE](LICENSE).
+The Python generator and package aggregate are licensed under
+[GPL-3.0-or-later](https://github.com/jd-santos/offgrid-review/blob/main/LICENSE).
+The generated HTML runtime, styles, and reusable output templates are licensed
+under [Apache-2.0](https://github.com/jd-santos/offgrid-review/blob/main/LICENSES/Apache-2.0.txt).
+Each portable HTML file carries the Apache license and notice required for
+redistribution.

@@ -26,23 +26,34 @@ remain mandatory either way.
 1. Update `project.version` in `pyproject.toml`.
 2. Run `uv lock` so `uv.lock` records the same version.
 3. Move relevant entries from `Unreleased` into a matching changelog release.
-4. Run the supported-Python tests and build checks:
+4. Replace temporary Git-source commands in the README, skill, and usage guide
+   with the unversioned `uvx offgrid-review` command. Keep exact version pins
+   only in release verification examples.
+5. Run the supported-Python and browser tests, then build:
 
    ```bash
    uv run --python 3.10 python -m unittest discover -s tests -p 'test_*.py' -q
    uv run --python 3.14 python -m unittest discover -s tests -p 'test_*.py' -q
+   uv sync --locked --group test
+   uv run --group test playwright install chromium
+   uv run --group test python -m unittest discover -s tests/browser -p 'test_*.py' -q
+   uv run python scripts/check_runtime_syntax.py
    rm -rf dist
    uv build
    ```
 
-5. Smoke-test the wheel in an isolated UVX environment:
+6. Confirm the wheel contains the GPL license, Apache-2.0 license, notice, and
+   generated-runtime package resources. Generate one queue and one planning
+   artifact and confirm both embed the Apache license and notice.
+7. Smoke-test the wheel in an isolated UVX environment:
 
    ```bash
    wheel="$(find dist -name '*.whl' -print -quit)"
-   uvx --from "$wheel" offgrid-review --version
+   cache="$(mktemp -d)"
+   UV_CACHE_DIR="$cache" uvx --from "$wheel" offgrid-review --version
    ```
 
-6. Review and push the release commit.
+8. Review and push the release commit.
 
 ## Publish
 

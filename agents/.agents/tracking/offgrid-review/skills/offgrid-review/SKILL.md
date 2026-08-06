@@ -1,44 +1,44 @@
 ---
 name: offgrid-review
 description: >-
-  Build a portable, static HTML review console from deterministic JSON data plus
-  an agent-authored spec, then run a separate safe apply pass on the exported
-  decision JSON. Use when a review/triage/reconciliation task has many ambiguous
-  items or document sections a human should review instead of explaining them
-  one by one in chat. Examples include aligning two systems, inbox triage,
-  classification, backlog prioritization, and LLM-authored plan review. The console is read-only by design: it captures decisions, and
-  a verified apply pass makes changes later.
-version: 1.1.0
-author: jd-santos
+  Move complex human decisions out of chat and into a portable review workbench.
+  Use when an agent can gather the evidence and options, but a person needs to
+  compare items, annotate a proposal, or decide the direction of a plan. The
+  workbench captures machine-readable decisions without applying them; a
+  separate verified pass makes changes later.
+version: 1.2.0
+author: JD Santos
 category: workflow
-allowed-tools: Bash(uvx --from git+https://github.com/jd-santos/offgrid-review.git offgrid-review *), Read
+allowed-tools: Bash(uvx --from git+https://github.com/jd-santos/offgrid-review.git offgrid-review *), Bash(uvx offgrid-review@* *), Bash(uvx offgrid-review *), Read
 ---
 
 # Offgrid Review
 
-Turn deterministic data plus human judgment into a portable review workbench
-without a server or a long chat back-and-forth. The same console handles structured items, comparisons, sectioned queue items,
-and complete planning documents built from semantic review blocks.
+Give human judgment a better interface than a long chat thread. Gather the
+facts and options, turn them into a portable review workbench, then return the
+reviewer's decisions and annotations to a separate verified apply pass.
 
 The pattern:
 
 ```text
-deterministic data script → agent-authored review spec → static HTML console
-    → human exports decision JSON → safe apply pass
+agent gathers evidence and frames the questions
+    → portable HTML review workbench
+    → human decisions and annotations
+    → verified apply pass
 ```
 
-Use it when there are 20–100+ ambiguous items that would be painful to walk
-through one at a time in chat, and where the right decision needs a human in the
-loop but the facts can be gathered deterministically first.
+Use it when an agent has a batch of related decisions, a proposal, or a complete
+plan that would be painful to work through one question at a time in chat. The
+facts and options should be gatherable before the human review begins.
 
 ## When to use
 
 - Reconciliation or alignment between two systems (e.g. a project/planning store
   and a task/reminder list).
-- Inbox / triage / backlog queues.
+- Inbox, triage, and backlog decision batches.
 - Classification or labeling tasks.
 - Backlog prioritization.
-- LLM-authored plans that need section comments, visual inspection, and an
+- Agent-prepared plans that need section comments, visual inspection, and an
   explicit direction decision.
 - Any "these items need a human verdict but I don't want to narrate each one in
   a chat thread" situation.
@@ -52,11 +52,11 @@ loop but the facts can be gathered deterministically first.
   change must happen the moment it's decided, this pattern adds needless
   friction.
 
-## Core principle: review and apply are SEPARATE
+## Keep review and apply separate
 
 The console is a **decision-capture** surface, never an **apply** surface.
 Nothing is changed from the page on purpose. A human reviews and exports
-decision JSON, then a separately-verified pass actually makes changes. Never
+decision JSON, then a separately verified pass actually makes changes. Never
 let the console (or the generator) mutate the underlying system.
 
 ## Workflow
@@ -92,11 +92,13 @@ dependency graph, chart, constrained SVG, and decision sections. Multi-select
 is the default. Use single-select only for truly exclusive outcomes. Actions
 can declare risk, reversibility, required rationale, exclusivity, and conflicts.
 
-Prefer structured visual blocks over custom SVG. Every visual must retain its
+Prefer semantic visual blocks over custom SVG. Every visual must retain its
 visible text alternative. Custom SVG must pass the built-in allowlist sanitizer
 and include title, description, and fallback text.
 
 ### 3. Generate the console
+
+Until `0.1.0` is published, run the release candidate from Git:
 
 ```bash
 uvx --from git+https://github.com/jd-santos/offgrid-review.git offgrid-review \
@@ -105,18 +107,26 @@ uvx --from git+https://github.com/jd-santos/offgrid-review.git offgrid-review \
   --out review.html
 ```
 
-See `reference/usage.md` for the quickstart and custom-spec example. The
+This Git-source command is temporary. Use `uvx offgrid-review` after the PyPI
+release. Exact version pins are only needed for reproducibility.
+
+See `reference/usage.md` for the quick start and custom-spec example. The
 Python package has no third-party runtime dependencies. UVX is the recommended
-acquisition and execution method, not a package dependency. Use
-`uvx offgrid-review` after the first PyPI release.
+acquisition and execution method, not a package dependency. The CLI is developed
+and manually tested on macOS. CI exercises Ubuntu, but broader Linux
+compatibility and WSL have not been manually verified. Native Windows is
+unsupported.
 
 ### 4. Human reviews and exports decisions
 
 Open the HTML, inspect the evidence, select every compatible action, and add
 notes at the item, action, plan-section, or document-block level. Complete
-planning documents receive responsive contents navigation automatically. The console stores review state
-in `localStorage` when the viewer allows it and falls back to in-session state
-otherwise. A visible warning tells the reviewer to download before closing.
+planning documents receive responsive contents navigation automatically. The
+console stores review state in `localStorage` when the viewer allows it and
+falls back to in-session state otherwise. Saved state is scoped to a review ID
+and loaded only when its schema and artifact fingerprint match. A visible
+warning explains ignored state or tells the reviewer to download before
+closing.
 
 ### 5. Safe apply pass
 
@@ -132,9 +142,9 @@ Use the exported decision JSON to make changes, following `reference/apply-pass.
 
 ## Deliverables in this skill
 
-- `examples/review-spec.json`: multi-select, single-select, and plan review
+- `examples/review-spec.json`: multi-select, single-select, and decision-batch
   examples.
-- `examples/review-data.json`: structured queue and sectioned-plan data.
+- `examples/review-data.json`: evidence for the checked-in decision batches.
 - `examples/review-plan-spec.json`: semantic planning-document example.
 - `examples/review-plan-data.json`: planning-document source data.
 - `reference/artifact-contract.md`: data, spec, and export schemas.
@@ -145,20 +155,23 @@ Use the exported decision JSON to make changes, following `reference/apply-pass.
 
 ## Pitfalls
 
-- **Keep embedded JSON literal.** The generator neutralizes closing
-  `</script>` sequences; never HTML-entity-escape the `<script
-  type="application/json">` blocks (raw-text script content doesn't decode
-  entities, so `JSON.parse()` fails and every click breaks).
-- **Storage blockers.** Telegram / some iOS / local-file viewers block
-  `localStorage`. Initialization and persistence must stay inside
-  `try`/`catch` so session interactions still work, and the UI must tell the
-  human to download JSON when storage is unavailable.
+- **Keep embedded JSON literal and raw-text safe.** The generator escapes HTML
+  raw-text tokenizer characters as JSON Unicode sequences. Never replace this
+  with HTML entity encoding inside `<script type="application/json">`; raw-text
+  script content does not decode entities, so `JSON.parse()` fails.
+- **Storage blockers.** Telegram, some iOS viewers, and local-file viewers block
+  `localStorage`. Initialization and persistence must stay inside `try`/`catch`
+  so session interactions still work, and the UI must tell the human to
+  download decisions when storage is unavailable.
+- **Handoff files contain source snapshots.** Anyone who receives the HTML or
+  exported decisions can inspect the embedded review data. Never include
+  secrets or unrelated private fields.
 - **Don't drift into an apply surface.** If you find the console "just applying"
   a change, stop. That belongs in the apply pass, gated by the exported
   decisions.
 - **The CLI is not the intelligence.** Frame new reviews by writing a new spec,
   not by changing the renderer. This skill is the agent discovery and workflow
-  layer; the published CLI is the deterministic execution layer.
+  layer; the CLI package is the deterministic execution layer.
 - **Use semantic blocks first.** Flow, timeline, dependency graph, and chart
   renderers provide deterministic visuals and text alternatives.
 - **Never embed supplied SVG directly.** The generator must parse and serialize
