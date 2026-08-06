@@ -2,6 +2,20 @@
 
 ## In Progress
 
+- [ ] Add context-aware planning advisories to Pi
+  - [ ] Snapshot `ctx.getContextUsage()` after each user prompt so capacity informs tool selection for the full agent run
+  - [ ] Inject the snapshot as transient context without adding stale usage messages to the saved session
+  - [ ] Add stable agent guidance for context-aware work sizing and stopping points
+  - [ ] Below 50%, work normally while keeping future work divisible into focused changes, subsystem clusters, research tasks, or future subagent packets
+  - [ ] At 50%, recommend finishing the current coherent unit and documenting the remaining work
+  - [ ] Between 50% and 80%, increasingly favor bounded work, handoff preparation, and smaller future-agent packets
+  - [ ] At 80%, do not start new work except small fixes needed to leave the project coherent
+  - [ ] Add a small, medium, or large estimated context size to planned future-agent and subagent packets
+  - [ ] Use `TODO.md` as the durable handoff ledger and record when handoff preparation occurs
+  - [ ] Keep the first version advisory-only, with no automatic compaction, TODO edits, session switching, or subagent execution
+  - [ ] Handle unknown usage immediately after compaction and context-window changes after model selection
+  - [ ] Smoke test prompt-time injection, planning recommendations, the 50% wrap-up behavior, and the 80% hard stop
+  - [ ] Update `pi/README.md` and `pi/docs/reference.md` with the user-visible behavior
 - [ ] [HIGH] Fix Pi permission-gate allow-always handling for complex bash commands
   - [x] Escape regex-based command pattern rules
   - [x] Avoid pattern-scope options for heredocs and other complex bash commands
@@ -30,6 +44,8 @@
 
 ## Backlog
 
+- [ ] Evaluate a structured context-planning tool if prompt guidance does not produce consistent work sizing
+- [ ] Consider an optional generated handoff prompt or user-triggered compaction helper after the advisory workflow is proven
 - [ ] Extend `/usage` with cached pricing, JSON export, per-project filtering, and trend deltas
 - [ ] Consider a richer `/usage` table renderer if the widget output is too dense
 
