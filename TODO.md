@@ -51,6 +51,7 @@
 
 ## Done
 
+- [x] Adopt pinned `pi-subagents` 0.51.0 with bounded execution and role-based model routing
 - [x] Extract Offgrid Review into `jd-santos/offgrid-review` and track the standalone skill
 - [x] Refresh Pi GPT-5.6 defaults and OpenRouter shortlist
 - [x] Convert Pi `/ship` prompt into reusable `ship` skill

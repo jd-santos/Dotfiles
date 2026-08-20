@@ -13,6 +13,7 @@ This is the spillover doc for Pi details that are worth keeping but too dense fo
 | `.pi/agent/AGENTS.md` | `~/.pi/agent/AGENTS.md` | Global instructions loaded each session |
 | `.pi/agent/types.d.ts` | `~/.pi/agent/types.d.ts` | Local extension type helpers |
 | `.pi/agent/extensions/*.ts` | `~/.pi/agent/extensions/*.ts` | Local Pi extensions |
+| `.pi/agent/extensions/subagent/config.json` | `~/.pi/agent/extensions/subagent/config.json` | Runtime policy for the pinned `pi-subagents` package |
 | `.pi/agent/prompts/plan.md` | `~/.pi/agent/prompts/plan.md` | `/plan` prompt template |
 | `.pi/agent/prompts/ship.md` | `~/.pi/agent/prompts/ship.md` | `/ship` wrapper for the shared `ship` skill |
 | `.pi/agent/themes/*.json` | `~/.pi/agent/themes/*.json` | Catppuccin and Dracula themes |
@@ -43,9 +44,10 @@ Current shared settings include:
 - Thinking level: `medium`
 - Thinking block: visible on output
 - Startup: quiet
-- Packages: `npm:pi-mcp-adapter` and `npm:pi-lens`
+- Packages: `npm:pi-mcp-adapter`, `npm:pi-lens`, and pinned `npm:pi-subagents@0.51.0`
 - Skills path: `~/.agents/skills`
 - Scoped model list through `enabledModels`
+- Role-based subagent model routing with strict model scope enforcement
 
 `Ctrl+P` cycles the scoped model list. `/model` opens the full selector.
 `/scoped-models` toggles the scoped list interactively.
@@ -90,6 +92,60 @@ MCP servers live in `.config/mcp/mcp.json` after stowing.
 | --- | --- | --- |
 | `brave-search` | `npx -y @brave/brave-search-mcp-server --transport stdio` | Reads `BRAVE_API_KEY` from the environment |
 | `svelte` | `npx -y @sveltejs/mcp` | Svelte docs and tooling context |
+
+## Subagents
+
+Package: `npm:pi-subagents@0.51.0`
+
+The exact npm version is pinned in `.pi/agent/settings.base.json`. Pi skips versioned npm specs during package updates. Upgrade deliberately by reviewing the upstream changes, changing the version in shared settings, running `merge-settings`, and restarting Pi.
+
+Pi packages have full system access. `pi-subagents` launches child Pi processes that inherit the parent environment and user permissions. The package limits below control cost and fan-out, not operating-system access.
+
+### Model routing
+
+| Role | Model | Thinking | Intended use |
+| --- | --- | --- | --- |
+| Scout | `openrouter/deepseek/deepseek-v4-flash` | Low | Local code reconnaissance and compressed handoffs |
+| Researcher | `openrouter/deepseek/deepseek-v4-flash` | Low | Focused external research after its web tools are available |
+| Worker | `openai-codex/gpt-5.6-terra` | Medium | Bounded implementation |
+| Reviewer | `openai-codex/gpt-5.6-terra` | Medium | Fresh-context review |
+| Oracle | `openai-codex/gpt-5.6-sol` | High | Difficult decisions and assumption checks |
+| Delegate | `openai-codex/gpt-5.6-terra` | Medium | General delegated work |
+
+The strict model scope allows only `openai-codex/gpt-5.6-*` and `openrouter/deepseek/deepseek-v4-*`. Out-of-scope inherited models, explicit overrides, and fallback models fail instead of silently running.
+
+The bundled researcher requires `pi-web-access`, which is intentionally not installed with the initial adoption. Until that separate package is reviewed, use the parent session's Brave Search MCP server for external research. Scout, reviewer, oracle, worker, and delegate do not require it.
+
+### Runtime policy
+
+Location: `.pi/agent/extensions/subagent/config.json`
+
+Initial limits:
+
+- Compact parent tool description
+- Foreground execution by default
+- Fresh child context by default
+- At most 3 parallel tasks
+- At most 6 logical child launches per run tree
+- At most 20 child launches per parent session
+- At most 2 active top-level background runs per parent session
+- Nested subagent delegation disabled with `maxSubagentDepth: 0`
+- Scheduled runs disabled
+- Automatic missions disabled
+- Session-scoped artifacts, which keep generated state out of project worktrees
+- Confirmation required for worktree discard, destructive cleanup, and spawn-budget grants
+- Schedule creation forbidden by policy
+
+These defaults support parent-directed scouting, implementation, and review without enabling autonomous job trees. Relax one limit at a time after observing actual usage. Concurrent implementation should use separate Git worktrees, with the parent responsible for integration and final validation.
+
+### Subagent commands
+
+| Command | Purpose |
+| --- | --- |
+| `/subagents-doctor` | Validate discovery, models, runtime state, and intercom setup |
+| `/subagents-models [agent]` | Show effective role-to-model mappings |
+| `/subagents-fleet` | Inspect active and recent runs, read transcripts, steer, or stop children |
+| `/subagents-guide [topic]` | Read the documentation bundled with the installed version |
 
 ## Permission gate
 

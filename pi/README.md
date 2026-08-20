@@ -40,6 +40,7 @@ Local-only files stay out of git:
 | `.config/mcp/mcp.json` | Shared MCP server config for Brave Search and Svelte |
 | `.pi/agent/AGENTS.md` | Global instructions loaded by Pi at session start |
 | `.pi/agent/extensions/*.ts` | Local Pi extensions |
+| `.pi/agent/extensions/subagent/config.json` | Conservative runtime limits for the pinned `pi-subagents` package |
 | `.pi/agent/prompts/plan.md` | `/plan` prompt template for two-round planning |
 | `.pi/agent/prompts/ship.md` | `/ship` prompt template that delegates to the shared `ship` skill |
 | `.pi/agent/themes/*.json` | Catppuccin and Dracula themes |
@@ -57,8 +58,9 @@ The extensions mostly cooperate through UI status keys:
 2. `format-on-save.ts` watches successful write and edit calls and formats supported files.
 3. `tps-tracker.ts`, `usage.ts`, `conversation-summary.ts`, and `ui-read-and-shortcuts.ts` publish status with `ctx.ui.setStatus()`.
 4. `footer.ts` reads those statuses and renders one compact footer.
-5. Command-style extensions such as `lg.ts`, `cost-tracker.ts`, `usage.ts`, and `promptfoo-export.ts` add reports or export artifacts only when called.
-6. Prompt templates such as `/plan` and `/ship` give repeatable workflows for higher-level tasks.
+5. The pinned `pi-subagents` package gives the parent an explicit delegation tool and runs focused child Pi sessions.
+6. Command-style extensions such as `lg.ts`, `cost-tracker.ts`, `usage.ts`, and `promptfoo-export.ts` add reports or export artifacts only when called.
+7. Prompt templates such as `/plan` and `/ship` give repeatable workflows for higher-level tasks.
 
 That split keeps each extension small while making the UI feel like one system.
 
@@ -86,6 +88,26 @@ MCP servers are defined in `.config/mcp/mcp.json`:
 - Brave Search reads `BRAVE_API_KEY` from the environment.
 - Svelte uses `@sveltejs/mcp` through `npx`.
 
+## Subagents
+
+`pi-subagents` is pinned at `0.51.0`, so normal package updates do not move it to a newer release. The initial setup favors bounded, parent-directed delegation:
+
+- Scout and researcher use DeepSeek V4 Flash at low thinking.
+- Worker, reviewer, and delegate use GPT-5.6 Terra at medium thinking.
+- Oracle uses GPT-5.6 Sol at high thinking.
+- Child model selection is limited to the configured GPT-5.6 and DeepSeek V4 routes.
+- Runs start with fresh context unless the call explicitly requests a fork.
+- A run can launch at most 6 children, with no more than 3 parallel tasks.
+- A parent session can launch at most 20 children and keep at most 2 top-level background runs active.
+- Nested delegation, scheduled runs, and automatic missions are disabled initially.
+- Artifacts stay with the Pi session instead of being written into the project.
+
+The package runs child Pi processes with the current user's permissions. The limits reduce accidental fan-out but are not a sandbox. Keep concurrent writers in separate Git worktrees and let the parent own integration.
+
+The bundled `researcher` expects the separate `pi-web-access` package. It is not installed yet. Use the parent session's MCP search tools for web research until that dependency is reviewed.
+
+To upgrade, review the upstream diff, change the exact version in `.pi/agent/settings.base.json`, run `merge-settings`, and restart Pi. See [docs/reference.md](docs/reference.md#subagents) for the full local policy.
+
 ## Main commands and prompts
 
 | Command | What it does |
@@ -99,6 +121,9 @@ MCP servers are defined in `.config/mcp/mcp.json`:
 | `/lg --staged` | Summarize staged git changes |
 | `/lg --all` | Summarize all changes against `HEAD`, plus untracked files |
 | `/usage` | Parse local Pi and Codex session files into a usage report |
+| `/subagents-doctor` | Check the installed subagent configuration and runtime |
+| `/subagents-models [agent]` | Show the effective model mapping for all roles or one role |
+| `/subagents-fleet` | Inspect, steer, or stop active and recent child runs |
 | `/summary` | Show the current conversation summary |
 | `/summary <text>` | Set the footer and session-name summary manually |
 | `/summary clear` | Clear the current summary |

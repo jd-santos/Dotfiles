@@ -15,8 +15,47 @@
   "quietStartup": true,
   "packages": [
     "npm:pi-mcp-adapter",
-    "npm:pi-lens"
+    "npm:pi-lens",
+    "npm:pi-subagents@0.51.0"
   ],
+  "subagents": {
+    "defaultModel": "openrouter/deepseek/deepseek-v4-flash",
+    "defaultThinking": "low",
+    "modelScope": {
+      "enforce": true,
+      "strict": true,
+      "allow": [
+        "openai-codex/gpt-5.6-*",
+        "openrouter/deepseek/deepseek-v4-*"
+      ]
+    },
+    "agentOverrides": {
+      "scout": {
+        "model": "openrouter/deepseek/deepseek-v4-flash",
+        "thinking": "low"
+      },
+      "researcher": {
+        "model": "openrouter/deepseek/deepseek-v4-flash",
+        "thinking": "low"
+      },
+      "worker": {
+        "model": "openai-codex/gpt-5.6-terra",
+        "thinking": "medium"
+      },
+      "reviewer": {
+        "model": "openai-codex/gpt-5.6-terra",
+        "thinking": "medium"
+      },
+      "oracle": {
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "high"
+      },
+      "delegate": {
+        "model": "openai-codex/gpt-5.6-terra",
+        "thinking": "medium"
+      }
+    }
+  },
   "hideThinkingBlock": false,
   "lastChangelogVersion": "0.75.3",
   "defaultProvider": "openai-codex",
