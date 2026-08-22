@@ -13,7 +13,7 @@
  *   - Uses a dedicated primary model with a configured fallback
  *   - Triggers after agent_end, once per user request instead of once per turn
  *   - Reuses the cached summary for the session name without extra model calls
- *   - Disables thinking and caps update frequency
+ *   - Uses low-effort reasoning and caps update frequency
  */
 import { complete } from "@earendil-works/pi-ai";
 import type {
@@ -23,10 +23,10 @@ import type {
 
 const SUMMARY_ENTRY_TYPE = "conversation-summary";
 const SUMMARY_STATUS_KEY = "conv-summary";
-const PRIMARY_SUMMARY_PROVIDER = "openai-codex";
-const PRIMARY_SUMMARY_MODEL_ID = "gpt-5.4-mini";
-const FALLBACK_SUMMARY_PROVIDER = "anthropic";
-const FALLBACK_SUMMARY_MODEL_ID = "claude-haiku-4-5";
+const PRIMARY_SUMMARY_PROVIDER = "openrouter";
+const PRIMARY_SUMMARY_MODEL_ID = "deepseek/deepseek-v4-flash";
+const FALLBACK_SUMMARY_PROVIDER = "openai-codex";
+const FALLBACK_SUMMARY_MODEL_ID = "gpt-5.4-mini";
 const PRIMARY_SUMMARY_MODEL_LABEL = `${PRIMARY_SUMMARY_PROVIDER}/${PRIMARY_SUMMARY_MODEL_ID}`;
 const FALLBACK_SUMMARY_MODEL_LABEL = `${FALLBACK_SUMMARY_PROVIDER}/${FALLBACK_SUMMARY_MODEL_ID}`;
 
@@ -333,7 +333,7 @@ export default function (pi: ExtensionAPI) {
 					apiKey: auth.apiKey,
 					headers: auth.headers,
 					maxTokens: 64,
-					thinkingEnabled: false,
+					reasoning: "low",
 					maxRetries: 0,
 					maxRetryDelayMs: 5_000,
 					signal: controller.signal,
