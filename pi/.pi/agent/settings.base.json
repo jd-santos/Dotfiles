@@ -16,7 +16,8 @@
   "packages": [
     "npm:pi-mcp-adapter",
     "npm:pi-lens",
-    "npm:pi-subagents@0.51.0"
+    "npm:pi-subagents@0.51.0",
+    "npm:@parallel-web/pi-extension"
   ],
   "subagents": {
     "defaultModel": "openrouter/deepseek/deepseek-v4-flash",
