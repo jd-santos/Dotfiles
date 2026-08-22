@@ -7,6 +7,7 @@ The setup is built around a few goals:
 - Ask before writes and risky shell commands
 - Format files after edits without thinking about it
 - Keep cost, speed, usage, git state, and model state visible
+- Use context capacity when sizing work and preparing handoffs
 - Make Pi's footer useful without letting every extension fight for space
 - Keep planning, shipping, and agent instructions explicit
 
@@ -56,11 +57,12 @@ The extensions mostly cooperate through UI status keys:
 
 1. `permission-gate.ts` decides whether write, edit, and bash tool calls should run.
 2. `format-on-save.ts` watches successful write and edit calls and formats supported files.
-3. `tps-tracker.ts`, `usage.ts`, `conversation-summary.ts`, and `ui-read-and-shortcuts.ts` publish status with `ctx.ui.setStatus()`.
-4. `footer.ts` reads those statuses and renders one compact footer.
-5. The pinned `pi-subagents` package gives the parent an explicit delegation tool and runs focused child Pi sessions.
-6. Command-style extensions such as `lg.ts`, `cost-tracker.ts`, `usage.ts`, and `promptfoo-export.ts` add reports or export artifacts only when called.
-7. Prompt templates such as `/plan` and `/ship` give repeatable workflows for higher-level tasks.
+3. `context-planner.ts` snapshots context usage after each user prompt and injects a hidden planning advisory for the agent run.
+4. `tps-tracker.ts`, `usage.ts`, `conversation-summary.ts`, and `ui-read-and-shortcuts.ts` publish status with `ctx.ui.setStatus()`.
+5. `footer.ts` reads those statuses and renders one compact footer.
+6. The pinned `pi-subagents` package gives the parent an explicit delegation tool and runs focused child Pi sessions.
+7. Command-style extensions such as `lg.ts`, `cost-tracker.ts`, `usage.ts`, and `promptfoo-export.ts` add reports or export artifacts only when called.
+8. Prompt templates such as `/plan` and `/ship` give repeatable workflows for higher-level tasks.
 
 That split keeps each extension small while making the UI feel like one system.
 
@@ -142,6 +144,7 @@ To upgrade, review the upstream diff, change the exact version in `.pi/agent/set
 | `tps-tracker.ts` | Live tokens-per-second during assistant streaming | Footer status while streaming, final notification after the turn |
 | `usage.ts` | Local Pi and Codex usage analytics | `/usage` report and footer scan status |
 | `conversation-summary.ts` | Short session summary for the footer and session name | Footer summary, `/summary` command |
+| `context-planner.ts` | Prompt-time context capacity advisory for work sizing and handoffs | Hidden agent context, no automatic actions |
 | `promptfoo-export.ts` | Promptfoo eval starter export from the active branch | Files under `~/.pi/agent/evals/promptfoo/` |
 | `ui-read-and-shortcuts.ts` | Read previews, slash command key hints, editor banner, model-source notices | Modified read tool display, autocomplete hints, editor border/banner |
 | `footer.ts` | Owns the multiline footer layout | Working directory, branch, model/context/cost tokens, permission mode, statuses, summary |

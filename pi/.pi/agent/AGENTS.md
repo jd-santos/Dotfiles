@@ -5,17 +5,20 @@
 Never read files that may contain secrets. This is an absolute rule with one narrow exception for Varlock schema files.
 
 Prohibited file patterns:
+
 - `.env*` (all variants: `.env`, `.env.local`, `.env.production`, etc.), except `.env.schema` and `.env-schema`
 - `*credentials*`, `*secrets*`, `*token*`, `*.key`, `*.pem`
 - `.aws/credentials`, `.ssh/id_rsa*`, `.ssh/id_ed25519*`
 
 Allowed schema exception:
+
 - Varlock schema files named `.env.schema` or `.env-schema` may be read. These files are intended to expose variable names, descriptions, types, validation rules, and resolver expressions such as `awsSecret(...)`, `op(...)`, or `exec(...)`.
 - If a schema file appears to contain literal credentials, tokens, passwords, private keys, or connection strings with embedded passwords, stop reading and ask the user to inspect it.
 
 When a user asks for help with one of these files, except allowed Varlock schema files, provide diagnostic commands for the user to run themselves. Do not attempt to read the file contents, even to redact or summarize them.
 
 Diagnostic alternatives to suggest:
+
 - Syntax check: `bash -n .env`
 - File type: `file .env`
 - Line ending detection: `hexdump -C .env | head`
@@ -30,15 +33,47 @@ Before committing changes, verify whether the repository is public: `gh repo vie
 When working on multi-step tasks, or when the user mentions todos, use the `todo-manager` skill to maintain the project's `TODO.md`. Invoke it with `/skill:todo-manager` if it does not load automatically.
 
 Active responsibilities:
+
 - Maintain the project's `TODO.md` throughout multi-step work
 - Move completed items to the Done section when tasks wrap up
 - Proactively flag high-priority issues discovered while working (limit: 1-2 suggestions per session)
+
+### Context-Aware Planning
+
+The `context-planner` extension injects a hidden `<context-planning-advisory>` after each user prompt. Treat its token count and percentage as planning inputs when deciding scope and tool calls for that agent run.
+
+Use these thresholds:
+
+- Below 50%: Work normally. Keep newly discovered future work divisible into bounded packets.
+- At 50%: Recommend finishing the current coherent unit and documenting the remaining work instead of expanding scope.
+- Between 50% and 80%: Increasingly favor bounded work, wrap-up, and handoff preparation as usage approaches the ceiling.
+- At 80%: Do not start new work. Only make small fixes needed to leave the project coherent and prepare the handoff.
+
+Group future-agent and future-subagent work into one of these types:
+
+- Focused change
+- Subsystem or file cluster
+- Exploratory research
+- Future-subagent packet
+
+Add only a coarse context estimate to each planned packet:
+
+- `[context: small]`: expected to use up to 10% of a context window
+- `[context: medium]`: expected to use more than 10% and up to 25%
+- `[context: large]`: expected to use more than 25% and up to 40%
+
+Split work expected to exceed 40% into smaller packets. Do not execute future-subagent packets automatically.
+
+`TODO.md` is the durable handoff ledger. When a handoff is actually prepared, add a short completed subtask under the active item in this form: `Handoff prepared at ~N% context`. The advisory alone does not authorize TODO edits, compaction, session switching, or subagent execution.
+
+If usage is unavailable immediately after compaction, treat capacity as unknown. Do not infer that the context is empty, and do not stop solely because telemetry is unavailable.
 
 ## Documentation and Prose
 
 When writing documentation, code comments, READMEs, or any user-facing text, load and follow the `technical-writing-style` skill.
 
 Core requirements from that skill:
+
 - No em dashes
 - No marketing language ("seamless", "comprehensive", "enterprise-grade", "best practices")
 - No filler introductions that restate headings or add no information
@@ -96,6 +131,7 @@ The `permission-gate` extension controls tool access:
 The `format-on-save` extension runs formatters automatically after every file write. Do not manually invoke formatters unless debugging a formatting issue.
 
 Formatters in use:
+
 - Prettier: `.js`, `.jsx`, `.ts`, `.tsx`, `.json`, `.css`, `.scss`, `.html`, `.md`, `.svelte`
 - Ruff: `.py`, `.pyi`
 - gofmt: `.go`

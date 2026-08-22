@@ -367,6 +367,38 @@ Guardrails:
 
 Summary state is stored as custom session entries so resumed sessions can restore it.
 
+## Context-aware planning
+
+Location: `.pi/agent/extensions/context-planner.ts`
+
+After each user prompt, the extension snapshots `ctx.getContextUsage()` and injects a hidden advisory into model context. The same snapshot remains available across tool-calling turns for that agent run. The injected message is transient and is not added to the saved session.
+
+The advisory reports:
+
+- Estimated context tokens and context-window size
+- Percentage used
+- Current planning state
+- Estimated tokens before the 80% working ceiling
+
+Agent policy in `.pi/agent/AGENTS.md` defines the behavior:
+
+- Below 50%, work normally while keeping future work divisible.
+- At 50%, recommend finishing the current coherent unit and documenting remaining work.
+- Between 50% and 80%, increasingly favor bounded work, wrap-up, and handoff preparation.
+- At 80%, do not start new work. Only make small fixes needed to leave the project coherent.
+
+Future-agent and future-subagent packets use a coarse context estimate:
+
+- Small: up to 10% of a context window
+- Medium: more than 10% and up to 25%
+- Large: more than 25% and up to 40%
+
+Work expected to exceed 40% should be split. Packets may represent a focused change, a subsystem or file cluster, exploratory research, or work suitable for a future subagent. The first version prepares packets but does not execute subagents.
+
+`TODO.md` is the durable handoff ledger. An actual handoff preparation is recorded under the active task as `Handoff prepared at ~N% context`.
+
+The extension is advisory-only. It does not edit TODO files, compact context, switch sessions, or execute subagents. When usage is temporarily unavailable after compaction, it reports unknown capacity rather than assuming an empty context.
+
 ## Footer
 
 Location: `.pi/agent/extensions/footer.ts`
