@@ -421,3 +421,6 @@ eval "$(starship init zsh)"
 export PATH="$PATH:/Users/jdwork/.lmstudio/bin"
 # End of LM Studio CLI section
 
+
+# Added by cua-driver-rs installer — see https://github.com/trycua/cua
+export PATH="/Users/jdmini/.local/bin:$PATH"
