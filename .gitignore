@@ -55,3 +55,17 @@ config/.config//gh/
 
 # Pi lens cache
 .pi-lens/
+
+# Pi stow package local runtime files
+pi/.pi/agent/auth.json
+pi/.pi/agent/settings.json
+pi/.pi/agent/settings.local.json
+pi/.pi/agent/sessions/
+pi/.pi/agent/bin/
+pi/.pi/agent/mcp-cache.json
+pi/.pi/agent/models-store.json
+pi/.pi/agent/npm/
+
+# Zed stow package generated settings
+zed/.config/zed/settings.json
+zed/.config/zed/settings.local.json

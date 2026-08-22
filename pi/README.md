@@ -77,9 +77,11 @@ and `/scoped-models` toggles the scoped list interactively.
 The shared default is `openai-codex/gpt-5.6-sol` with medium thinking.
 OpenRouter standby models, including GPT-5.6 Pro routes, GLM 5.2, Qwen 3.7,
 and Gemma 4, stay out of the `Ctrl+P` cycle but remain available through
-`/model` when the provider catalog and auth expose them. The zsh `pi()` wrapper
-resolves the OpenRouter `op://` reference through 1Password before launching Pi,
-so the key does not live in git.
+`/model` when the provider catalog and auth expose them. The `~/bin/pi`
+wrapper resolves the OpenRouter `op://` reference through 1Password before
+launching Pi, so the key does not live in git. Keep `~/bin` before Homebrew in
+`PATH` so child Pi processes and other non-interactive launches use the wrapper
+too.
 
 If a resumed session opens on a model you did not expect, the session restore
 won. Start a fresh session with `/new` or `pi --no-session` to use the

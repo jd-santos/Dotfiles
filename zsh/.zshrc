@@ -60,7 +60,7 @@ export PATH="$PATH:$HOME/.dotnet/tools"
 export PATH="$PATH:$HOME/.lmstudio/bin"
 
 # User scripts
-export PATH="$PATH:$HOME/bin"
+export PATH="$HOME/bin:$PATH"
 
 # Source .env-local if it exists
 if [ -f ~/.env-local ]; then

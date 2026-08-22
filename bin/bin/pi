@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Resolve 1Password-backed OpenRouter auth before handing off to Pi.
+
+set -euo pipefail
+
+find_real_pi() {
+  local self_dir self candidate candidate_dir
+  self_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+  self="$self_dir/$(basename -- "${BASH_SOURCE[0]}")"
+
+  if [[ -n "${PI_REAL_BIN:-}" && -x "$PI_REAL_BIN" && "$PI_REAL_BIN" != "$self" ]]; then
+    printf '%s\n' "$PI_REAL_BIN"
+    return 0
+  fi
+
+  for candidate in /opt/homebrew/bin/pi /usr/local/bin/pi; do
+    if [[ -x "$candidate" ]]; then
+      candidate_dir="$(cd -- "$(dirname -- "$candidate")" && pwd -P)"
+      if [[ "$candidate_dir/$(basename -- "$candidate")" != "$self" ]]; then
+        printf '%s\n' "$candidate"
+        return 0
+      fi
+    fi
+  done
+
+  local IFS=:
+  local dir
+  for dir in $PATH; do
+    [[ -n "$dir" ]] || dir='.'
+    candidate="$dir/pi"
+    if [[ -x "$candidate" ]]; then
+      candidate_dir="$(cd -- "$(dirname -- "$candidate")" && pwd -P)"
+      if [[ "$candidate_dir/$(basename -- "$candidate")" != "$self" ]]; then
+        printf '%s\n' "$candidate"
+        return 0
+      fi
+    fi
+  done
+
+  printf 'pi wrapper: could not find the real pi executable\n' >&2
+  return 1
+}
+
+real_pi="$(find_real_pi)"
+
+if [[ "${OPENROUTER_API_KEY:-}" == op://* ]]; then
+  if ! command -v op >/dev/null 2>&1; then
+    printf 'pi wrapper: OPENROUTER_API_KEY is a 1Password reference, but op is not on PATH\n' >&2
+  elif resolved_openrouter_key="$(op read "$OPENROUTER_API_KEY" 2>/dev/null)" && [[ -n "$resolved_openrouter_key" ]]; then
+    export OPENROUTER_API_KEY="$resolved_openrouter_key"
+  else
+    printf 'pi wrapper: failed to resolve OPENROUTER_API_KEY with 1Password\n' >&2
+  fi
+fi
+
+exec "$real_pi" "$@"

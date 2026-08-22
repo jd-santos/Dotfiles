@@ -137,15 +137,16 @@ Detailed function reference with usage examples.
 
 ### `pi()`
 
-Launch Pi with the OpenRouter API key resolved from 1Password when
-`OPENROUTER_API_KEY` is an `op://` reference.
+Launch Pi through the `~/bin/pi` wrapper, which resolves the OpenRouter API key
+from 1Password when `OPENROUTER_API_KEY` is an `op://` reference.
 
 **Usage:** `pi [args...]`
 
 **Notes:**
 
 - Keeps the real OpenRouter key out of git and out of the parent shell
-- Falls back to the normal `pi` command if `op` is unavailable or locked
+- The executable wrapper also covers child processes and non-interactive launches
+- Falls back to the installed Pi command if `op` is unavailable or locked
 
 ---
 
