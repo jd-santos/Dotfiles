@@ -1,13 +1,16 @@
 {
-  "defaultThinkingLevel": "medium",
+  "defaultThinkingLevel": "xhigh",
   "skills": [
     "~/.agents/skills"
   ],
   "enableSkillCommands": true,
   "enabledModels": [
+    "openrouter/openai/gpt-5.6-luna",
+    "openrouter/z-ai/glm-5.3-flash",
+    "openrouter/openai/gpt-5.6-sol",
+    "openrouter/qwen/qwen3.8-27b",
     "openai-codex/gpt-5.6-sol",
     "openai-codex/gpt-5.6-terra",
-    "openrouter/deepseek/deepseek-v4-pro",
     "openrouter/deepseek/deepseek-v4-flash",
     "openrouter/moonshotai/kimi-k3"
   ],
@@ -59,6 +62,6 @@
   },
   "hideThinkingBlock": false,
   "lastChangelogVersion": "0.75.3",
-  "defaultProvider": "openai-codex",
-  "defaultModel": "gpt-5.6-sol"
+  "defaultProvider": "openrouter",
+  "defaultModel": "openai/gpt-5.6-luna"
 }
