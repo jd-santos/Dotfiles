@@ -4,7 +4,7 @@
 import type {
 	ExtensionAPI,
 	ToolRenderResultOptions,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import {
 	CustomEditor,
 	createReadToolDefinition,
@@ -13,14 +13,22 @@ import {
 	keyHint,
 	keyText,
 	type ReadToolDetails,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import {
 	Box,
 	type Component,
 	Text,
 	truncateToWidth,
 	visibleWidth,
-} from "@mariozechner/pi-tui";
+} from "@earendil-works/pi-tui";
+import {
+	SHELL_DATA,
+	SHELL_DATA_REQUEST,
+	border,
+	shortenMiddle,
+	workspaceLabel,
+	type ShellData,
+} from "./lib/shell-layout.ts";
 
 declare const process: { cwd(): string };
 
@@ -112,31 +120,23 @@ function formatModelBanner(
 	modelLabel: string,
 	source: ModelSource,
 	theme: ThemeLike,
+	width: number,
 ): string {
-	const sourceLabel =
-		source === "default" ? "" : `${describeModelSource(source)} `;
 	const thinking = pi.getThinkingLevel?.();
 	const provider = ctx.model?.provider;
 	const auth =
 		ctx.modelRegistry?.isUsingOAuth?.(ctx.model) === true ? "sub" : "key";
-	const modelColor = source === "restore" ? "warning" : "accent";
-	const thinkingColor =
-		thinking === "off"
-			? "dim"
-			: thinking === "high" || thinking === "xhigh"
-				? "warning"
-				: "muted";
-	const providerColor = auth === "sub" ? "success" : "muted";
-	const parts = [
-		`${theme.fg("dim", "model: ")}${theme.fg(modelColor, `${sourceLabel}${compactModelName(modelLabel)}`)}`,
-		thinking
-			? `${theme.fg("dim", "think: ")}${theme.fg(thinkingColor, thinking)}`
-			: undefined,
-		provider
-			? `${theme.fg("dim", "via ")}${theme.fg(providerColor, `${provider} (${auth})`)}`
-			: undefined,
-	].filter(Boolean);
-	return ` ${parts.join(theme.fg("dim", " · "))} `;
+	const think = thinking ? `${theme.fg("dim", "think ")}${theme.fg("muted", thinking)}` : "";
+	const modelWidth = Math.max(4, width - visibleWidth(think) - 2);
+	let line = theme.fg("accent", shortenMiddle(compactModelName(modelLabel), modelWidth));
+	for (const part of [
+		think,
+		provider ? theme.fg("muted", `${provider} (${auth})`) : "",
+		source === "restore" ? theme.fg("dim", "restored") : "",
+	]) {
+		if (part && visibleWidth(`${line}  ${part}`) <= width) line += `  ${part}`;
+	}
+	return truncateToWidth(line, width, "…");
 }
 
 class EmptyComponent implements Component {
@@ -280,6 +280,8 @@ export default function (pi: ExtensionAPI) {
 	let activeTui: { requestRender(): void } | undefined;
 	let activeModelLabel = "";
 	let activeModelSource: ModelSource = "default";
+	let shellData: ShellData | undefined;
+	let unsubscribeShell: (() => void) | undefined;
 
 	const syncModelState = (
 		ctx: { model?: { provider?: string; id?: string }; ui: any },
@@ -318,33 +320,18 @@ export default function (pi: ExtensionAPI) {
 			activeTui = tui;
 		}
 
-		render(width: number): string[] {
-			const lines = super.render(width);
-			if (lines.length < 2 || width < 2) return lines;
+		protected renderTopBorder(width: number, hiddenLineCount: number): string {
+			const overflow = hiddenLineCount > 0 ? `↑${hiddenLineCount}` : "";
+			const budget = Math.max(0, width - 4 - (overflow ? visibleWidth(overflow) + 2 : 0));
+			const label = workspaceLabel(this.uiTheme, this.sessionCtx.cwd, shellData, budget);
+			return border(this.uiTheme, label, width, overflow, this.getText().startsWith("!"));
+		}
 
-			const borderColor = (text: string) => this.borderColor(text);
-			const topLabel = " YOU ";
-			const topFill = Math.max(0, width - 2 - topLabel.length);
-			lines[0] = `${borderColor("─")}${this.uiTheme.fg("accent", topLabel)}${borderColor(
-				"─".repeat(topFill),
-			)}${borderColor("─")}`;
-
-			const bottomLabel = truncateToWidth(
-				formatModelBanner(
-					pi,
-					this.sessionCtx,
-					activeModelLabel,
-					activeModelSource,
-					this.uiTheme,
-				),
-				Math.max(0, width - 2),
-				"...",
-			);
-			const bottomFill = Math.max(0, width - 2 - visibleWidth(bottomLabel));
-			lines[lines.length - 1] = `${borderColor("─")}${bottomLabel}${borderColor(
-				"─".repeat(bottomFill),
-			)}${borderColor("─")}`;
-			return lines;
+		protected renderBottomBorder(width: number, hiddenLineCount: number): string {
+			const overflow = hiddenLineCount > 0 ? `↓${hiddenLineCount}` : "";
+			const budget = Math.max(0, width - 4 - (overflow ? visibleWidth(overflow) + 2 : 0));
+			const label = formatModelBanner(pi, this.sessionCtx, activeModelLabel, activeModelSource, this.uiTheme, budget);
+			return border(this.uiTheme, label, width, overflow, this.getText().startsWith("!"));
 		}
 	}
 
@@ -381,6 +368,14 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.on("session_start", (_event, ctx) => {
+		if (!ctx.hasUI) return;
+		unsubscribeShell?.();
+		shellData = undefined;
+		unsubscribeShell = pi.events.on(SHELL_DATA, (data) => {
+			shellData = data as ShellData | undefined;
+			activeTui?.requestRender();
+		});
+		pi.events.emit(SHELL_DATA_REQUEST, undefined);
 		syncModelState(ctx);
 		ctx.ui.setEditorComponent(
 			(tui, theme, keybindings) =>
@@ -440,6 +435,9 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.on("session_shutdown", () => {
+		unsubscribeShell?.();
+		unsubscribeShell = undefined;
+		shellData = undefined;
 		activeTui = undefined;
 	});
 }

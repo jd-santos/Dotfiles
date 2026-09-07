@@ -37,6 +37,7 @@
 
 ## Done
 
+- [x] Improve Pi shell hierarchy (prompt-attached workspace, bold summary, context meter, compact/details telemetry, Quiet Ink, branch titles, 14 passing checks)
 - [x] Adopt pinned `pi-subagents` 0.51.0 with bounded execution and role-based model routing
 - [x] Add context-aware planning advisories to Pi (prompt-time telemetry, 50% wrap-up, 80% stop, future-agent packet sizing)
 - [x] Extract Offgrid Review into `jd-santos/offgrid-review` and track the standalone skill

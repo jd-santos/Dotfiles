@@ -688,9 +688,13 @@ export default function (pi: ExtensionAPI) {
 		if (rules.deny.length > 0) parts.push(`-${rules.deny.length}`);
 		ctx.ui.setStatus(
 			"permission-gate",
-			parts.length ? parts.join(" | ") : undefined,
+			parts.length ? parts.join(" | ") : "ask",
 		);
 	}
+
+	pi.on("session_start", (_event, ctx) => {
+		if (ctx.hasUI) updateStatus(ctx);
+	});
 
 	// ─── Rule helpers ─────────────────────────────────────────────────
 

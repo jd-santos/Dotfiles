@@ -133,6 +133,7 @@ To upgrade, review the upstream diff, change the exact version in `.pi/agent/set
 | `/summary` | Show the current conversation summary |
 | `/summary <text>` | Set the footer and session-name summary manually |
 | `/summary clear` | Clear the current summary |
+| `/shell [compact\|details]` | Toggle telemetry detail, or choose a display explicitly; saved with the session |
 | `/promptfoo-export [name]` | Export the active Pi branch as a promptfoo eval stub |
 | `/plan [topic]` | Run the two-round planning prompt |
 | `/ship [instructions]` | Run the shared `ship` skill for branch review, commits, changelog checks, and push confirmation |
@@ -141,7 +142,7 @@ To upgrade, review the upstream diff, change the exact version in `.pi/agent/set
 
 | Extension | Purpose | User-facing output |
 | --- | --- | --- |
-| `permission-gate.ts` | Confirmation layer for writes, edits, and shell commands | Permission prompts, `/readonly`, `/yolo`, `/rules`, `/reset-rules`, footer mode status |
+| `permission-gate.ts` | Confirmation layer for writes, edits, and shell commands | Permission prompts, `/readonly`, `/yolo`, `/rules`, `/reset-rules`, prompt mode status |
 | `format-on-save.ts` | Runs configured formatters after write and edit tools | No prompt. Formatter failures do not interrupt the session |
 | `cost-tracker.ts` | Tracks message token usage, estimated cost, and tool-call counts | `/costs` report |
 | `lg.ts` | Scripted git change summary | `/lg`, `/lg --staged`, `/lg --all` reports below the editor |
@@ -150,8 +151,22 @@ To upgrade, review the upstream diff, change the exact version in `.pi/agent/set
 | `conversation-summary.ts` | Short session summary for the footer and session name | Footer summary, `/summary` command |
 | `context-planner.ts` | Prompt-time context capacity advisory for work sizing and handoffs | Hidden agent context, no automatic actions |
 | `promptfoo-export.ts` | Promptfoo eval starter export from the active branch | Files under `~/.pi/agent/evals/promptfoo/` |
-| `ui-read-and-shortcuts.ts` | Read previews, slash command key hints, editor banner, model-source notices | Modified read tool display, autocomplete hints, editor border/banner |
-| `footer.ts` | Owns the multiline footer layout | Working directory, branch, model/context/cost tokens, permission mode, statuses, summary |
+| `ui-read-and-shortcuts.ts` | Read previews, slash command hints, workspace and model borders | Directory, branch, and permission mode attached to the prompt; model and thinking below it |
+| `footer.ts` | Owns telemetry, session summary, and shared workspace data | Context meter, cost, speed, quiet plugin labels, bold summary, `/shell`, branch-aware terminal title |
+
+The shell uses blue for the directory, teal for the branch, and mauve for the
+model in Catppuccin. The summary stays bold in the normal text color. Context
+changes to yellow at 50% and red at 80%, matching the planning advisory;
+unavailable context is labeled explicitly. Plugin status values retain their
+warning colors. Permission mode stays next to the directory, including `scoped`
+when session rules are active and yellow `yolo` when auto-allow is enabled.
+
+Compact mode keeps context, cost, output tokens, speed, and live status visible.
+`/shell details` adds input and cache counts, permission rule counts, and completed
+usage scan counts. Details survive reload and resume. Long parent paths shorten
+before the current directory; each branch and permission field gets reserved
+space. Narrow telemetry wraps onto additional rows. Lens diagnostics remain below
+the editor, so they cannot separate the directory from the prompt.
 
 The permission gate is a visibility and consent layer, not a sandbox. It uses quote-aware command-chain analysis, auto-allows predictable inspection commands, and keeps interpreters, package managers, network tools, execution wrappers, and complex shell syntax behind a prompt. Session scopes include separate options for read-only Git inspection and all Git operations. See [docs/reference.md](docs/reference.md#permission-gate) for the exact rule order and command parsing notes.
 
@@ -180,6 +195,10 @@ Use `/ship [extra instructions]` when a branch is ready for final review.
 Catppuccin Latte, Frappé, Macchiato, and Mocha are available. Mocha is the default through `"theme": "catppuccin-mocha"` in `.pi/agent/settings.base.json`.
 
 Dracula is still available as `dracula`.
+
+`quiet-ink` is an optional darker palette with fewer persistent accent colors.
+Choose it through `/settings`; Catppuccin Mocha remains the default. Run `/reload`
+after updating the extensions. The shell was verified against Pi 0.85.1.
 
 ## Keeping docs current
 

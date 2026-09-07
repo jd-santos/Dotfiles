@@ -410,16 +410,44 @@ Location: `.pi/agent/extensions/footer.ts`
 
 Replaces Pi's default footer with one multiline layout.
 
-Lines:
+Compact display:
 
-1. Working directory, git branch, and session name when there is no live conversation summary
-2. Context usage and token or cost details, including `ctx`, input, output, cache read, and cache write values
-3. Statuses from pi-lens or LSP, permission mode, active TPS, usage scan state, MCP cache state, and other extension statuses
-4. Conversation summary, when available
+1. Context meter and cost, with cost aligned to the right when space allows
+2. Output tokens, a stable speed field, and live plugin status
+3. Conversation summary, bold in the normal text color, or the session name when no summary exists
+
+The context meter uses up to 20 cells, with yellow at 50% and red at 80% to match
+the planning advisory. Missing or non-finite context usage reads `unavailable`.
+Labels stay dim; status values preserve extension colors. Errors and warnings
+sort before ordinary plugin status. `pi-lens-lsp` is shortened to `lsp`. Lens's
+separate diagnostic widget keeps its own styling and content.
+
+`/shell` toggles compact and detailed telemetry. `/shell compact` and
+`/shell details` select explicitly. The choice is stored as a `shell-display`
+custom session entry and restored on reload or resume. Details add input tokens,
+cache reads/writes, permission rule counts, completed usage scan counts, and
+healthy MCP connection status. The compact display omits completed scan counts
+and healthy MCP counts. Cached tool definitions are no longer read or presented
+as evidence of a live MCP connection.
+
+The speed value shows the current generation rate, or the last completed rate
+in dim text. The cost comes from the usage totals reported by providers. The
+existing final speed notification remains available. On narrow terminals, cost
+moves to the next row and telemetry wraps instead of silently dropping fields.
+Input and cache totals are cumulative session usage; they are not the current
+context occupancy.
 
 The footer reads statuses published by other extensions with `ctx.ui.setStatus()`. Other extensions keep their own logic; `footer.ts` owns display order and spacing.
 
-Pi renders all footer content in one footer slot, so separate plugin output cannot move below this footer.
+The footer shares Pi's read-only branch/status provider with the custom editor
+through a named extension event. It uses Pi's branch watcher to refresh both the
+prompt and the terminal title (`Pi · directory · branch`). Event listeners are
+removed when the footer is disposed. Shared rendering helpers live in
+`.pi/agent/extensions/lib/shell-layout.ts`.
+
+Pi places below-editor widgets, including Lens, between the editor and footer.
+The directory and branch are part of the editor's own top border, so widgets
+cannot separate them from the prompt or its model border.
 
 ## UI read preview and slash shortcuts
 
@@ -442,9 +470,15 @@ Slash command hints:
 
 Editor banner:
 
-- Gives the input editor a stronger top border with a `YOU` label
-- Shows active model, thinking level, provider, auth type, and model source
-- Model source can be default config, manual selection, scoped cycling, or session restore
+- The top border shows the working directory, git branch, and permission mode
+- The current directory is bold blue, parent directories are dim, and the branch is teal in Catppuccin
+- Parent paths shorten first; long directory and branch names shorten in the middle independently
+- Permission mode is `ask`, `scoped`, `readonly`, or `yolo`; unavailable gate status is `?`
+- Wide borders include allow/deny rule counts; `/shell details` also shows those counts
+- The bottom border shows the model and thinking level, then provider/auth and a restored-session label when space permits
+- Routine thinking levels use neutral text; yellow is reserved for `yolo` or attention conditions
+- Bash input retains its mode-colored border
+- Pi's top/bottom border hooks preserve autocomplete rows, cursor positioning, and hidden-line counts
 
 Restore hint:
 
@@ -459,8 +493,24 @@ Locations:
 - `.pi/agent/themes/catppuccin-macchiato.json`
 - `.pi/agent/themes/catppuccin-mocha.json`
 - `.pi/agent/themes/dracula.json`
+- `.pi/agent/themes/quiet-ink.json`
 
-`catppuccin-mocha` is the default in settings. Dracula remains available as `dracula`.
+`catppuccin-mocha` is the default in settings. Dracula remains available as
+`dracula`. `quiet-ink` is an optional darker, less colorful palette selectable
+through `/settings`.
+
+Shell rendering checks use the installed Pi runtime, without starting a model
+session or loading account authentication. With Node's native TypeScript support
+and Pi installed through npm, run:
+
+```bash
+node --test pi/.pi/agent/extensions/tests/shell.test.ts
+```
+
+For a non-global installation, set `PI_TEST_PACKAGE_DIR` to the Pi package
+directory. The checks cover narrow and Unicode layouts, context thresholds,
+plugin severity colors, branch and permission updates, autocomplete, scroll
+indicators, display persistence, and listener cleanup. Verified with Pi 0.85.1.
 
 ## Plan prompt
 
