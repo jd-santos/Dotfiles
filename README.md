@@ -101,8 +101,17 @@ stow nvim git starship zsh   # Install multiple configurations
 
 ### Install Everything
 
+Initialize the Skills submodule before stowing packages:
+
 ```bash
+git submodule update --init --recursive
 stow agents bin fzf ghostty git lint nvim opencode pgcli pi starship tmux zed zsh
+```
+
+To initialize, hydrate, and verify the agent skills in one command, run:
+
+```bash
+./scripts/setup-agent-skills
 ```
 
 `docs/` is not a stow package. Keep it in the repo unless you intentionally want those files linked into `$HOME`.

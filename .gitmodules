@@ -1,0 +1,3 @@
+[submodule "agents/.agents"]
+	path = agents/.agents
+	url = https://github.com/jd-santos/Skills.git

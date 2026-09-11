@@ -1,4 +1,0 @@
-interface:
-  display_name: "Study Lyrics"
-  short_description: "Translate lyrics and explore their meaning"
-  default_prompt: "Use $study-lyrics to translate and explain this lyric excerpt."

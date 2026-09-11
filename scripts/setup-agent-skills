@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -z "$repo_root" || ! -f "$repo_root/.gitmodules" ]]; then
+  echo "Run this script from a Dotfiles checkout." >&2
+  exit 1
+fi
+
+cd "$repo_root"
+git submodule update --init --recursive -- agents/.agents
+agents/.agents/scripts/tracked-skills install all
+stow --target="$HOME" -R agents
+agents/.agents/scripts/tracked-skills verify all
