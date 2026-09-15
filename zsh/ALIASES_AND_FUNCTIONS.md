@@ -128,6 +128,7 @@ General utility aliases.
 | `path` | Display all directories in your PATH |
 | `szsh` | Reload `.zshrc` configuration |
 | `dsync` | Run `merge-settings` to rebuild generated Pi and Zed settings |
+| `gsub` | Initialize and update Git submodules recursively; run from a repository root |
 
 ---
 

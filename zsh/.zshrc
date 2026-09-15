@@ -163,6 +163,7 @@ alias ducks='du -cks *|sort -rn|head -11' # ducks: List top ten largest files/di
 alias path='echo -e ${PATH//:/\\n}' # path: Echo all executable Paths
 alias szsh='source ~/.zshrc' # szsh: Reload .zshrc configuration
 alias dsync='merge-settings'  # dsync: Re-merge dotfile base + local settings after a pull
+alias gsub='git submodule update --init --recursive'  # gsub: Initialize and update Git submodules
 
 # ┌───────────────────────────────────────────────────────────────────┐
 # │ Functions                                                         │
