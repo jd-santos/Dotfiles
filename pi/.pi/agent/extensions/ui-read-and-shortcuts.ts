@@ -42,6 +42,34 @@ type ThemeLike = {
 
 type ModelSource = "default" | "set" | "cycle" | "restore";
 
+type CostColor =
+	| "dim"
+	| "error"
+	| "mdHeading"
+	| "mdLink"
+	| "muted"
+	| "success"
+	| "text";
+
+const MODEL_COST_RULES: Array<{ color: CostColor; patterns: RegExp[] }> = [
+	{ color: "error", patterns: [/\bastra\b/i, /\bfable\b/i] },
+	{ color: "mdHeading", patterns: [/\bsol\b/i, /\bopus\b/i, /\bkimi\b/i] },
+	{
+		color: "success",
+		patterns: [
+			/\bluna\b/i,
+			/\bterra\b/i,
+			/\bsonnet\b/i,
+			/\bdeepseek\b.*\bflash\b/i,
+			/\bglm\b.*\bflash\b/i,
+		],
+	},
+	{
+		color: "mdLink",
+		patterns: [/\btiny\b/i, /\bmini\b/i, /\bnano\b/i, /\bsmall\b/i, /\bhaiku\b/i],
+	},
+];
+
 // Slash command -> keybinding IDs. The IDs are stable Pi config keys. The
 // displayed shortcuts come from the active keybinding config via keyText().
 const COMMAND_KEYBINDINGS: Record<string, string[]> = {
@@ -85,7 +113,7 @@ function formatLineRange(args: Record<string, unknown>): string {
 	if (offset === undefined && limit === undefined) return "";
 
 	const startLine = offset ?? 1;
-	const endLine = limit !== undefined ? startLine + limit - 1 : undefined;
+	const endLine = limit === undefined ? undefined : startLine + limit - 1;
 	return endLine ? `:${startLine}-${endLine}` : `:${startLine}`;
 }
 
@@ -114,6 +142,42 @@ function compactModelName(label: string): string {
 	return label.split("/").at(-1) ?? label;
 }
 
+function hasConsumerParameterCount(label: string): boolean {
+	for (const match of label.matchAll(
+		/(?:^|[^a-z0-9])(\d+(?:\.\d+)?)b(?:$|[^a-z0-9])/gi,
+	)) {
+		const billions = Number(match[1]);
+		if (billions > 0 && billions <= 32) return true;
+	}
+	return false;
+}
+
+export function modelCostColor(label: string): CostColor {
+	for (const rule of MODEL_COST_RULES) {
+		if (rule.patterns.some((pattern) => pattern.test(label))) return rule.color;
+	}
+	return hasConsumerParameterCount(label) ? "mdLink" : "text";
+}
+
+export function thinkingCostColor(level: string | undefined): CostColor {
+	switch (level) {
+		case "off":
+		case "minimal":
+			return "dim";
+		case "low":
+			return "mdLink";
+		case "medium":
+			return "success";
+		case "high":
+			return "mdHeading";
+		case "xhigh":
+		case "max":
+			return "error";
+		default:
+			return "muted";
+	}
+}
+
 function formatModelBanner(
 	pi: ExtensionAPI,
 	ctx: any,
@@ -126,9 +190,14 @@ function formatModelBanner(
 	const provider = ctx.model?.provider;
 	const auth =
 		ctx.modelRegistry?.isUsingOAuth?.(ctx.model) === true ? "sub" : "key";
-	const think = thinking ? `${theme.fg("dim", "think ")}${theme.fg("muted", thinking)}` : "";
+	const think = thinking
+		? `${theme.fg("dim", "think ")}${theme.fg(thinkingCostColor(thinking), thinking)}`
+		: "";
 	const modelWidth = Math.max(4, width - visibleWidth(think) - 2);
-	let line = theme.fg("accent", shortenMiddle(compactModelName(modelLabel), modelWidth));
+	let line = theme.fg(
+		modelCostColor(modelLabel),
+		shortenMiddle(compactModelName(modelLabel), modelWidth),
+	);
 	for (const part of [
 		think,
 		provider ? theme.fg("muted", `${provider} (${auth})`) : "",
@@ -322,16 +391,46 @@ export default function (pi: ExtensionAPI) {
 
 		protected renderTopBorder(width: number, hiddenLineCount: number): string {
 			const overflow = hiddenLineCount > 0 ? `↑${hiddenLineCount}` : "";
-			const budget = Math.max(0, width - 4 - (overflow ? visibleWidth(overflow) + 2 : 0));
-			const label = workspaceLabel(this.uiTheme, this.sessionCtx.cwd, shellData, budget);
-			return border(this.uiTheme, label, width, overflow, this.getText().startsWith("!"));
+			const budget = Math.max(
+				0,
+				width - 4 - (overflow ? visibleWidth(overflow) + 2 : 0),
+			);
+			const label = workspaceLabel(
+				this.uiTheme,
+				this.sessionCtx.cwd,
+				shellData,
+				budget,
+			);
+			return border(
+				this.uiTheme,
+				label,
+				width,
+				overflow,
+				this.getText().startsWith("!"),
+			);
 		}
 
 		protected renderBottomBorder(width: number, hiddenLineCount: number): string {
 			const overflow = hiddenLineCount > 0 ? `↓${hiddenLineCount}` : "";
-			const budget = Math.max(0, width - 4 - (overflow ? visibleWidth(overflow) + 2 : 0));
-			const label = formatModelBanner(pi, this.sessionCtx, activeModelLabel, activeModelSource, this.uiTheme, budget);
-			return border(this.uiTheme, label, width, overflow, this.getText().startsWith("!"));
+			const budget = Math.max(
+				0,
+				width - 4 - (overflow ? visibleWidth(overflow) + 2 : 0),
+			);
+			const label = formatModelBanner(
+				pi,
+				this.sessionCtx,
+				activeModelLabel,
+				activeModelSource,
+				this.uiTheme,
+				budget,
+			);
+			return border(
+				this.uiTheme,
+				label,
+				width,
+				overflow,
+				this.getText().startsWith("!"),
+			);
 		}
 	}
 
@@ -405,18 +504,11 @@ export default function (pi: ExtensionAPI) {
 				};
 			},
 			applyCompletion(lines, cursorLine, cursorCol, item, prefix) {
-				return current.applyCompletion(
-					lines,
-					cursorLine,
-					cursorCol,
-					item,
-					prefix,
-				);
+				return current.applyCompletion(lines, cursorLine, cursorCol, item, prefix);
 			},
 			shouldTriggerFileCompletion(lines, cursorLine, cursorCol) {
 				return (
-					current.shouldTriggerFileCompletion?.(lines, cursorLine, cursorCol) ??
-					true
+					current.shouldTriggerFileCompletion?.(lines, cursorLine, cursorCol) ?? true
 				);
 			},
 		}));
@@ -433,6 +525,8 @@ export default function (pi: ExtensionAPI) {
 			);
 		}
 	});
+
+	pi.on("thinking_level_select", () => activeTui?.requestRender());
 
 	pi.on("session_shutdown", () => {
 		unsubscribeShell?.();

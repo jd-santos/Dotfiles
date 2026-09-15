@@ -482,7 +482,10 @@ Editor banner:
 - Permission mode is `ask`, `scoped`, `readonly`, or `yolo`; unavailable gate status is `?`
 - Wide borders include allow/deny rule counts; `/shell details` also shows those counts
 - The bottom border shows the model and thinking level, then provider/auth and a restored-session label when space permits
-- Routine thinking levels use neutral text; yellow is reserved for `yolo` or attention conditions
+- Model and thinking values use the same expense palette: blue for low, green for medium, peach or orange for high, and red for the highest tier
+- Model tiers match ordered name patterns: Astra and Fable are highest; Sol, Opus, and Kimi are high; Luna, Terra, Sonnet, DeepSeek Flash, and GLM Flash are medium
+- Tiny, mini, nano, small, Haiku, and parameter-count names from 1B through 32B are low; named tiers win before the size heuristic, and unknown models stay neutral
+- Thinking uses dim for `off` and `minimal`, then blue through red for `low`, `medium`, `high`, `xhigh`, and `max`
 - Bash input retains its mode-colored border
 - Pi's top/bottom border hooks preserve autocomplete rows, cursor positioning, and hidden-line counts
 
@@ -514,9 +517,10 @@ node --test pi/.pi/agent/extensions/tests/shell.test.ts
 ```
 
 For a non-global installation, set `PI_TEST_PACKAGE_DIR` to the Pi package
-directory. The checks cover narrow and Unicode layouts, context thresholds,
-plugin severity colors, branch and permission updates, autocomplete, scroll
-indicators, display persistence, and listener cleanup. Verified with Pi 0.85.1.
+directory. The checks cover narrow and Unicode layouts, context thresholds, model and
+thinking expense tiers, plugin severity colors, branch and permission updates,
+autocomplete, scroll indicators, display persistence, and listener cleanup.
+Verified with Pi 0.85.1.
 
 ## Plan prompt
 

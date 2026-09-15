@@ -154,12 +154,15 @@ To upgrade, review the upstream diff, change the exact version in `.pi/agent/set
 | `ui-read-and-shortcuts.ts` | Read previews, slash command hints, workspace and model borders | Directory, branch, and permission mode attached to the prompt; model and thinking below it |
 | `footer.ts` | Owns telemetry, session summary, and shared workspace data | Context meter, cost, speed, quiet plugin labels, bold summary, `/shell`, branch-aware terminal title |
 
-The shell uses blue for the directory, teal for the branch, and mauve for the
-model in Catppuccin. The summary stays bold in the normal text color. Context
-changes to yellow at 50% and red at 80%, matching the planning advisory;
-unavailable context is labeled explicitly. Plugin status values retain their
-warning colors. Permission mode stays next to the directory, including `scoped`
-when session rules are active and yellow `yolo` when auto-allow is enabled.
+The shell uses blue for the directory and teal for the branch in Catppuccin.
+Model and thinking values share an expense scale: blue for low, green for
+medium, peach or orange for high, and red for the highest tier. Unknown models
+stay neutral, while `off` and `minimal` thinking stay dim. The summary stays
+bold in the normal text color. Context changes to yellow at 50% and red at 80%,
+matching the planning advisory; unavailable context is labeled explicitly.
+Plugin status values retain their warning colors. Permission mode stays next to
+the directory, including `scoped` when session rules are active and yellow
+`yolo` when auto-allow is enabled.
 
 Compact mode keeps context, cost, output tokens, speed, and live status visible.
 `/shell details` adds input and cache counts, permission rule counts, and completed

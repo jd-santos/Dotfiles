@@ -37,6 +37,7 @@
 
 ## Done
 
+- [x] Color-code Pi model and thinking labels by relative expense (ordered model tiers, size heuristic, shared palette, tests, docs)
 - [x] Extract shared agent skills into `jd-santos/Skills` with pinned external sources and Dotfiles submodule installation
 - [x] Expand ship skill for context recovery, adaptive branches, and PRs
 - [x] Improve Pi shell hierarchy (prompt-attached workspace, bold summary, context meter, compact/details telemetry, Quiet Ink, branch titles, 14 passing checks)
