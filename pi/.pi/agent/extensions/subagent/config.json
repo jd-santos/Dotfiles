@@ -5,7 +5,7 @@
   "maxSubagentSpawnsPerSession": 20,
   "maxSubagentSpawnsPerRun": 6,
   "maxActiveAsyncRunsPerSession": 2,
-  "maxSubagentDepth": 0,
+  "maxSubagentDepth": 1,
   "parallel": {
     "maxTasks": 3,
     "concurrency": 3

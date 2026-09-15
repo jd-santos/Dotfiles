@@ -140,7 +140,7 @@ Initial limits:
 - At most 6 logical child launches per run tree
 - At most 20 child launches per parent session
 - At most 2 active top-level background runs per parent session
-- Nested subagent delegation disabled with `maxSubagentDepth: 0`
+- Delegation limited to one child level with `maxSubagentDepth: 1`; children cannot launch further agents
 - Scheduled runs disabled
 - Automatic missions disabled
 - Session-scoped artifacts, which keep generated state out of project worktrees

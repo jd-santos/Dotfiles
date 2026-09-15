@@ -105,7 +105,7 @@ MCP servers are defined in `.config/mcp/mcp.json`:
 - Runs start with fresh context unless the call explicitly requests a fork.
 - A run can launch at most 6 children, with no more than 3 parallel tasks.
 - A parent session can launch at most 20 children and keep at most 2 top-level background runs active.
-- Nested delegation, scheduled runs, and automatic missions are disabled initially.
+- Delegation is limited to one child level; scheduled runs and automatic missions are disabled initially.
 - Artifacts stay with the Pi session instead of being written into the project.
 
 The package runs child Pi processes with the current user's permissions. The limits reduce accidental fan-out but are not a sandbox. Keep concurrent writers in separate Git worktrees and let the parent own integration.
