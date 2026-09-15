@@ -37,6 +37,8 @@
 
 ## Done
 
+- [x] Extract shared agent skills into `jd-santos/Skills` with pinned external sources and Dotfiles submodule installation
+- [x] Expand ship skill for context recovery, adaptive branches, and PRs
 - [x] Improve Pi shell hierarchy (prompt-attached workspace, bold summary, context meter, compact/details telemetry, Quiet Ink, branch titles, 14 passing checks)
 - [x] Adopt pinned `pi-subagents` 0.51.0 with bounded execution and role-based model routing
 - [x] Add context-aware planning advisories to Pi (prompt-time telemetry, 50% wrap-up, 80% stop, future-agent packet sizing)
