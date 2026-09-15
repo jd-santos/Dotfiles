@@ -134,9 +134,9 @@ To upgrade, review the upstream diff, change the exact version in `.pi/agent/set
 | `/summary <text>` | Set the footer and session-name summary manually |
 | `/summary clear` | Clear the current summary |
 | `/shell [compact\|details]` | Toggle telemetry detail, or choose a display explicitly; saved with the session |
-| `/promptfoo-export [name]` | Export the active Pi branch as a promptfoo eval stub |
+| `/promptfoo-export [name]` | Export the active branch as a promptfoo eval stub |
 | `/plan [topic]` | Run the two-round planning prompt |
-| `/ship [instructions]` | Run the shared `ship` skill for branch review, commits, changelog checks, and push confirmation |
+| `/ship [instructions]` | Review, commit, and deliver local work by push or PR |
 
 ## Extensions
 
@@ -170,6 +170,14 @@ the editor, so they cannot separate the directory from the prompt.
 
 The permission gate is a visibility and consent layer, not a sandbox. It uses quote-aware command-chain analysis, auto-allows predictable inspection commands, and keeps interpreters, package managers, network tools, execution wrappers, and complex shell syntax behind a prompt. Session scopes include separate options for read-only Git inspection and all Git operations. See [docs/reference.md](docs/reference.md#permission-gate) for the exact rule order and command parsing notes.
 
+## Shared skills
+
+Pi loads shared Agent Skills from `~/.agents/skills`. The skills are maintained
+in [jd-santos/Skills](https://github.com/jd-santos/Skills) and pinned in this
+Dotfiles repository as the `agents/.agents` submodule. Run
+`./scripts/setup-agent-skills` from the Dotfiles root to initialize the
+submodule, install pinned external skills, and restow the package.
+
 ## Prompt templates
 
 ### `/plan`
@@ -184,11 +192,19 @@ The prompt says not to write files during the planning rounds. Plans are saved t
 ### `/ship`
 
 `/ship` is a thin wrapper around the shared `ship` skill in
-`~/.agents/skills/ship`. The skill owns the branch review workflow: inspect git
-state, review non-sensitive changes, group ready work into commits, decide
-whether a changelog update is needed, and ask before pushing.
+`~/.agents/skills/ship`. The skill recovers context from the session and Git,
+checks branches and sibling worktrees for conflicting activity, and turns ready
+work into focused Scoped Commits. It uses repository history to decide whether
+the current branch fits the work.
 
-Use `/ship [extra instructions]` when a branch is ready for final review.
+Commits, non-`main` pushes, and pull request creation can proceed without a
+separate confirmation when permissions allow them. A direct push to `main`
+always requires confirmation. Pull request descriptions summarize the commits
+in the PR range; if the description cannot be populated, `/ship` returns the
+intended text with the PR link.
+
+Use `/ship [extra instructions]` when local work is ready to review and deliver,
+even if the branch or worktree state is unclear.
 
 ## Themes
 

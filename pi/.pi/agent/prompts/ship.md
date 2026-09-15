@@ -1,5 +1,5 @@
 ---
-description: Review the current branch, commit ready work, and push after confirmation
+description: Recover repo context, create focused commits, and deliver by push or PR
 argument-hint: "[extra instructions]"
 ---
 # Ship

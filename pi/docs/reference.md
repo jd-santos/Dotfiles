@@ -49,6 +49,12 @@ Current shared settings include:
 - Scoped model list through `enabledModels`
 - Role-based subagent model routing with strict model scope enforcement
 
+The shared skills path comes from the
+[jd-santos/Skills](https://github.com/jd-santos/Skills) repository, pinned as the
+`agents/.agents` Git submodule. From the Dotfiles root, run
+`./scripts/setup-agent-skills` to initialize it, install pinned external skills,
+restow the package, and verify the generated copies.
+
 `Ctrl+P` cycles the scoped model list. `/model` opens the full selector.
 `/scoped-models` toggles the scoped list interactively.
 
@@ -532,12 +538,24 @@ Location: `.pi/agent/prompts/ship.md`
 `~/.agents/skills/ship`.
 
 The prompt stays small so the workflow can be reused outside Pi by any agent
-that understands Agent Skills. The skill owns the branch shipping behavior:
-inspect git state, protect secret-looking files, group ready work into focused
-commits, check whether a changelog update is needed, and ask before pushing.
+that understands Agent Skills. The skill inventories staged, unstaged, and
+untracked work; local and remote branches; sibling worktrees; recent history;
+and an existing PR. Session context narrows the scope after active development.
+With little context, the skill reviews every coherent local change. Sibling
+worktrees remain inspection-only, and signs of concurrent agent or user activity
+cause it to pause when shipping could interfere.
 
-Use it when a branch is ready for final review and you want the agent to handle
-commit grouping without skipping the push confirmation.
+Branch selection is a dedicated step. The skill uses repository history and the
+size of the work to decide whether the current branch is appropriate, and it
+calls out suspicious branch state before committing. Ready work becomes focused
+Scoped Commits using the shared `commit-message-writer` guidance. Documentation
+is split so commits describe the repository state they actually contain;
+future-facing text stays uncommitted when it cannot be separated safely.
+
+Commits, non-`main` pushes, and PR creation do not require separate confirmation.
+Direct pushes to `main` always do. New or updated PR descriptions summarize all
+commits in the PR range and preserve manually written context. If the body
+cannot be populated, the skill returns the intended text with the PR link.
 
 ## AGENTS.md
 
