@@ -190,7 +190,18 @@ submodule, install pinned external skills, and restow the package.
 1. Clarify intent, scope, constraints, and success criteria.
 2. Propose approaches with tradeoffs and remaining assumptions.
 
-The prompt says not to write files during the planning rounds. Plans are saved to `TODO.md` or `docs/` only when explicitly requested, and code starts only after an explicit go-ahead. Pair it with `/readonly` when you want the permission gate to enforce the no-write period.
+The prompt says not to write files during the planning rounds. After approval,
+`todo-manager` locates the project queue. New workbenches use `todo/TODO.md` as a
+P0–P4 priority index and stable `todo/work/<descriptive-name>/` folders for
+substantial plans and execution checklists. Legacy queues stay in place until
+migration is authorized. An implementation go-ahead also authorizes saving the
+agreed plan first, but not a Git commit. Pair `/plan` with `/readonly` when you
+want the permission gate to enforce the no-write period.
+
+`todo/README.md` is the human introduction and map. `todo/DONE.md` points to Git,
+PRs, the existing changelog, and retained evidence, with optional major release
+highlights. Parallel agents mostly edit separate work records; ownership notes
+are coordination hints, not locks.
 
 ### `/ship`
 
@@ -205,6 +216,13 @@ separate confirmation when permissions allow them. A direct push to `main`
 always requires confirmation. Pull request descriptions summarize the commits
 in the PR range; if the description cannot be populated, `/ship` returns the
 intended text with the PR link.
+
+Shipping also reconciles relevant task records against the actual diff and
+validation. Ready work leaves the live queue in its closeout commit; unfinished
+work stays. Useful evidence keeps stable paths, obsolete guidance is resolved,
+and file deletions require explicit approval. The existing `CHANGELOG.md` stays
+the release record, not a task ledger. Post-merge branch/worktree cleanup is a
+separate authorized operation.
 
 Use `/ship [extra instructions]` when local work is ready to review and deliver,
 even if the branch or worktree state is unclear.

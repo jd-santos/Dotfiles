@@ -406,9 +406,20 @@ Future-agent and future-subagent packets use a coarse context estimate:
 
 Work expected to exceed 40% should be split. Packets may represent a focused change, a subsystem or file cluster, exploratory research, or work suitable for a future subagent. The first version prepares packets but does not execute subagents.
 
-`TODO.md` is the durable handoff ledger. An actual handoff preparation is recorded under the active task as `Handoff prepared at ~N% context`.
+The task index links to durable work records. An actual handoff updates the
+existing work README with remaining steps, blockers, validation, and relevant
+links; small inline tasks keep their handoff inline. Record
+`Handoff prepared at ~N% context` there when usage is known, without generating
+another dated handoff file.
 
 The extension is advisory-only. It does not edit TODO files, compact context, switch sessions, or execute subagents. When usage is temporarily unavailable after compaction, it reports unknown capacity rather than assuming an empty context.
+
+Test the thresholds, work-record handoff wording, unknown telemetry, and session
+reset behavior without starting a model session:
+
+```bash
+node --test pi/.pi/agent/extensions/tests/context-planner.test.mjs
+```
 
 ## Footer
 
@@ -532,7 +543,24 @@ Round 1 asks clarifying questions about intent, scope, constraints, and success 
 
 Round 2 restates the problem, offers 2 to 3 approaches with tradeoffs, and calls out remaining assumptions or unknowns.
 
-The prompt says to save plans to `TODO.md` or `docs/` only on explicit instruction. Code starts only after an explicit go-ahead. Pair it with `/readonly` when the no-write planning period should be enforced by the permission gate.
+The prompt saves plans only on explicit instruction, using `todo-manager` to
+locate the existing queue. In new or migrated workbenches, small tasks live under
+P0–P4 headings in `todo/TODO.md`; substantial work uses a stable
+`todo/work/<descriptive-name>/README.md`. That record owns its execution
+checklist, acceptance criteria, status, and ownership. A separate `plan.md` is
+optional for larger designs. Do not duplicate checklists or competing plans.
+
+Code starts only after an explicit go-ahead. An implementation go-ahead after
+agreement also authorizes saving the agreed plan first, not a Git commit. Legacy
+queues require an authorized migration. Pair `/plan` with `/readonly` when the
+no-write planning period should be enforced by the permission gate.
+
+`todo/README.md` introduces and maps the workbench for humans. `todo/DONE.md`
+links to history, PRs, the existing changelog, and retained evidence. It may
+highlight selected major releases but is not another completed-task ledger.
+Concurrent workers use separate worktrees and primarily edit their own records;
+the coordinator or integrator reconciles shared index edits. Markdown ownership
+notes do not provide locking across worktrees.
 
 ## Ship prompt
 
@@ -555,10 +583,36 @@ calls out suspicious branch state before committing. Ready work becomes focused
 Scoped Commits using the shared `commit-message-writer` guidance. Documentation
 is split so commits describe the repository state they actually contain;
 future-facing text stays uncommitted when it cannot be separated safely.
+Clearly labeled workbench plans and historical evidence can be committed as
+such, without claiming proposed product behavior already exists.
+
+Before committing, shipping reconciles the relevant tasks with the diff,
+acceptance criteria, and validation. It removes only ready scope from the live
+queue in the corresponding closeout commit, preserving unfinished parent tasks
+and concurrent work. Useful records remain at stable paths with accurate status;
+a checked box or successful push does not prove merge or release.
+
+Artifact review distinguishes evidence from duplicate summaries, competing
+plans, and scratch output. The agent resolves known obsolete guidance and
+proposes deletions by path and reason. File deletions need explicit approval,
+separate from shipping permission. Declined or unanswered optional pruning does
+not block otherwise safe delivery; sensitive material remains blocked.
+
+`CHANGELOG.md` retains its existing location and owns release notes. DONE may
+link to it, live PR queries, or existing generated reports, with optional
+highlights for up to three verified major releases. Saved generated tables must
+identify their source, generation date, and refresh method. No report generator
+is installed by this workflow.
+
+Post-merge branch/worktree deletion is a separate authorized operation. Do not
+require a follow-up commit only to change a status label; verify delivery when
+reconciling records later. A Ready for merge record may be stale, not unmerged.
 
 Commits, non-`main` pushes, and PR creation do not require separate confirmation.
 Direct pushes to `main` always do. New or updated PR descriptions summarize all
-commits in the PR range and preserve manually written context. If the body
+commits in the PR range, preserve manually written context, and carry motivation,
+consequential decisions, validation, and limitations forward even for squash
+merges. If the body
 cannot be populated, the skill returns the intended text with the PR link.
 
 ## AGENTS.md
