@@ -22,14 +22,17 @@ After I answer Round 1:
 
 Stop and wait again.
 
-## Commit
+## Save
 
-Only after I explicitly say something like "write it up", "commit the plan", or "save to docs":
+Only after I explicitly say something like "write it up", "commit the plan", or "save it", load `todo-manager` and save the agreed plan. Respect existing queue locations until migration is authorized. In a new or migrated workbench:
 
-- Small/medium tasks → update `TODO.md` via the todo-manager skill.
-- Larger or design-heavy tasks → write `docs/<topic>.md` with the chosen approach, rejected alternatives, and acceptance criteria.
+- Small tasks → update `todo/TODO.md` under a P0–P4 priority heading.
+- Substantial tasks → link `todo/work/<descriptive-name>/README.md` from the index. Keep its execution checklist, acceptance criteria, status, and ownership there.
+- Design-heavy tasks → add `plan.md` in that work folder only when needed, with the chosen approach, rejected alternatives and reasons, and links to acceptance criteria.
 
-Only after I say "build it", "implement", or similar, begin writing code.
+Keep one current plan and one detailed checklist. Agree on disjoint scope before parallel implementation; ownership notes are not locks across worktrees.
+
+Only after I say "build it", "implement", or similar, begin writing code. An implementation go-ahead after agreement also authorizes saving the agreed plan first. Saving a plan does not itself authorize a Git commit.
 
 ## Rules
 

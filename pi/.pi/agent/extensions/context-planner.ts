@@ -35,7 +35,7 @@ Context usage is temporarily unavailable, which commonly happens immediately aft
 	let guidance: string;
 	if (state === "stop") {
 		guidance =
-			"The 80% working ceiling has been reached. Do not start new work. Only perform small fixes needed to leave the project coherent, prepare bounded future-agent or future-subagent packets, and record handoff preparation in TODO.md when a handoff is actually prepared.";
+			"The 80% working ceiling has been reached. Do not start new work. Only perform small fixes needed to leave the project coherent, prepare bounded future-agent or future-subagent packets, and record an actual handoff in the existing work README or inline task according to the todo-manager skill.";
 	} else if (state === "wrap-up") {
 		guidance = `Wrap-up planning is active, with ${distanceToCeiling.toFixed(1)} percentage points before the 80% working ceiling. Prefer finishing the current coherent unit over expanding scope. Recommend wrapping up, divide remaining work into bounded future-agent or future-subagent packets, and give each packet a small, medium, or large estimated context size.`;
 	} else {

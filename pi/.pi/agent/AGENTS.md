@@ -30,12 +30,16 @@ Before committing changes, verify whether the repository is public: `gh repo vie
 
 ## Task Tracking
 
-When working on multi-step tasks, or when the user mentions todos, use the `todo-manager` skill to maintain the project's `TODO.md`. Invoke it with `/skill:todo-manager` if it does not load automatically.
+When working on multi-step tasks, or when the user mentions todos, load the `todo-manager` skill. New workbenches use root-level `todo/`; respect existing project conventions and migrate legacy queues only with authorization. Read-only planning rounds do not authorize task writes.
 
 Active responsibilities:
 
-- Maintain the project's `TODO.md` throughout multi-step work
-- Move completed items to the Done section when tasks wrap up
+- Maintain `todo/TODO.md` as a P0: Rush, P1: Essential, P2: High, P3: Low, P4: Minor priority index
+- Keep small checklists inline; larger work uses a stable `todo/work/<descriptive-name>/README.md` with one detailed checklist and links to supporting material
+- Agree on disjoint scope for concurrent agents; keep one writer per checkout, use separate worktrees, and reconcile shared index edits through the coordinator or integrator
+- Check completed steps in place; remove only ready scope during reviewed shipping closeout, without a Done task ledger
+- Keep `todo/README.md` as the human introduction and map; `todo/DONE.md` links to Git, PRs, the existing changelog, and retained evidence, with optional selected release highlights
+- Preserve useful evidence, resolve obsolete guidance, and ask before deleting artifacts; do not load retained work wholesale as current instructions
 - Proactively flag high-priority issues discovered while working (limit: 1-2 suggestions per session)
 
 ### Context-Aware Planning
@@ -64,7 +68,7 @@ Add only a coarse context estimate to each planned packet:
 
 Split work expected to exceed 40% into smaller packets. Do not execute future-subagent packets automatically.
 
-`TODO.md` is the durable handoff ledger. When a handoff is actually prepared, add a short completed subtask under the active item in this form: `Handoff prepared at ~N% context`. The advisory alone does not authorize TODO edits, compaction, session switching, or subagent execution.
+The task index points to durable work records. When a handoff is actually prepared, update the existing work README with remaining steps, blockers, validation, and links; for small inline tasks, keep the handoff under the task. Record `Handoff prepared at ~N% context` there when usage is known, without generating a separate dated handoff document. The advisory alone does not authorize task edits, compaction, session switching, or subagent execution.
 
 If usage is unavailable immediately after compaction, treat capacity as unknown. Do not infer that the context is empty, and do not stop solely because telemetry is unavailable.
 
@@ -91,9 +95,11 @@ Planning is a first-class file operation, not a separate mode. There is no plan/
 
 1. **Ask questions first.** Before writing any code, ask clarifying questions until the intent is unambiguous. Surface ambiguity as inline questions, not as a planning wall.
 
-2. **Write docs second.** Capture the plan, spec, or design as a committed artifact before implementing. Planning output must not live only in chat. Use:
-   - `TODO.md` (via the todo-manager skill) for tasks, next steps, and open questions
-   - `docs/` for specs, decisions, or notes that deserve their own named document
+2. **Write docs second.** Save the agreed plan before implementing; saving does not itself authorize a Git commit. Planning output must not live only in chat. Use the `todo-manager` skill to locate the existing queue. In a new or migrated workbench:
+   - `todo/TODO.md` for the priority index and small inline tasks
+   - `todo/work/<descriptive-name>/README.md` for substantial work, its checklist, and handoff
+   - A linked `plan.md` in that work folder when the design needs its own document
+   - Maintained project docs for enduring reference material, not competing working plans
 
 3. **Write code third.** Implement based on the documented plan.
 
@@ -103,7 +109,7 @@ For anything beyond a trivial edit, run the `planning-first` skill or the `/plan
 
 - **Round 1 — Clarify**: ask 3–7 questions about intent, scope, constraints, and success criteria. No solutions yet. Read-only exploration is fine.
 - **Round 2 — Propose**: restate the problem, offer 2–3 approaches with tradeoffs, surface assumptions, ask follow-up questions.
-- **Commit** the plan to `TODO.md` or `docs/` only on explicit user authorization. **Build** only on explicit go-ahead.
+- **Save** the plan in the task workbench only on explicit user authorization. **Build** only on explicit go-ahead. An implementation go-ahead after agreement also authorizes saving the agreed plan first.
 
 Pair with `/readonly` when the user wants the permission gate to enforce no-writes during the rounds.
 
