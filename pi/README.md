@@ -192,7 +192,7 @@ submodule, install pinned external skills, and restow the package.
 
 The prompt says not to write files during the planning rounds. After approval,
 `todo-manager` locates the project queue. New workbenches use `todo/TODO.md` as a
-P0–P4 priority index and stable `todo/work/<descriptive-name>/` folders for
+P1–P5 priority index and stable `todo/work/<descriptive-name>/` folders for
 substantial plans and execution checklists. Legacy queues stay in place until
 migration is authorized. An implementation go-ahead also authorizes saving the
 agreed plan first, but not a Git commit. Pair `/plan` with `/readonly` when you

@@ -26,7 +26,7 @@ Stop and wait again.
 
 Only after I explicitly say something like "write it up", "commit the plan", or "save it", load `todo-manager` and save the agreed plan. Respect existing queue locations until migration is authorized. In a new or migrated workbench:
 
-- Small tasks → update `todo/TODO.md` under a P0–P4 priority heading.
+- Small tasks → update `todo/TODO.md` under a P1–P5 priority heading.
 - Substantial tasks → link `todo/work/<descriptive-name>/README.md` from the index. Keep its execution checklist, acceptance criteria, status, and ownership there.
 - Design-heavy tasks → add `plan.md` in that work folder only when needed, with the chosen approach, rejected alternatives and reasons, and links to acceptance criteria.
 
