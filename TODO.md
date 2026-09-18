@@ -2,6 +2,14 @@
 
 ## In Progress
 
+- [ ] [HIGH] Reconcile stale PRs and ship Pi and Skills work
+  - [ ] Preserve PR #27's unique priority-scale work and rebase it onto current `main`
+  - [ ] Publish the Skills `i-am-baby` work and retained `execute-code.sh` change
+  - [ ] Update the Dotfiles submodule pointer to the shipped Skills revision
+  - [ ] Create a separate Dotfiles PR for model and permission-gate changes
+  - [ ] Run focused validation and review all staged diffs
+  - [ ] Prune only merged or fully superseded branches after delivery
+
 - [ ] [HIGH] Fix Pi permission-gate allow-always handling for complex bash commands
   - [x] Escape regex-based command pattern rules
   - [x] Avoid pattern-scope options for heredocs and other complex bash commands
