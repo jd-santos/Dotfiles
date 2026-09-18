@@ -74,9 +74,9 @@ If usage is unavailable immediately after compaction, treat capacity as unknown.
 
 ## Documentation and Prose
 
-When writing documentation, code comments, READMEs, or any user-facing text, load and follow the `technical-writing-style` skill.
+When drafting, rewriting, or polishing prose or copyable text, load and follow the `core-writing` skill. Also load `technical-writing` for documentation, code comments, READMEs, technical explanations, specs, or agent instructions.
 
-Core requirements from that skill:
+Core requirements from `core-writing`:
 
 - No em dashes
 - No marketing language ("seamless", "comprehensive", "enterprise-grade", "best practices")
