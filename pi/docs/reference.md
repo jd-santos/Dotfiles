@@ -40,8 +40,8 @@ Shared settings live in `.pi/agent/settings.base.json`. Local overrides live in
 Current shared settings include:
 
 - Theme: `catppuccin-mocha`
-- Default model: `openrouter/openai/gpt-5.6-luna`
-- Thinking level: `xhigh`
+- Default model: `openai-codex/gpt-5.6-sol`
+- Thinking level: `medium`
 - Thinking block: visible on output
 - Startup: quiet
 - Packages: `npm:pi-mcp-adapter`, `npm:pi-lens`, and pinned `npm:pi-subagents@0.51.0`
@@ -66,6 +66,7 @@ Scoped model cycle:
 - `openrouter/qwen/qwen3.8-27b`
 - `openai-codex/gpt-5.6-sol`
 - `openai-codex/gpt-5.6-terra`
+- `openai-codex/gpt-5.6-luna`
 - `openrouter/deepseek/deepseek-v4-flash`
 - `openrouter/moonshotai/kimi-k3`
 
