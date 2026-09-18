@@ -3,12 +3,13 @@
 ## In Progress
 
 - [ ] [HIGH] Reconcile stale PRs and ship Pi and Skills work
-  - [ ] Preserve PR #27's unique priority-scale work and rebase it onto current `main`
-  - [ ] Publish the Skills `i-am-baby` work and retained `execute-code.sh` change
-  - [ ] Update the Dotfiles submodule pointer to the shipped Skills revision
-  - [ ] Create a separate Dotfiles PR for model and permission-gate changes
-  - [ ] Run focused validation and review all staged diffs
-  - [ ] Prune only merged or fully superseded branches after delivery
+  - [x] Preserve PR #27's unique priority-scale work and rebase it onto current `main`
+  - [x] Publish the Skills `i-am-baby` work and retained `execute-code.sh` change
+  - [x] Update the Dotfiles submodule pointer to the shipped Skills revision
+  - [x] Create a separate Dotfiles PR for model and permission-gate changes
+  - [x] Run focused validation and review all staged diffs
+  - [x] Prune only merged or fully superseded branches after delivery
+  - PR #27 and PR #29 are ready for merge; Skills PR #8 has merged.
 
 - [ ] [HIGH] Fix Pi permission-gate allow-always handling for complex bash commands
   - [x] Escape regex-based command pattern rules
