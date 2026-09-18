@@ -34,7 +34,7 @@ When working on multi-step tasks, or when the user mentions todos, load the `tod
 
 Active responsibilities:
 
-- Maintain `todo/TODO.md` as a P0: Rush, P1: Essential, P2: High, P3: Low, P4: Minor priority index
+- Maintain `todo/TODO.md` as a P1: Rush, P2: High, P3: Essential, P4: Low, P5: Minor priority index
 - Keep small checklists inline; larger work uses a stable `todo/work/<descriptive-name>/README.md` with one detailed checklist and links to supporting material
 - Agree on disjoint scope for concurrent agents; keep one writer per checkout, use separate worktrees, and reconcile shared index edits through the coordinator or integrator
 - Check completed steps in place; remove only ready scope during reviewed shipping closeout, without a Done task ledger

@@ -545,7 +545,7 @@ Round 2 restates the problem, offers 2 to 3 approaches with tradeoffs, and calls
 
 The prompt saves plans only on explicit instruction, using `todo-manager` to
 locate the existing queue. In new or migrated workbenches, small tasks live under
-P0–P4 headings in `todo/TODO.md`; substantial work uses a stable
+P1–P5 headings in `todo/TODO.md`; substantial work uses a stable
 `todo/work/<descriptive-name>/README.md`. That record owns its execution
 checklist, acceptance criteria, status, and ownership. A separate `plan.md` is
 optional for larger designs. Do not duplicate checklists or competing plans.
