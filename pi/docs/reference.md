@@ -40,8 +40,8 @@ Shared settings live in `.pi/agent/settings.base.json`. Local overrides live in
 Current shared settings include:
 
 - Theme: `catppuccin-mocha`
-- Default model: `openrouter/openai/gpt-5.6-luna`
-- Thinking level: `xhigh`
+- Default model: `openai-codex/gpt-5.6-sol`
+- Thinking level: `medium`
 - Thinking block: visible on output
 - Startup: quiet
 - Packages: `npm:pi-mcp-adapter`, `npm:pi-lens`, and pinned `npm:pi-subagents@0.51.0`
@@ -66,6 +66,7 @@ Scoped model cycle:
 - `openrouter/qwen/qwen3.8-27b`
 - `openai-codex/gpt-5.6-sol`
 - `openai-codex/gpt-5.6-terra`
+- `openai-codex/gpt-5.6-luna`
 - `openrouter/deepseek/deepseek-v4-flash`
 - `openrouter/moonshotai/kimi-k3`
 
@@ -162,14 +163,16 @@ These defaults support parent-directed scouting, implementation, and review with
 
 Location: `.pi/agent/extensions/permission-gate.ts`
 
-The permission gate prompts before writes, edits, and bash commands that are not on the safe list. Each prompt can also send an optional note back to the model as steering text.
+The permission gate allows `write` and `edit` calls in the current working directory by default. It prompts before file changes outside the working directory and bash commands that are not on the inspection allowlist. Each prompt can also send an optional note back to the model as steering text.
 
 Prompt flow:
 
 1. Show the tool target or command preview.
 2. Let the user allow once, always allow, deny, show or hide the full command, or add a note.
-3. If always allowed, ask for a scope.
+3. If always allowed, ask for a session scope. The first options are the exact operation, yolo, and all write/edit operations. Tool-specific options follow, with directory options last.
 4. If denied, ask whether the denial should apply once or become a session rule.
+
+Writes to protected system paths, destructive or permission-changing shell commands, and remote-execution commands always require an interactive one-time confirmation. They are not covered by yolo or session rules. Sensitive bash reads remain blocked.
 
 The prompt also sets the below-editor pointer widget and fires cmux alert hooks.
 
@@ -178,7 +181,7 @@ The prompt also sets the below-editor pointer widget and fires cmux alert hooks.
 | Command | Effect |
 | --- | --- |
 | `/readonly` | Toggle read-only mode. Writes and edits are blocked. Bash is limited to safe commands |
-| `/yolo` | Toggle full auto-allow mode. Known sensitive bash reads still stay blocked |
+| `/yolo` | Toggle auto-allow mode. Sensitive bash reads stay blocked, and high-risk operations still require one-time confirmation |
 | `/rules` | Show active session rules |
 | `/reset-rules` | Clear session rules, disable yolo, and disable read-only mode |
 
@@ -188,14 +191,15 @@ Session rules are ephemeral and reset between Pi sessions.
 
 Allow scopes:
 
-- Current directory, parent directory, or grandparent directory
-- Current tool type
-- Both write and edit tool types, for write and edit prompts
-- Individual bash command patterns, such as `rg`
+- The exact target or bash command for the current session
+- Everything, which enables yolo mode
+- Both write and edit tool types, regardless of path
+- The current tool type
+- Individual bash executables, such as `rg`
+- All executables in the current bash command
 - Read-only Git inspection
 - All Git operations for the session
-- All command patterns in a bash command
-- Everything, which is full yolo mode
+- Current directory, parent directory, or grandparent directory
 
 Deny scopes:
 
@@ -211,21 +215,23 @@ Rules are deduplicated before being stored.
 For write and edit tools:
 
 1. Read-only mode blocks.
-2. Session deny rules block.
-3. Session allow rules allow.
-4. Otherwise, prompt.
+2. Session deny rules block unless yolo is active.
+3. Protected system paths require an interactive one-time confirmation.
+4. Session allow rules allow.
+5. Paths inside the working directory allow by default.
+6. Otherwise, prompt.
 
 For bash:
 
 1. Known sensitive file read patterns block.
-2. Session deny rules block.
+2. Destructive, permission-changing, privileged, remote-execution, and protected-system-path commands require an interactive one-time confirmation.
 3. Simple commands auto-allow when every part of the command chain passes a static inspection policy.
 4. Read-only mode blocks anything not already covered by a static inspection policy.
 5. Broad session scopes, such as the current directory or bash tool type, allow.
 6. Command-specific session rules allow only when every part is covered by either a static inspection policy or a matching session rule.
 7. Otherwise, prompt.
 
-Yolo mode is explicit session state. Known sensitive bash reads are checked before yolo can allow the command.
+Yolo mode is explicit session state. It can allow normal Git pushes and other ordinary operations, but it cannot bypass sensitive-read blocks or high-risk confirmations.
 
 ### Safe bash commands
 
@@ -243,7 +249,7 @@ The safe list is meant for read-only inspection. It includes commands such as:
 
 Argument checks keep mutating or executable variants behind prompts. Examples include `find -exec`, `find -delete`, `fd --exec`, `sed -i`, `rg --pre`, `sort -o`, `tree -o`, `file --compile`, `xmllint --output`, AWK execution or output redirection, and Git output or mutation options.
 
-Interpreters, package managers, network tools, and execution wrappers are never inferred as safe. This includes shells, Python, Node, Ruby, Perl, `uv`, npm-family commands, `gh`, `curl`, `wget`, `ssh`, `env`, and `xargs`.
+Interpreters, package managers, network tools, and execution wrappers are never inferred as safe. This includes shells, Python, Node, Ruby, Perl, `uv`, npm-family commands, `gh`, `curl`, `wget`, `env`, and `xargs`. Remote-execution tools such as `ssh`, `scp`, and `sftp` require one-time confirmation even in yolo mode.
 
 For chained commands, every part must be covered by the static inspection policies or an explicit session rule.
 

@@ -71,13 +71,13 @@ That split keeps each extension small while making the UI feel like one system.
 The shared model shortlist comes from `enabledModels` in
 `.pi/agent/settings.base.json`. `Ctrl+P` cycles that scoped list. The current
 cycle starts with OpenRouter GPT-5.6 Luna, GLM-5.3-Flash, GPT-5.6 Sol, and
-Qwen3.8 27B. Codex GPT-5.6 Sol and Terra remain as backups, followed by
+Qwen3.8 27B. Codex GPT-5.6 Sol, Terra, and Luna remain as backups, followed by
 DeepSeek V4 Flash and Kimi K3. `/model` still opens the full selector, and
 `/scoped-models` toggles the scoped list interactively.
 
-The shared default is `openrouter/openai/gpt-5.6-luna` with extra-high
-(`xhigh`) thinking. OpenRouter standby models, including GPT-5.6 Pro routes,
-GLM 5.2, Qwen 3.7, and Gemma 4, stay out of the `Ctrl+P` cycle but remain
+The shared default is `openai-codex/gpt-5.6-sol` with medium thinking.
+OpenRouter standby models, including GPT-5.6 Pro routes, GLM 5.2, Qwen 3.7,
+and Gemma 4, stay out of the `Ctrl+P` cycle but remain
 available through `/model` when the provider catalog and auth expose them.
 The `~/bin/pi`
 wrapper resolves the OpenRouter `op://` reference through 1Password before
@@ -119,7 +119,7 @@ To upgrade, review the upstream diff, change the exact version in `.pi/agent/set
 | Command | What it does |
 | --- | --- |
 | `/readonly` | Toggle read-only mode. Blocks writes and restricts bash to the safe list |
-| `/yolo` | Toggle full auto-allow mode. Known sensitive bash reads still stay blocked |
+| `/yolo` | Toggle auto-allow mode. Sensitive bash reads and high-risk operations still require confirmation |
 | `/rules` | Show active permission rules for the session |
 | `/reset-rules` | Clear permission rules and return to a fresh default state |
 | `/costs` | Show token, cost, and tool-call totals for the current session |
@@ -171,7 +171,14 @@ before the current directory; each branch and permission field gets reserved
 space. Narrow telemetry wraps onto additional rows. Lens diagnostics remain below
 the editor, so they cannot separate the directory from the prompt.
 
-The permission gate is a visibility and consent layer, not a sandbox. It uses quote-aware command-chain analysis, auto-allows predictable inspection commands, and keeps interpreters, package managers, network tools, execution wrappers, and complex shell syntax behind a prompt. Session scopes include separate options for read-only Git inspection and all Git operations. See [docs/reference.md](docs/reference.md#permission-gate) for the exact rule order and command parsing notes.
+The permission gate allows writes and edits inside the working directory by
+default. It prompts for changes outside that directory, unrecognized shell
+commands, and high-risk operations. Its scope picker starts with the exact
+operation, yolo, and global write/edit options. Command and folder scopes
+follow, with folder choices last. Yolo permits normal Git pushes, but
+sensitive reads and high-risk operations still require confirmation. See
+[docs/reference.md](docs/reference.md#permission-gate) for the command rules
+and scope order.
 
 ## Shared skills
 

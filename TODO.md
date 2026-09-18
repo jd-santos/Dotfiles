@@ -2,6 +2,15 @@
 
 ## In Progress
 
+- [ ] [HIGH] Reconcile stale PRs and ship Pi and Skills work
+  - [x] Preserve PR #27's unique priority-scale work and rebase it onto current `main`
+  - [x] Publish the Skills `i-am-baby` work and retained `execute-code.sh` change
+  - [x] Update the Dotfiles submodule pointer to the shipped Skills revision
+  - [x] Create a separate Dotfiles PR for model and permission-gate changes
+  - [x] Run focused validation and review all staged diffs
+  - [x] Prune only merged or fully superseded branches after delivery
+  - PR #27 and PR #29 are ready for merge; Skills PR #8 has merged.
+
 - [ ] [HIGH] Fix Pi permission-gate allow-always handling for complex bash commands
   - [x] Escape regex-based command pattern rules
   - [x] Avoid pattern-scope options for heredocs and other complex bash commands
@@ -17,6 +26,10 @@
   - [x] Add separate read-only Git and all Git session scopes
   - [x] Add helper-level regression tests for command analysis and rule coverage
   - [x] Sync Pi README and reference documentation
+  - [x] Default CWD write and edit operations to allow, while retaining delete-like and permission-changing safeguards
+  - [x] Broaden bash permissions with a hybrid risk policy and preserve hard blocks for sensitive access
+  - [x] Reorder permission scopes: exact session pattern, yolo, global write/edit, tool-specific choices, then directories
+  - [x] Update Pi permission documentation and run focused regression checks
 - [ ] Add Pi analytics and git helper extensions
   - [x] Implement `lg.ts` as a scripted git summary command with `--staged` and `--all` modes
   - [x] Implement `tps-tracker.ts` with live footer status and final notification

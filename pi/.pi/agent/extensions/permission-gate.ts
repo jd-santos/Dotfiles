@@ -3,11 +3,12 @@
  *
  * Commands:
  *   /readonly    Toggle hard block on all writes + restrict bash to allowlist
- *   /yolo        Toggle skip-all-prompts mode (sensitive files still blocked)
+ *   /yolo        Auto-allow ordinary operations (sensitive and high-risk work stays gated)
  *   /rules       Show active session permission rules
  *   /reset-rules Clear all session permission rules
  *
- * Default mode: prompts for write/edit and unrecognized bash commands.
+ * Default mode: allows writes and edits inside the working directory, then
+ * prompts for other file operations and unrecognized bash commands.
  * Two-step prompt: first choose once/always/deny, then pick the scope.
  *
  * Chained bash commands (cd && ls) are split with quote awareness, each part
@@ -22,6 +23,8 @@
 
 /// <reference path="../types.d.ts" />
 
+import { homedir } from "node:os";
+import { isAbsolute, resolve } from "node:path";
 import type {
 	ExtensionAPI,
 	ExtensionContext,
@@ -83,6 +86,40 @@ const SAFE_INSPECTION_PATTERNS: RegExp[] = [
 
 // These command families are intentionally never inferred as safe. They can
 // execute arbitrary code, install packages, use the network, or mutate state.
+const HIGH_DANGER_COMMANDS = new Set([
+	"chgrp",
+	"chmod",
+	"chown",
+	"dd",
+	"diskutil",
+	"doas",
+	"halt",
+	"mkfs",
+	"poweroff",
+	"reboot",
+	"rmdir",
+	"rm",
+	"shutdown",
+	"sudo",
+	"unlink",
+]);
+
+const REMOTE_EXECUTION_COMMANDS = new Set(["scp", "sftp", "ssh"]);
+
+const PROTECTED_PATH_PREFIXES = [
+	"/Applications",
+	"/Library",
+	"/System",
+	"/bin",
+	"/boot",
+	"/etc",
+	"/opt",
+	"/private",
+	"/sbin",
+	"/usr",
+	"/var",
+];
+
 const PROMPT_ONLY_COMMANDS = new Set([
 	".",
 	"bash",
@@ -154,6 +191,7 @@ type BashPolicy = "git-read" | "git-all";
 export type PermissionRule =
 	| { type: "tool"; tool: string }
 	| { type: "directory"; prefix: string }
+	| { type: "operation"; tool: string; signature: string }
 	| { type: "bash"; commands: string[] }
 	| { type: "bashPolicy"; policy: BashPolicy }
 	| { type: "yolo" };
@@ -176,8 +214,7 @@ function isShellOperatorBoundary(char: string | undefined): boolean {
 function isNonMutatingDevNullRedirect(command: string, index: number): boolean {
 	const suffix = command.slice(index);
 	return (
-		/^(?:>>?|<)\s*\/dev\/null(?:\s|$|[;&|])/.test(suffix) ||
-		/^>&\d/.test(suffix)
+		/^(?:>>?|<)\s*\/dev\/null(?:\s|$|[;&|])/.test(suffix) || /^>&\d/.test(suffix)
 	);
 }
 
@@ -334,10 +371,7 @@ function splitShellWords(command: string): string[] {
 function extractCommandPattern(part: string): string | undefined {
 	const words = splitShellWords(part);
 	let index = 0;
-	while (
-		index < words.length &&
-		/^[A-Za-z_][A-Za-z0-9_]*=/.test(words[index])
-	) {
+	while (index < words.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(words[index])) {
 		index++;
 	}
 	return words[index];
@@ -527,6 +561,42 @@ export function isSafeCommandPart(part: string): boolean {
 	return SAFE_INSPECTION_PATTERNS.some((pattern) => pattern.test(part));
 }
 
+export function highDangerBashReason(
+	parts: string[],
+	cwd: string,
+): string | undefined {
+	const commandTokens = parts
+		.map(extractCommandPattern)
+		.filter((command): command is string => Boolean(command));
+	if (
+		commandTokens.some((command) => ["curl", "wget"].includes(command)) &&
+		commandTokens.some((command) =>
+			["bash", "dash", "fish", "node", "python", "python3", "sh", "zsh"].includes(
+				command,
+			),
+		)
+	) {
+		return "downloads are being piped into an interpreter";
+	}
+
+	for (const part of parts) {
+		const command = extractCommandPattern(part);
+		if (command && HIGH_DANGER_COMMANDS.has(command)) {
+			return `${command} can delete files, change permissions, or alter the system`;
+		}
+		if (command && REMOTE_EXECUTION_COMMANDS.has(command)) {
+			return `${command} can execute or transfer data on another machine`;
+		}
+		const protectedPath = splitShellWords(part).find(
+			(word) => word.startsWith("/") && isProtectedPath(word, cwd),
+		);
+		if (protectedPath) {
+			return `${protectedPath} is a protected system path`;
+		}
+	}
+	return undefined;
+}
+
 function isBashRule(rule: PermissionRule): boolean {
 	return rule.type === "bash" || rule.type === "bashPolicy";
 }
@@ -556,9 +626,7 @@ export function areBashPartsCovered(
 		parts.every(
 			(part) =>
 				isSafeCommandPart(part) ||
-				rules.some(
-					(rule) => isBashRule(rule) && bashRuleMatchesPart(rule, part),
-				),
+				rules.some((rule) => isBashRule(rule) && bashRuleMatchesPart(rule, part)),
 		)
 	);
 }
@@ -597,6 +665,23 @@ function pathStartsWith(path: string, prefix: string): boolean {
 	return n === p || n.startsWith(p + "/");
 }
 
+function resolvePath(path: string, cwd: string): string {
+	return isAbsolute(path) ? resolve(path) : resolve(cwd, path);
+}
+
+export function isPathInCwd(path: string, cwd: string): boolean {
+	return pathStartsWith(resolvePath(path, cwd), resolve(cwd));
+}
+
+export function isProtectedPath(path: string, cwd: string): boolean {
+	const resolved = resolvePath(path, cwd);
+	return (
+		PROTECTED_PATH_PREFIXES.some((prefix) => pathStartsWith(resolved, prefix)) ||
+		pathStartsWith(resolved, resolve(homedir(), ".ssh")) ||
+		pathStartsWith(resolved, resolve(homedir(), ".aws"))
+	);
+}
+
 function unreachable(value: never): never {
 	throw new Error(`Unhandled permission rule: ${JSON.stringify(value)}`);
 }
@@ -618,14 +703,14 @@ export default function (pi: ExtensionAPI) {
 			ctx.ui.notify(
 				readonly
 					? "Read-only mode on. Writes and edits are blocked."
-					: "Read-only mode off. Writes will prompt for confirmation.",
+					: "Read-only mode off. CWD writes and edits allow automatically.",
 				"info",
 			);
 		},
 	});
 
 	pi.registerCommand("yolo", {
-		description: "Toggle yolo mode — skip all permission prompts",
+		description: "Toggle yolo mode — auto-allow ordinary operations",
 		handler: async (_args, ctx) => {
 			yolo = !yolo;
 			if (yolo) {
@@ -637,7 +722,7 @@ export default function (pi: ExtensionAPI) {
 			updateStatus(ctx);
 			ctx.ui.notify(
 				yolo
-					? "Yolo mode on. All write/edit/bash operations will auto-allow."
+					? "Yolo mode on. Ordinary operations auto-allow; high-risk operations still confirm."
 					: "Yolo mode off. Prompts restored.",
 				"info",
 			);
@@ -686,10 +771,7 @@ export default function (pi: ExtensionAPI) {
 		if (yolo) parts.push("yolo");
 		if (rules.allow.length > 0) parts.push(`+${rules.allow.length}`);
 		if (rules.deny.length > 0) parts.push(`-${rules.deny.length}`);
-		ctx.ui.setStatus(
-			"permission-gate",
-			parts.length ? parts.join(" | ") : "ask",
-		);
+		ctx.ui.setStatus("permission-gate", parts.length ? parts.join(" | ") : "ask");
 	}
 
 	pi.on("session_start", (_event, ctx) => {
@@ -703,17 +785,21 @@ export default function (pi: ExtensionAPI) {
 		path?: string,
 		parts?: string[],
 		allowBashRules = true,
+		operationSignature?: string,
 	): { decision: "allow" | "deny" | "prompt"; matchedRule?: string } {
 		if (yolo) return { decision: "allow" };
 
 		for (const rule of rules.deny) {
-			if (matchRule(rule, toolName, path, parts)) {
+			if (matchRule(rule, toolName, path, parts, operationSignature)) {
 				return { decision: "deny", matchedRule: formatRule(rule) };
 			}
 		}
 
 		for (const rule of rules.allow) {
-			if (!isBashRule(rule) && matchRule(rule, toolName, path, parts)) {
+			if (
+				!isBashRule(rule) &&
+				matchRule(rule, toolName, path, parts, operationSignature)
+			) {
 				return { decision: "allow", matchedRule: formatRule(rule) };
 			}
 		}
@@ -735,6 +821,7 @@ export default function (pi: ExtensionAPI) {
 		toolName: string,
 		path?: string,
 		parts?: string[],
+		operationSignature?: string,
 	): boolean {
 		switch (rule.type) {
 			case "yolo":
@@ -743,6 +830,8 @@ export default function (pi: ExtensionAPI) {
 				return toolName === rule.tool;
 			case "directory":
 				return path ? pathStartsWith(path, rule.prefix) : false;
+			case "operation":
+				return rule.tool === toolName && rule.signature === operationSignature;
 			case "bash":
 			case "bashPolicy":
 				return parts
@@ -761,15 +850,21 @@ export default function (pi: ExtensionAPI) {
 				return `${rule.tool} (tool)`;
 			case "directory":
 				return `${rule.prefix} (dir)`;
+			case "operation":
+				return `${rule.tool} (exact operation)`;
 			case "bash":
 				return `${rule.commands.join(", ")} (commands)`;
 			case "bashPolicy":
-				return rule.policy === "git-read"
-					? "read-only Git"
-					: "all Git operations";
+				return rule.policy === "git-read" ? "read-only Git" : "all Git operations";
 			default:
 				return unreachable(rule);
 		}
+	}
+
+	function ruleKey(rule: PermissionRule): string {
+		return rule.type === "operation"
+			? `${formatRule(rule)}:${rule.signature}`
+			: formatRule(rule);
 	}
 
 	function makePatternRule(token: string): PermissionRule {
@@ -782,9 +877,7 @@ export default function (pi: ExtensionAPI) {
 		if (commandTokens.length > 0) {
 			result.push({
 				type: "bash",
-				commands: [...new Set(commandTokens)].sort((a, b) =>
-					a.localeCompare(b),
-				),
+				commands: [...new Set(commandTokens)].sort((a, b) => a.localeCompare(b)),
 			});
 		}
 		if (tokens.includes("git")) {
@@ -794,9 +887,9 @@ export default function (pi: ExtensionAPI) {
 	}
 
 	function pushRule(target: PermissionRule[], rule: PermissionRule): void {
-		const key = formatRule(rule);
+		const key = ruleKey(rule);
 		for (const existing of target) {
-			if (formatRule(existing) === key) return;
+			if (ruleKey(existing) === key) return;
 		}
 		target.push(rule);
 	}
@@ -937,6 +1030,8 @@ export default function (pi: ExtensionAPI) {
 		path?: string,
 		patterns?: string[],
 		command?: string,
+		operationSignature?: string,
+		allowPersistentScopes = true,
 	): Promise<{
 		allow: boolean;
 		rule?: PermissionRule;
@@ -960,7 +1055,9 @@ export default function (pi: ExtensionAPI) {
 						? "🙈  Hide full command"
 						: "👁  Show full command"
 					: undefined;
-			const options = ["✅  Allow this once", "🔁  Always allow…", "🚫  Deny"];
+			const options = ["✅  Allow this once"];
+			if (allowPersistentScopes) options.push("🔁  Always allow…");
+			options.push("🚫  Deny");
 			if (toggleLabel) options.push(toggleLabel);
 			options.push(noteLabel);
 
@@ -991,7 +1088,7 @@ export default function (pi: ExtensionAPI) {
 				continue;
 			}
 
-			break; // “✓ Always allow…” — fall through to scope picker
+			break;
 		}
 
 		const isBash = toolName === "bash";
@@ -1001,39 +1098,38 @@ export default function (pi: ExtensionAPI) {
 			notifyLabel?: string;
 		}[] = [];
 
-		// Directory hierarchy
-		const dirChain = getDirChain(path);
-		const dirIcons = ["📁", "📂", "📂📂"];
-		const dirLabels = [
-			"This directory",
-			"Parent directory",
-			"Grandparent directory",
-		];
-
-		for (let i = 0; i < dirChain.length; i++) {
+		if (operationSignature) {
 			scopeOptions.push({
-				label: `${dirIcons[i]} ${dirLabels[i]} (${dirChain[i]}/)`,
-				rules: [{ type: "directory", prefix: dirChain[i] }],
+				label: "📌 This exact operation for this session",
+				rules: [
+					{
+						type: "operation",
+						tool: toolName,
+						signature: operationSignature,
+					},
+				],
+				notifyLabel: "this exact operation",
 			});
 		}
 
-		// Tool type
+		scopeOptions.push({
+			label: "⚡ Everything (full yolo)",
+			rules: [{ type: "yolo" }],
+		});
+		scopeOptions.push({
+			label: "✍️  All write + edit operations",
+			rules: [
+				{ type: "tool", tool: "write" },
+				{ type: "tool", tool: "edit" },
+			],
+			notifyLabel: "write + edit (tool types)",
+		});
+
 		scopeOptions.push({
 			label: `🔧 This tool type (${toolName})`,
 			rules: [{ type: "tool", tool: toolName }],
 		});
-		if (toolName === "write" || toolName === "edit") {
-			scopeOptions.push({
-				label: "🔧 Both write + edit tool types",
-				rules: [
-					{ type: "tool", tool: "write" },
-					{ type: "tool", tool: "edit" },
-				],
-				notifyLabel: "write + edit (tool types)",
-			});
-		}
 
-		// Command patterns
 		if (isBash && patterns && patterns.length > 0) {
 			for (const pattern of patterns) {
 				if (pattern === "git") {
@@ -1052,23 +1148,31 @@ export default function (pi: ExtensionAPI) {
 					continue;
 				}
 				scopeOptions.push({
-					label: `⌨️  ${pattern} …`,
+					label: `⌨️  ${pattern} for this session`,
 					rules: [makePatternRule(pattern)],
 				});
 			}
 			if (patterns.length > 1) {
 				scopeOptions.push({
-					label: `⌨️  All command patterns (${patterns.join(", ")})`,
+					label: `⌨️  All listed executables (${patterns.join(", ")})`,
 					rules: makeMultiPatternRules(patterns),
 				});
 			}
 		}
 
-		// Yolo
-		scopeOptions.push({
-			label: "⚡ Everything (full yolo)",
-			rules: [{ type: "yolo" }],
-		});
+		const dirChain = getDirChain(path);
+		const dirIcons = ["📁", "📂", "📂📂"];
+		const dirLabels = [
+			"This directory",
+			"Parent directory",
+			"Grandparent directory",
+		];
+		for (let i = 0; i < dirChain.length; i++) {
+			scopeOptions.push({
+				label: `${dirIcons[i]} ${dirLabels[i]} (${dirChain[i]}/)`,
+				rules: [{ type: "directory", prefix: dirChain[i] }],
+			});
+		}
 
 		const scopeChoice = await ctx.ui.select(
 			permissionPromptTitle(
@@ -1102,6 +1206,29 @@ export default function (pi: ExtensionAPI) {
 		return { allow: true, message: message || undefined, expanded };
 	}
 
+	async function confirmHighRisk(
+		ctx: ExtensionContext,
+		toolName: string,
+		reason: string,
+		path?: string,
+		command?: string,
+		operationSignature?: string,
+	): Promise<{ allow: boolean; message?: string }> {
+		if (!ctx.hasUI) return { allow: false };
+		const result = await twoStepPrompt(
+			ctx,
+			`High-risk operation requires confirmation:\n${reason}`,
+			toolName,
+			path,
+			undefined,
+			command,
+			operationSignature,
+			false,
+		);
+		clearPermissionWidget(ctx);
+		return result;
+	}
+
 	async function denyPrompt(
 		ctx: ExtensionContext,
 		toolName: string,
@@ -1121,20 +1248,19 @@ export default function (pi: ExtensionAPI) {
 			"Grandparent directory",
 		];
 
-		for (let i = 0; i < dirChain.length; i++) {
-			scopeOptions.push(`${dirIcons[i]} ${dirLabels[i]} (${dirChain[i]}/)`);
-		}
-
 		if (toolName === "bash" && patterns && patterns.length > 0) {
 			for (const p of patterns) {
 				scopeOptions.push(`⌨️  ${p} …`);
 			}
 			if (patterns.length > 1) {
-				scopeOptions.push(`⌨️  All command patterns (${patterns.join(", ")})`);
+				scopeOptions.push(`⌨️  All listed executables (${patterns.join(", ")})`);
 			}
 		}
 
 		scopeOptions.push(`🔧 This tool type (${toolName})`);
+		for (let i = 0; i < dirChain.length; i++) {
+			scopeOptions.push(`${dirIcons[i]} ${dirLabels[i]} (${dirChain[i]}/)`);
+		}
 
 		await announce(ctx, toolName);
 
@@ -1163,10 +1289,7 @@ export default function (pi: ExtensionAPI) {
 		for (let i = 0; i < dirChain.length; i++) {
 			if (scopeChoice === `${dirIcons[i]} ${dirLabels[i]} (${dirChain[i]}/)`) {
 				pushRule(rules.deny, { type: "directory", prefix: dirChain[i] });
-				ctx.ui.notify(
-					`🔴 ${dirChain[i]}/ (dir) — blocked from now on.`,
-					"warning",
-				);
+				ctx.ui.notify(`🔴 ${dirChain[i]}/ (dir) — blocked from now on.`, "warning");
 				updateStatus(ctx);
 				return;
 			}
@@ -1184,7 +1307,7 @@ export default function (pi: ExtensionAPI) {
 			}
 			if (
 				patterns.length > 1 &&
-				scopeChoice === `⌨️  All command patterns (${patterns.join(", ")})`
+				scopeChoice === `⌨️  All listed executables (${patterns.join(", ")})`
 			) {
 				for (const rule of makeMultiPatternRules(patterns)) {
 					pushRule(rules.deny, rule);
@@ -1212,8 +1335,14 @@ export default function (pi: ExtensionAPI) {
 			}
 
 			const path = String(input.path ?? input.file_path ?? "unknown path");
-			const check = getPermissionDecision(toolName, path);
-			if (check.decision === "allow") return undefined;
+			const operationSignature = resolvePath(path, ctx.cwd);
+			const check = getPermissionDecision(
+				toolName,
+				path,
+				undefined,
+				true,
+				operationSignature,
+			);
 			if (check.decision === "deny") {
 				if (ctx.hasUI && check.matchedRule) {
 					ctx.ui.notify(`Blocked by rule: ${check.matchedRule}`, "warning");
@@ -1225,6 +1354,31 @@ export default function (pi: ExtensionAPI) {
 						: "Blocked by session rule.",
 				};
 			}
+
+			if (isProtectedPath(path, ctx.cwd)) {
+				const result = await confirmHighRisk(
+					ctx,
+					toolName,
+					`${operationSignature} is a protected system path`,
+					path,
+					undefined,
+					operationSignature,
+				);
+				if (!result.allow) {
+					const reason = result.message
+						? `Blocked by user: ${result.message}`
+						: "High-risk operation requires an interactive confirmation.";
+					return { block: true, reason };
+				}
+				if (result.message) {
+					pi.sendUserMessage(result.message, { deliverAs: "steer" });
+				}
+				return undefined;
+			}
+
+			if (check.decision === "allow" || isPathInCwd(path, ctx.cwd)) {
+				return undefined;
+			}
 			if (!ctx.hasUI) return undefined;
 
 			const result = await twoStepPrompt(
@@ -1232,6 +1386,9 @@ export default function (pi: ExtensionAPI) {
 				`Allow ${toolName}?`,
 				toolName,
 				path,
+				undefined,
+				undefined,
+				operationSignature,
 			);
 
 			if (!result.allow) {
@@ -1294,11 +1451,34 @@ export default function (pi: ExtensionAPI) {
 				}
 			}
 
+			const highDangerReason = highDangerBashReason(parts, ctx.cwd);
+			if (highDangerReason) {
+				const result = await confirmHighRisk(
+					ctx,
+					toolName,
+					highDangerReason,
+					bashDirectoryPath,
+					command,
+					command,
+				);
+				if (!result.allow) {
+					const reason = result.message
+						? `Blocked by user: ${result.message}`
+						: "High-risk operation requires an interactive confirmation.";
+					return { block: true, reason };
+				}
+				if (result.message) {
+					pi.sendUserMessage(result.message, { deliverAs: "steer" });
+				}
+				return undefined;
+			}
+
 			const check = getPermissionDecision(
 				toolName,
 				ctx.cwd,
 				parts,
 				canInferSafety,
+				command,
 			);
 			if (check.decision === "deny") {
 				if (ctx.hasUI && check.matchedRule) {
@@ -1335,6 +1515,7 @@ export default function (pi: ExtensionAPI) {
 				toolName,
 				bashDirectoryPath,
 				scopeablePatterns,
+				command,
 				command,
 			);
 
