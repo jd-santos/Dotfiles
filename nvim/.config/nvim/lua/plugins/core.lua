@@ -6,8 +6,25 @@ return {
   {
     "LazyVim/LazyVim",
     opts = {
-      -- Colorscheme: tokyonight
-      colorscheme = "tokyonight",
+      -- Colorscheme: Catppuccin Latte
+      colorscheme = "catppuccin-latte",
+    },
+  },
+  {
+    "folke/snacks.nvim",
+    opts = {
+      picker = {
+        sources = {
+          explorer = {
+            layout = {
+              layout = {
+                width = 32,
+                min_width = 32,
+              },
+            },
+          },
+        },
+      },
     },
   },
 }
