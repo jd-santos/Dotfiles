@@ -6,8 +6,8 @@ return {
   {
     "LazyVim/LazyVim",
     opts = {
-      -- Colorscheme: Catppuccin Latte
-      colorscheme = "catppuccin-latte",
+      -- Colorscheme: Catppuccin Macchiato
+      colorscheme = "catppuccin-macchiato",
     },
   },
   {
@@ -18,8 +18,8 @@ return {
           explorer = {
             layout = {
               layout = {
-                width = 32,
-                min_width = 32,
+                width = 28,
+                min_width = 28,
               },
             },
           },

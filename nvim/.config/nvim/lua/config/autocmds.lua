@@ -9,11 +9,12 @@
 
 local markdown_diagnostics = vim.api.nvim_create_augroup("markdown_diagnostics", { clear = true })
 
-vim.api.nvim_create_autocmd({ "BufEnter", "LspAttach" }, {
+vim.api.nvim_create_autocmd({ "BufEnter", "FileType", "LspAttach" }, {
   group = markdown_diagnostics,
   callback = function(args)
     if vim.bo[args.buf].filetype == "markdown" then
       vim.diagnostic.enable(false, { bufnr = args.buf })
+      vim.opt_local.spell = false
     end
   end,
 })

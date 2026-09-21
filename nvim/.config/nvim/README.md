@@ -8,10 +8,10 @@ Built on [LazyVim](https://lazyvim.github.io/) with `lazy.nvim` for plugin manag
 - `lua/config/lazy.lua`: bootstraps lazy.nvim, loads LazyVim + extras + custom plugins
 - `lua/config/options.lua`: overrides (line wrap off, UTF-8)
 - `lua/config/keymaps.lua`: custom keybindings (`jj` to escape insert mode)
-- `lua/config/autocmds.lua`: disables diagnostics in Markdown buffers
-- `lua/plugins/core.lua`: sets Catppuccin Latte and narrows the Snacks file explorer
+- `lua/config/autocmds.lua`: disables diagnostics and spell checking in Markdown buffers
+- `lua/plugins/core.lua`: sets Catppuccin Macchiato and narrows the Snacks file explorer
 - `lua/plugins/fzf-lua.lua`: fuzzy finder with keybindings (see below)
-- `lua/plugins/markdown.lua`: disables nvim-lint for Markdown files
+- `lua/plugins/markdown.lua`: renders Markdown and disables nvim-lint for Markdown files
 
 ## LazyVim Extras
 

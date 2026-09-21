@@ -1,9 +1,16 @@
--- Disable nvim-lint for markdown
+-- Markdown rendering and linting
 return {
-  "mfussenegger/nvim-lint",
-  opts = {
-    linters_by_ft = {
-      markdown = {},
+  {
+    "MeanderingProgrammer/render-markdown.nvim",
+    ft = { "markdown" },
+    opts = {},
+  },
+  {
+    "mfussenegger/nvim-lint",
+    opts = {
+      linters_by_ft = {
+        markdown = {},
+      },
     },
   },
 }
