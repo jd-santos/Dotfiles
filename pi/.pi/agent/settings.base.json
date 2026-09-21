@@ -12,7 +12,7 @@
     "openai-codex/gpt-5.6-sol",
     "openai-codex/gpt-5.6-terra",
     "openai-codex/gpt-5.6-luna",
-    "openrouter/deepseek/deepseek-v4-flash",
+    "openrouter/deepseek/deepseek-v4.1-flash",
     "openrouter/moonshotai/kimi-k3"
   ],
   "theme": "catppuccin-mocha",
@@ -24,23 +24,23 @@
     "npm:@parallel-web/pi-extension"
   ],
   "subagents": {
-    "defaultModel": "openrouter/deepseek/deepseek-v4-flash",
+    "defaultModel": "openrouter/deepseek/deepseek-v4.1-flash",
     "defaultThinking": "low",
     "modelScope": {
       "enforce": true,
       "strict": true,
       "allow": [
         "openai-codex/gpt-5.6-*",
-        "openrouter/deepseek/deepseek-v4-*"
+        "openrouter/deepseek/deepseek-v4.1-*"
       ]
     },
     "agentOverrides": {
       "scout": {
-        "model": "openrouter/deepseek/deepseek-v4-flash",
+        "model": "openrouter/deepseek/deepseek-v4.1-flash",
         "thinking": "low"
       },
       "researcher": {
-        "model": "openrouter/deepseek/deepseek-v4-flash",
+        "model": "openrouter/deepseek/deepseek-v4.1-flash",
         "thinking": "low"
       },
       "worker": {

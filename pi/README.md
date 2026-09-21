@@ -72,7 +72,7 @@ The shared model shortlist comes from `enabledModels` in
 `.pi/agent/settings.base.json`. `Ctrl+P` cycles that scoped list. The current
 cycle starts with OpenRouter GPT-5.6 Luna, GLM-5.3-Flash, GPT-5.6 Sol, and
 Qwen3.8 27B. Codex GPT-5.6 Sol, Terra, and Luna remain as backups, followed by
-DeepSeek V4 Flash and Kimi K3. `/model` still opens the full selector, and
+DeepSeek V4.1 Flash and Kimi K3. `/model` still opens the full selector, and
 `/scoped-models` toggles the scoped list interactively.
 
 The shared default is `openai-codex/gpt-5.6-sol` with medium thinking.
@@ -98,10 +98,10 @@ MCP servers are defined in `.config/mcp/mcp.json`:
 
 `pi-subagents` is pinned at `0.51.0`, so normal package updates do not move it to a newer release. The initial setup favors bounded, parent-directed delegation:
 
-- Scout and researcher use DeepSeek V4 Flash at low thinking.
+- Scout and researcher use DeepSeek V4.1 Flash at low thinking.
 - Worker, reviewer, and delegate use GPT-5.6 Terra at medium thinking.
 - Oracle uses GPT-5.6 Sol at high thinking.
-- Child model selection is limited to the configured GPT-5.6 and DeepSeek V4 routes.
+- Child model selection is limited to the configured GPT-5.6 and DeepSeek V4.1 routes.
 - Runs start with fresh context unless the call explicitly requests a fork.
 - A run can launch at most 6 children, with no more than 3 parallel tasks.
 - A parent session can launch at most 20 children and keep at most 2 top-level background runs active.
