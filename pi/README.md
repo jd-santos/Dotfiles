@@ -58,11 +58,12 @@ The extensions mostly cooperate through UI status keys:
 1. `permission-gate.ts` decides whether write, edit, and bash tool calls should run.
 2. `format-on-save.ts` watches successful write and edit calls and formats supported files.
 3. `context-planner.ts` snapshots context usage after each user prompt and injects a hidden planning advisory for the agent run.
-4. `tps-tracker.ts`, `usage.ts`, `conversation-summary.ts`, and `ui-read-and-shortcuts.ts` publish status with `ctx.ui.setStatus()`.
-5. `footer.ts` reads those statuses and renders one compact footer.
-6. The pinned `pi-subagents` package gives the parent an explicit delegation tool and runs focused child Pi sessions.
-7. Command-style extensions such as `lg.ts`, `cost-tracker.ts`, `usage.ts`, and `promptfoo-export.ts` add reports or export artifacts only when called.
-8. Prompt templates such as `/plan` and `/ship` give repeatable workflows for higher-level tasks.
+4. `auto-compact.ts` compacts after a completed turn reaches 70% of the active model's context window.
+5. `tps-tracker.ts`, `usage.ts`, `conversation-summary.ts`, and `ui-read-and-shortcuts.ts` publish status with `ctx.ui.setStatus()`.
+6. `footer.ts` reads those statuses and renders one compact footer.
+7. The pinned `pi-subagents` package gives the parent an explicit delegation tool and runs focused child Pi sessions.
+8. Command-style extensions such as `lg.ts`, `cost-tracker.ts`, `usage.ts`, and `promptfoo-export.ts` add reports or export artifacts only when called.
+9. Prompt templates such as `/plan` and `/ship` give repeatable workflows for higher-level tasks.
 
 That split keeps each extension small while making the UI feel like one system.
 
@@ -106,6 +107,9 @@ MCP servers are defined in `.config/mcp/mcp.json`:
 - A run can launch at most 6 children, with no more than 3 parallel tasks.
 - A parent session can launch at most 20 children and keep at most 2 top-level background runs active.
 - Delegation is limited to one child level; scheduled runs and automatic missions are disabled initially.
+- FleetView stays visible below the editor and updates from lifecycle artifacts without adding model messages.
+- The parent relies on completion and attention notices instead of automatically polling `status` or `list`.
+- Substantial implementations receive parallel correctness and design reviews, with at most one material-change follow-up round.
 - Artifacts stay with the Pi session instead of being written into the project.
 
 The package runs child Pi processes with the current user's permissions. The limits reduce accidental fan-out but are not a sandbox. Keep concurrent writers in separate Git worktrees and let the parent own integration.
@@ -126,7 +130,7 @@ To upgrade, review the upstream diff, change the exact version in `.pi/agent/set
 | `/lg` | Summarize unstaged git changes and untracked files |
 | `/lg --staged` | Summarize staged git changes |
 | `/lg --all` | Summarize all changes against `HEAD`, plus untracked files |
-| `/usage` | Parse local Pi and Codex session files into a usage report |
+| `/usage` | Show deduplicated parent, child, Codex CLI, cost, and Codex subscription allowance usage |
 | `/subagents-doctor` | Check the installed subagent configuration and runtime |
 | `/subagents-models [agent]` | Show the effective model mapping for all roles or one role |
 | `/subagents-fleet` | Inspect, steer, or stop active and recent child runs |
@@ -147,12 +151,15 @@ To upgrade, review the upstream diff, change the exact version in `.pi/agent/set
 | `cost-tracker.ts` | Tracks message token usage, estimated cost, and tool-call counts | `/costs` report |
 | `lg.ts` | Scripted git change summary | `/lg`, `/lg --staged`, `/lg --all` reports below the editor |
 | `tps-tracker.ts` | Live tokens-per-second during assistant streaming | Footer status while streaming, final notification after the turn |
-| `usage.ts` | Local Pi and Codex usage analytics | `/usage` report and footer scan status |
+| `usage.ts` | Deduplicated parent, child, Codex CLI, cost, and subscription allowance analytics | `/usage` report and footer scan status |
 | `conversation-summary.ts` | Short session summary for the footer and session name | Footer summary, `/summary` command |
 | `context-planner.ts` | Prompt-time context capacity advisory for work sizing and handoffs | Hidden agent context, no automatic actions |
+| `auto-compact.ts` | Model-aware compaction at 70% context usage | Compaction start, completion, or failure notice |
 | `promptfoo-export.ts` | Promptfoo eval starter export from the active branch | Files under `~/.pi/agent/evals/promptfoo/` |
 | `ui-read-and-shortcuts.ts` | Read previews, slash command hints, workspace and model borders | Directory, branch, and permission mode attached to the prompt; model and thinking below it |
 | `footer.ts` | Owns telemetry, session summary, and shared workspace data | Context meter, cost, speed, quiet plugin labels, bold summary, `/shell`, branch-aware terminal title |
+
+`/usage` keeps session content local, but it makes two metadata requests: an HTTPS pricing lookup to `models.dev` and a local Codex app-server request for subscription allowance. Neither request sends Pi or Codex transcript content. Recorded Pi and child costs take precedence over external price estimates.
 
 The shell uses blue for the directory and teal for the branch in Catppuccin.
 Model and thinking values share an expense scale: blue for low, green for

@@ -142,6 +142,10 @@ Initial limits:
 - At most 20 child launches per parent session
 - At most 2 active top-level background runs per parent session
 - Delegation limited to one child level with `maxSubagentDepth: 1`; children cannot launch further agents
+- Persistent FleetView below the editor, with compact main-chat rendering
+- No automatic parent `status` or `list` polling; use lifecycle updates, completion notices, manual inspection, or dependency-barrier recovery
+- Two fresh reviewers after substantial implementations: correctness and design
+- At most one follow-up review round after material changes
 - Scheduled runs disabled
 - Automatic missions disabled
 - Session-scoped artifacts, which keep generated state out of project worktrees
@@ -310,7 +314,7 @@ Live values use provider usage when available. Before final usage lands, the ext
 
 Location: `.pi/agent/extensions/usage.ts`
 
-`/usage` parses local Pi and Codex CLI session files and displays a Markdown usage report below the editor.
+`/usage` displays a Markdown report that separates deduplicated parent Pi usage, authoritative child metadata, Codex CLI session usage, combined cash-equivalent cost, and a live Codex subscription allowance snapshot.
 
 Windows:
 
@@ -319,17 +323,27 @@ Windows:
 - Last 30 days
 - Last 90 days
 
-Each window groups by source and model, with turns, input tokens, output tokens, cached input tokens, total tokens, and estimated price.
+Each window groups by source and model, with turns or child runs, input tokens, output tokens, cached input tokens, total tokens, and cost. The combined row adds the three sources without treating subscription allowance as tokens or dollars.
+
+Accounting rules:
+
+- Parent Pi assistant entries are deduplicated globally by session entry ID, which prevents cloned and forked histories from multiplying usage.
+- JSONL files owned by known subagent runs are excluded from parent totals.
+- Child tokens and recorded dollar cost come from `subagent-artifacts/*_meta.json` rather than reparsing child transcripts.
+- Codex CLI token records remain a separate source.
+- Recorded Pi and child costs take precedence. Other cash equivalents use `models.dev` pricing when a model match is available.
+- The `models.dev` lookup is an outbound HTTPS metadata request. It sends no transcript or usage payload, but it does expose the request time and network address to that service.
 
 Read paths:
 
 - `~/.pi/agent/sessions/**/*.jsonl`
+- `~/.pi/agent/sessions/**/subagent-artifacts/*_meta.json`
 - `~/.codex/sessions/**/*.jsonl`
 - `~/.codex/archived_sessions/**/*.jsonl`
 
-Pricing comes from `models.dev` when a model match is available. Unknown rates are priced as `$0` and listed in the report notes.
+The Codex subscription section starts the installed `codex app-server`, completes its local JSON-RPC handshake, and calls `account/rateLimits/read`. Codex owns authentication, so the extension does not read the Codex authentication file. Successful snapshots are cached for five minutes. Missing Codex, login failures, timeouts, and protocol changes make only that section unavailable.
 
-The extension reads session JSONL files locally and only displays aggregate usage data.
+Unknown pricing rates are shown as `$0` and listed in the report notes. The extension reads local usage metadata and displays aggregates only.
 
 ## Promptfoo export
 
@@ -419,6 +433,20 @@ links; small inline tasks keep their handoff inline. Record
 another dated handoff file.
 
 The extension is advisory-only. It does not edit TODO files, compact context, switch sessions, or execute subagents. When usage is temporarily unavailable after compaction, it reports unknown capacity rather than assuming an empty context.
+
+## Automatic compaction
+
+Location: `.pi/agent/extensions/auto-compact.ts`
+
+After each completed turn, the extension checks `ctx.getContextUsage()`. At 70% of the active model's context window, it asks Pi to run the normal compaction flow. Because the threshold uses the reported percentage, it adapts when the active model has a different context-window size.
+
+Only one compaction request can be active. A failed attempt waits for at least 5,000 more context tokens before retrying, which prevents a failure loop. Manual `/compact` remains available. The context-planning extension still begins wrap-up guidance at 50% and reserves its 80% threshold as a fallback ceiling rather than the expected compaction point.
+
+Test model-aware triggering, overlap protection, and failure backoff without starting a model session:
+
+```bash
+node --experimental-strip-types --test pi/.pi/agent/extensions/tests/auto-compact.test.mjs
+```
 
 Test the thresholds, work-record handoff wording, unknown telemetry, and session
 reset behavior without starting a model session:
