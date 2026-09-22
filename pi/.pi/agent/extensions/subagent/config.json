@@ -1,5 +1,8 @@
 {
   "toolDescriptionMode": "compact",
+  "mainChatRenderer": "summary",
+  "fleetViewEnabled": true,
+  "fleetViewPlacement": "belowEditor",
   "asyncByDefault": false,
   "defaultSubagentContext": "fresh",
   "maxSubagentSpawnsPerSession": 20,
