@@ -101,3 +101,5 @@ __pycache__/
 .Trashes
 .VolumeIcon.icns
 .com.apple.timemachine.donotpresent
+
+**/.claude/settings.local.json
