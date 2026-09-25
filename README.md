@@ -13,6 +13,7 @@ Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). M
 | `fzf`                                 | [fzf](https://github.com/junegunn/fzf) setup (PATH and shell integration)                                              |
 | `ghostty`                             | [Ghostty](https://ghostty.org) terminal (Dracula theme, Nerd Font icons)                                               |
 | `git`                                 | Git config, global gitignore, LFS, [`~/.gitconfig.local`](git/.gitconfig.local.example) for machine-specific overrides |
+| `herdr`                               | [Herdr](https://herdr.dev/) workspace manager config (tmux-like keys, Dracula theme)                                    |
 | `lint`                                | Markdown lint rules (`.markdownlint.jsonc`)                                                                            |
 | [`nvim`](nvim/.config/nvim/README.md) | Neovim (LazyVim, fzf-lua, tokyonight)                                                                                  |
 | `opencode`                            | [OpenCode](https://opencode.ai/) AI assistant config and local agent prompts                                           |
@@ -48,6 +49,26 @@ Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). M
 | `Prefix` + `r`           | Reload tmux config                               |
 
 **Copy Mode (vi-style):** Press `Prefix` + `[` to enter, `v` to select, `y` to copy.
+
+### Herdr (Prefix: `` ` ``)
+
+| Shortcut                     | Description                                   |
+| ---------------------------- | --------------------------------------------- |
+| Backtick twice               | Send a literal backtick to the active pane    |
+| `Prefix` + `c`               | Create a tab                                  |
+| `Prefix` + `1-9`             | Switch tabs                                   |
+| `Prefix` + `h/j/k/l`         | Navigate panes                                |
+| `Prefix` + `Shift+Backslash` | Split right                                   |
+| `Prefix` + `-`               | Split down                                    |
+| `Prefix` + `x`               | Close pane                                    |
+| `Prefix` + `z`               | Zoom or unzoom pane                           |
+| `Prefix` + `[`               | Enter vi-style copy mode                      |
+| `Prefix` + `r`               | Reload Herdr config                           |
+| `Prefix` + `Shift+r`         | Enter resize mode, then use `h/j/k/l`         |
+| `Prefix` + `q`               | Detach while leaving panes running            |
+
+Use `herdr --remote <host>` to attach to a remote Herdr server over SSH.
+That workflow does not need the tmux F12 nested-session toggle.
 
 ### Neovim (Leader: `Space`)
 
@@ -96,7 +117,7 @@ stow zsh          # Creates symlinks for all files in zsh/ to ~/
 ### Install Multiple Tools
 
 ```bash
-stow nvim git starship zsh   # Install multiple configurations
+stow herdr nvim git starship zsh   # Install multiple configurations
 ```
 
 ### Install Everything
@@ -105,7 +126,7 @@ Initialize the Skills submodule before stowing packages:
 
 ```bash
 git submodule update --init --recursive
-stow agents bin fzf ghostty git lint nvim opencode pgcli pi starship tmux zed zsh
+stow agents bin fzf ghostty git herdr lint nvim opencode pgcli pi starship tmux zed zsh
 ```
 
 To initialize, hydrate, and verify the agent skills in one command, run:
@@ -141,7 +162,7 @@ stow --simulate nvim
 The `stowp` function (included in `.zshrc`) previews changes and prompts before applying:
 
 ```bash
-stowp agents bin fzf ghostty git lint nvim opencode pgcli pi starship tmux zed zsh
+stowp agents bin fzf ghostty git herdr lint nvim opencode pgcli pi starship tmux zed zsh
 stowp nvim zsh     # Preview specific packages, then confirm
 ```
 
@@ -169,6 +190,7 @@ zsh/.zshrc                              → ~/.zshrc
 git/.gitconfig                          → ~/.gitconfig
 tmux/.tmux.conf                         → ~/.tmux.conf
 starship/.config/starship.toml          → ~/.config/starship.toml
+herdr/.config/herdr/config.toml          → ~/.config/herdr/config.toml
 ```
 
 **Key Principle:** The directory structure _inside_ each package mirrors the path from `$HOME`.
