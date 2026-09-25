@@ -45,6 +45,7 @@
 
 - [ ] Evaluate a structured context-planning tool if prompt guidance does not produce consistent work sizing
 - [ ] Consider an optional generated handoff prompt or user-triggered compaction helper after the advisory workflow is proven
+- [ ] Research educational UX practices that could improve `shareable-doc-writer` output
 - [ ] Extend `/usage` with cached pricing, JSON export, per-project filtering, and trend deltas
 - [ ] Consider a richer `/usage` table renderer if the widget output is too dense
 
