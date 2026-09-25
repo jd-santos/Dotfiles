@@ -10,6 +10,10 @@
 	defaultBranch = main
 [core]
 	excludesfile = ~/.gitignore
+[pull]
+	rebase = true
+[rebase]
+	autoStash = true
 # Include local configuration (machine-specific, not in version control)
 # Use this for: SSH signing keys, work-specific URLs, personal overrides
 [include]
