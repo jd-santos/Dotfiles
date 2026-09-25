@@ -7,6 +7,7 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 ### Added
 
 - Add a lazy-loaded Atlassian MCP server to Pi through a local `atlassian-mcp` wrapper on `PATH`, and document the existing Xcode MCP server.
+- Add Go binaries to `PATH` in zsh when Go is installed.
 
 ### Changed
 

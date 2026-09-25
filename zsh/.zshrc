@@ -385,6 +385,11 @@ fi
 # fzf (installed via 'stow fzf')
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
+# Go binaries (only if installed)
+if command -v go &>/dev/null; then
+  export PATH="$PATH:$(go env GOPATH)/bin"
+fi
+
 # OpenClaw Completion (only if installed)
 if command -v openclaw &>/dev/null; then
   source <(openclaw completion --shell zsh)
