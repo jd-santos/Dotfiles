@@ -104,6 +104,8 @@ MCP servers live in `.config/mcp/mcp.json` after stowing.
 | --- | --- | --- |
 | `brave-search` | `npx -y @brave/brave-search-mcp-server --transport stdio` | Reads `BRAVE_API_KEY` from the environment |
 | `svelte` | `npx -y @sveltejs/mcp` | Svelte docs and tooling context |
+| `xcode` | `xcrun mcpbridge` | Uses Xcode beta through `DEVELOPER_DIR` |
+| `atlassian` | `atlassian-mcp` | Local wrapper on `PATH`; keeps private checkout paths out of git |
 
 ## Subagents
 

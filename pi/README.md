@@ -94,6 +94,7 @@ MCP servers are defined in `.config/mcp/mcp.json`:
 
 - Brave Search reads `BRAVE_API_KEY` from the environment.
 - Svelte uses `@sveltejs/mcp` through `npx`.
+- Atlassian runs through an `atlassian-mcp` wrapper on `PATH`, so the tracked config does not expose the local checkout path.
 
 ## Subagents
 
