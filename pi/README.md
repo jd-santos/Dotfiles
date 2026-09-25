@@ -152,7 +152,7 @@ To upgrade, review the upstream diff, change the exact version in `.pi/agent/set
 | `lg.ts` | Scripted git change summary | `/lg`, `/lg --staged`, `/lg --all` reports below the editor |
 | `tps-tracker.ts` | Live tokens-per-second during assistant streaming | Footer status while streaming, final notification after the turn |
 | `usage.ts` | Deduplicated parent, child, Codex CLI, cost, and subscription allowance analytics | `/usage` report and footer scan status |
-| `conversation-summary.ts` | Short session summary for the footer and session name | Footer summary, `/summary` command |
+| `conversation-summary.ts` | Short session summary for the footer and session name, with Anthropic fallback if Codex summary requests fail | Footer summary, `/summary` command, one fallback warning per session |
 | `context-planner.ts` | Prompt-time context capacity advisory for work sizing and handoffs | Hidden agent context, no automatic actions |
 | `auto-compact.ts` | Model-aware compaction at 70% context usage | Compaction start, completion, or failure notice |
 | `promptfoo-export.ts` | Promptfoo eval starter export from the active branch | Files under `~/.pi/agent/evals/promptfoo/` |
