@@ -43,22 +43,24 @@ test("formats a compact fork suffix", () => {
 	assert.equal(formatForkSuffix(undefined), "");
 });
 
-test("composes a directory-prefixed title with the fork suffix", () => {
+test("composes an unprefixed title with the fork suffix", () => {
 	const composed = composeAgentTitle({
 		title: "Fix auth redirect",
-		dir: "Dotfiles",
 		parentTitle: "OAuth refactor",
 	});
-	assert.equal(composed, "Dotfiles · Fix auth redirect ↳ OAuth refactor");
+	assert.equal(composed, "Fix auth redirect ↳ OAuth refactor");
 });
 
 test("caps the composed title at the character budget", () => {
 	const composed = composeAgentTitle({
 		title: "a".repeat(200),
-		dir: "Dotfiles",
 		maxChars: MAX_AGENT_TITLE_CHARS,
 	});
 	assert.ok(composed.length <= MAX_AGENT_TITLE_CHARS);
+});
+
+test("returns an unprefixed title without a parent", () => {
+	assert.equal(composeAgentTitle({ title: "Fix auth redirect" }), "Fix auth redirect");
 });
 
 test("returns an empty string without a title", () => {

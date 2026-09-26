@@ -410,8 +410,8 @@ Location: `.pi/agent/extensions/herdr-jd.ts`
 
 Publishes small display-only values to Herdr as pane metadata. The first export is the conversation short title, shown on the Herdr Agent sidebar row. Herdr tracks the value on the agent that owns the pane, so the title follows the agent rather than the tab.
 
-- Source id `herdr:jd`, token `title`, 6 hour TTL.
-- Text is `<dir> · <title>`, trimmed on a word boundary to 80 characters.
+- Source id `herdr:jd`, tokens `pi_glyph` and `title`, 6 hour TTL.
+- `pi_glyph` is `π` after the location; `title` is the unprefixed conversation title, trimmed on a word boundary to 80 characters. Herdr may truncate the title row at the sidebar edge.
 - Forked sessions append `↳ <parent title>`, read from the parent session in the session header.
 - Re-reported when the session name changes, and cleared on shutdown.
 - No-op outside a Herdr pane, gated on `HERDR_ENV`, `HERDR_PANE_ID`, and `HERDR_BIN_PATH`.
@@ -419,7 +419,7 @@ Publishes small display-only values to Herdr as pane metadata. The first export 
 Herdr shows it through `[ui.sidebar.agents.rows_by_agent]` in `herdr/.config/herdr/config.toml`:
 
 ```toml
-pi = [["state_icon", "machine", "workspace", "tab"], ["agent", "$title"]]
+pi = [["state_icon", "machine", "workspace", "tab", "$pi_glyph"], ["$title"]]
 ```
 
 ## Context-aware planning
