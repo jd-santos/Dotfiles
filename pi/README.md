@@ -148,7 +148,7 @@ To upgrade, review the upstream diff, change the exact version in `.pi/agent/set
 
 | Extension | Purpose | User-facing output |
 | --- | --- | --- |
-| `permission-gate.ts` | Confirmation layer for writes, edits, and shell commands | Permission prompts, `/readonly`, `/yolo`, `/rules`, `/reset-rules`, prompt mode status |
+| `permission-gate.ts` | Confirmation layer for writes, edits, and shell commands | Permission prompts, OSC 777 with cmux/macOS fallback notifications, `/readonly`, `/yolo`, `/rules`, `/reset-rules`, prompt mode status |
 | `format-on-save.ts` | Runs configured formatters after write and edit tools | No prompt. Formatter failures do not interrupt the session |
 | `cost-tracker.ts` | Tracks message token usage, estimated cost, and tool-call counts | `/costs` report |
 | `lg.ts` | Scripted git change summary | `/lg`, `/lg --staged`, `/lg --all` reports below the editor |
