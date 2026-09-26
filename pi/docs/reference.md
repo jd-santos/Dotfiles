@@ -17,6 +17,7 @@ This is the spillover doc for Pi details that are worth keeping but too dense fo
 | `.pi/agent/types.d.ts` | `~/.pi/agent/types.d.ts` | Local extension type helpers |
 | `.pi/agent/extensions/*.ts` | `~/.pi/agent/extensions/*.ts` | Local Pi extensions |
 | `.pi/agent/extensions/subagent/config.json` | `~/.pi/agent/extensions/subagent/config.json` | Runtime policy for the pinned `pi-subagents` package |
+| `.pi/agent/skills/parallel-task-research/SKILL.md` | `~/.pi/agent/skills/parallel-task-research/SKILL.md` | Pi-specific Parallel Task research workflow |
 | `.pi/agent/prompts/plan.md` | `~/.pi/agent/prompts/plan.md` | `/plan` prompt template |
 | `.pi/agent/prompts/ship.md` | `~/.pi/agent/prompts/ship.md` | `/ship` wrapper for the shared `ship` skill |
 | `.pi/agent/themes/*.json` | `~/.pi/agent/themes/*.json` | Catppuccin and Dracula themes |
@@ -50,8 +51,10 @@ Current shared settings include:
 - Thinking level: `medium`
 - Thinking block: visible on output
 - Startup: quiet
-- Packages: `npm:pi-lens`, pinned `npm:pi-subagents@0.51.0`, and `npm:@parallel-web/pi-extension`; MCP uses Pi's built-in support
-- Skills path: `~/.agents/skills`
+- Packages: `npm:pi-lens`, pinned `npm:pi-subagents@0.51.0`, and
+  `npm:@parallel-web/pi-extension`; MCP uses Pi's built-in support
+- Skills paths: `~/.agents/skills` for shared skills and
+  `~/.pi/agent/skills` for Pi-specific skills
 - Scoped model list through `enabledModels`
 - Role-based subagent model routing with strict model scope enforcement
 
@@ -60,6 +63,9 @@ The shared skills path comes from the
 `agents/.agents` Git submodule. From the Dotfiles root, run
 `./scripts/setup-agent-skills` to initialize it, install pinned external skills,
 restow the package, and verify the generated copies.
+
+Pi-specific skills live in `.pi/agent/skills/` and install with the `pi` Stow
+package.
 
 `Ctrl+P` cycles the scoped model list. `/model` opens the full selector.
 `/scoped-models` toggles the scoped list interactively.
@@ -91,12 +97,17 @@ OpenRouter standby routes verified in Pi 0.83.0, intentionally not in the
   - `openrouter/google/gemma-4-31b-it`
   - `openrouter/google/gemma-4-26b-a4b-it`
 
-The `~/bin/pi` wrapper resolves `OPENROUTER_API_KEY` through `op read` when the
-variable is an `op://` reference, then launches the installed Pi binary with the
-resolved key. This keeps the real OpenRouter key out of git while letting the
-OpenRouter routes work from the normal `pi` command. `~/bin` must come before
-Homebrew in `PATH`, otherwise direct subprocess launches bypass the wrapper and
-can send OpenRouter requests without an authentication header. On macOS in a Herdr pane, the wrapper sets `OP_BIOMETRIC_UNLOCK_ENABLED=true` when it is unset. This enables the 1Password desktop prompt for its OpenRouter `op read` and passes the flag to Pi's native MCP command resolvers. An explicitly set value, including `false`, takes precedence. The wrapper changes only new Pi processes, so restart Pi rather than using `/reload` after changing this behavior.
+The `~/bin/pi` wrapper resolves `OPENROUTER_API_KEY` and `PARALLEL_API_KEY`
+through `op read` when either variable is an `op://` reference, then launches
+the installed Pi binary with the resolved keys. This keeps both key values out
+of git while letting OpenRouter routes and the Parallel Task MCP server work
+from the normal `pi` command. `~/bin` must come before Homebrew in `PATH`,
+otherwise direct subprocess launches bypass the wrapper. On macOS inside a
+Herdr pane, the wrapper sets `OP_BIOMETRIC_UNLOCK_ENABLED=true` when it is
+unset. This enables the 1Password desktop prompt for OpenRouter resolution and
+passes the flag to Pi's native MCP command resolvers. An explicitly set value,
+including `false`, takes precedence. The wrapper changes only new Pi processes,
+so restart Pi rather than using `/reload` after changing this behavior.
 
 A resumed session can restore its previous model and override the configured
 default for that session. Use `/new` or `pi --no-session` to start from the
@@ -104,12 +115,24 @@ configured default.
 
 ## MCP
 
-Pi's built-in MCP support reads `~/.pi/agent/mcp.json`. Run `merge-settings` after `stow pi` or after editing the tracked `.pi/agent/mcp.base.json` or untracked `~/.pi/agent/mcp.local.json`. The script merges `mcpServers` by server name and then by property, validates each server has a command or URL, and writes the generated file with owner-only permissions. If either MCP source is invalid, it leaves the existing output intact. On a new computer with an existing unmanaged `mcp.json`, first move its personal entries to `mcp.local.json`; the script refuses to overwrite it unless it already matches the generated result. Once adopted, the ignored `.mcp-managed` marker identifies it as generated. Do not hand-edit the generated file. Never put credentials, personal server URLs, or private checkout paths in the tracked base.
+Pi's built-in MCP support reads `~/.pi/agent/mcp.json`. Run
+`merge-settings` after `stow pi` or after editing the tracked
+`.pi/agent/mcp.base.json` or untracked `~/.pi/agent/mcp.local.json`. The script
+merges `mcpServers` by server name and then by property, validates that each
+server has a command or URL, and writes the generated file with owner-only
+permissions. If either MCP source is invalid, it leaves the existing output
+intact. On a new computer with an existing unmanaged `mcp.json`, first move its
+personal entries to `mcp.local.json`; the script refuses to overwrite it unless
+it already matches the generated result. Once adopted, the ignored
+`.mcp-managed` marker identifies it as generated. Do not hand-edit the
+generated file. Never put credentials, personal server URLs, or private
+checkout paths in the tracked base.
 
 | Pi server | Source | Notes |
 | --- | --- | --- |
 | `svelte` | Tracked base | `npx -y @sveltejs/mcp` |
-| `xcode` | Tracked base | `xcrun mcpbridge`; select Xcode beta with a local `DEVELOPER_DIR` override when needed |
+| `xcode` | Tracked base | `xcrun mcpbridge`; use a local `DEVELOPER_DIR` override for Xcode beta |
+| `parallel-task` | Tracked base | Remote streamable HTTP server; bearer auth uses `PARALLEL_API_KEY`, with direct tool exposure |
 | Personal HTTP server | Local override on this computer | Command-resolved `Authorization` header; keep its URL and resolver private |
 | `atlassian` | Optional local override | Requires an `atlassian-mcp` wrapper on `PATH` on the computer that uses it |
 
@@ -125,9 +148,22 @@ Place local entries under `mcpServers` in `~/.pi/agent/mcp.local.json`. A matchi
 }
 ```
 
-Add any personal servers alongside it, and set the local file to owner-only access with `chmod 600 ~/.pi/agent/mcp.local.json`. Then run `merge-settings` and check connections with `pi mcp list`. The local and generated files are ignored by Git. Use `"${NAME}"` or `"!command"` in a native Pi header instead of a literal token. An adapter `bearerToken` or `directTools` field is not a native Pi setting; use `headers.Authorization` and `exposure` instead. Restart Pi or run `/reload` after changing servers. `pi mcp list` tests the built-in configuration even without an interactive session.
+Add any personal servers alongside it, and set the local file to owner-only
+access with `chmod 600 ~/.pi/agent/mcp.local.json`. Then run `merge-settings` and
+check connections with `pi mcp list`. The local and generated files are ignored
+by Git. Native Pi headers accept `"${NAME}"` or `"!command"` instead of a
+literal token. The tracked Parallel Task entry uses `headers.Authorization`
+with `Bearer ${PARALLEL_API_KEY}` and `exposure: "direct"`. The `~/bin/pi`
+wrapper resolves an `op://` reference before launch. Adapter-specific
+`bearerToken` and `directTools` fields are not native Pi settings. Restart Pi or
+run `/reload` after changing servers. `pi mcp list` tests the built-in
+configuration even without an interactive session.
 
-The stowed `.config/mcp/mcp.json` remains for other MCP clients but is not read by Pi. It still lists Svelte, Xcode, and Atlassian, so changes to shared definitions may need updating in both places. Its adapter-specific Xcode lifecycle and Xcode beta path remain for those clients; Pi uses its own native settings and a local beta override. Brave Search has been removed; use the Parallel web extension for search. Do not put personal server definitions in this public repo.
+The stowed `.config/mcp/mcp.json` remains available for other MCP clients, but Pi
+does not read it. Its Parallel Task entry retains adapter-specific settings
+for those clients. Brave Search has been removed; use the Parallel web
+extension for search. Do not put personal server definitions in this public
+repo.
 
 ## Subagents
 

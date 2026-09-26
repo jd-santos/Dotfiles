@@ -8,14 +8,18 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 
 - Add a Stow-managed Herdr config with a tmux-like backtick prefix and Dracula theme.
 - Add a portable Herdr setup with a committed manifest plus `scripts/setup-herdr` and `scripts/bootstrap` to reproduce integrations and plugins.
+- Add a lazy-loaded Atlassian MCP server for optional local use through an
+  `atlassian-mcp` wrapper on `PATH`, and document the existing Xcode MCP server.
+- Add a Parallel Task server to Pi's native MCP configuration and a skill for
+  approved research and data enrichment.
 - Add Go binaries to `PATH` in zsh when Go is installed.
 - Track cmux terminal config as a `cmux` stow package.
 - Add a `herdr-jd` Pi bridge that publishes a conversation short title to the Herdr Agent sidebar, generated in the same summary model call.
 
 ### Changed
 
-- Switch Pi to native MCP support with tracked Svelte and Xcode defaults,
-  private local server overrides, and generated MCP settings.
+- Switch Pi to native MCP support with tracked Svelte, Xcode, and Parallel
+  Task defaults, private local server overrides, and generated MCP settings.
 - Put Pi's glyph beside the location in Herdr's Agent sidebar and show the conversation title alone on the next row.
 - Widen the Herdr sidebar to 40 columns and disable onboarding and automatic theme switching.
 - Switch Pi's default and active Sol/Luna routes to GPT-6, prioritize Codex in the scoped model cycle, and route subagents to GPT-6 while retaining GPT-5.6 Terra as a selectable fallback.

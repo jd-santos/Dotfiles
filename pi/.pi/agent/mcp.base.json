@@ -1,5 +1,12 @@
 {
   "mcpServers": {
+    "parallel-task": {
+      "url": "https://task-mcp.parallel.ai/mcp",
+      "headers": {
+        "Authorization": "Bearer ${PARALLEL_API_KEY}"
+      },
+      "exposure": "direct"
+    },
     "svelte": {
       "command": "npx",
       "args": ["-y", "@sveltejs/mcp"]
