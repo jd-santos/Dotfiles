@@ -32,6 +32,7 @@
   - [x] Implement `usage.ts` as a local Pi and Codex usage parser with a Markdown widget report
   - [x] Update Pi docs with the new commands and behavior
   - [ ] Smoke test in Pi with `/reload`, `/lg`, `/lg --staged`, `/lg --all`, and `/usage`
+- [ ] [Herdr JD bridge and agent titles](work/herdr-jd-bridge/README.md)
 
 ## P4: Low
 
