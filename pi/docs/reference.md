@@ -402,7 +402,25 @@ Guardrails:
 - Sends only a bounded sketch of recent user and assistant text to the summary model
 - Reuses the cached summary as the session name, so naming the session does not make another model call
 
-Summary state is stored as custom session entries so resumed sessions can restore it.
+Summary state is stored as custom session entries so resumed sessions can restore it. The same model call also returns a 3 to 6 word title used by the Herdr bridge.
+
+## Herdr bridge
+
+Location: `.pi/agent/extensions/herdr-jd.ts`
+
+Publishes small display-only values to Herdr as pane metadata. The first export is the conversation short title, shown on the Herdr Agent sidebar row. Herdr tracks the value on the agent that owns the pane, so the title follows the agent rather than the tab.
+
+- Source id `herdr:jd`, token `title`, 6 hour TTL.
+- Text is `<dir> · <title>`, trimmed on a word boundary to 80 characters.
+- Forked sessions append `↳ <parent title>`, read from the parent session in the session header.
+- Re-reported when the session name changes, and cleared on shutdown.
+- No-op outside a Herdr pane, gated on `HERDR_ENV`, `HERDR_PANE_ID`, and `HERDR_BIN_PATH`.
+
+Herdr shows it through `[ui.sidebar.agents.rows_by_agent]` in `herdr/.config/herdr/config.toml`:
+
+```toml
+pi = [["state_icon", "machine", "workspace", "tab"], ["agent", "$title"]]
+```
 
 ## Context-aware planning
 

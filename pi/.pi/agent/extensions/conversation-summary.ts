@@ -14,12 +14,15 @@
  *   - Triggers after agent_end, once per user request instead of once per turn
  *   - Reuses the cached summary for the session name without extra model calls
  *   - Uses low-effort reasoning and caps update frequency
+ *   - Also returns a short title for the Herdr agent sidebar
  */
 import { complete } from "@earendil-works/pi-ai";
 import type {
 	ExtensionAPI,
 	ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
+
+import { parseSummaryResponse } from "./lib/herdr-title.ts";
 
 const SUMMARY_ENTRY_TYPE = "conversation-summary";
 const SUMMARY_STATUS_KEY = "conv-summary";
@@ -115,9 +118,10 @@ function buildSketch(entries: SessionEntry[]): string {
 
 function buildSummaryPrompt(sketch: string): string {
 	return [
-		"Write a very short summary (8-15 words max) of what this conversation is about.",
-		"Focus on the main task or goal. No quotes, no punctuation at the end, no preamble.",
-		"Just the summary phrase itself.",
+		"Return two labeled lines describing the conversation below.",
+		"TITLE: an effective, unique-ish, but primarily identifiable title in 3-6 words, useful for finding the session later.",
+		"SUMMARY: a very short summary in 8-15 words focused on the main task or goal.",
+		"No quotes and no trailing punctuation. Use exactly the labels TITLE: and SUMMARY:. No preamble.",
 		"",
 		"<conversation>",
 		sketch,
@@ -362,7 +366,7 @@ export default function (pi: ExtensionAPI) {
 					{
 						apiKey: candidate.auth.apiKey,
 						headers: candidate.auth.headers,
-						maxTokens: 64,
+						maxTokens: 128,
 						thinkingEnabled: false,
 						maxRetries: 0,
 						maxRetryDelayMs: 5_000,
@@ -382,15 +386,16 @@ export default function (pi: ExtensionAPI) {
 					);
 				}
 
-				const summary = cleanSummary(
-					response.content
-						.filter(
-							(content): content is { type: "text"; text: string } =>
-								content.type === "text",
-						)
-						.map((content) => content.text)
-						.join("\n"),
-				);
+				const rawText = response.content
+					.filter(
+						(content): content is { type: "text"; text: string } =>
+							content.type === "text",
+					)
+					.map((content) => content.text)
+					.join("\n");
+				const parsed = parseSummaryResponse(rawText);
+				const summary = cleanSummary(parsed.summary ?? rawText);
+				const title = parsed.title;
 
 				if (!summary) {
 					const message = "empty summary";
@@ -412,6 +417,7 @@ export default function (pi: ExtensionAPI) {
 
 				pi.appendEntry(SUMMARY_ENTRY_TYPE, {
 					summary,
+					title,
 					turnCount,
 					source: "auto",
 					generatedAt: Date.now(),
@@ -522,6 +528,7 @@ export default function (pi: ExtensionAPI) {
 				clearSummarySessionName();
 				pi.appendEntry(SUMMARY_ENTRY_TYPE, {
 					summary: "",
+					title: "",
 					turnCount: 0,
 					source: "manual-clear",
 					automaticSummaryCount,
