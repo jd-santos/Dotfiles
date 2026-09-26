@@ -84,6 +84,8 @@ fi
 # └───────────────────────────────────────────────────────────────────┘
 
 # 1Password: code
+# Enable the desktop app integration explicitly for CLI calls from agent panes.
+export OP_BIOMETRIC_UNLOCK_ENABLED=true
 export OPENROUTER_API_KEY="op://code/openrouter-api-key/credential"
 export DEEPSEEK_API_KEY="op://code/deepseek-api-key/credential"
 export ANTHROPIC_PI_API_KEY="op://code/anthropic-pi-api-key/credential"
