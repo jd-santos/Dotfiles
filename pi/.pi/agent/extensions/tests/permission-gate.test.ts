@@ -1,17 +1,121 @@
 import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
 import test from "node:test";
 
 import {
 	analyzeBashCommand,
 	areBashPartsCovered,
 	canInferCommandSafety,
+	formatAppleScriptNotification,
+	formatOsc777Notification,
 	highDangerBashReason,
 	isPathInCwd,
 	isProtectedPath,
 	isReadOnlyGitCommandPart,
 	isSafeCommandPart,
+	selectPermissionNotificationRoute,
+	writeNotificationSequence,
 	type PermissionRule,
 } from "../permission-gate.ts";
+
+test("routes permission notifications through terminal and contextual backends", () => {
+	assert.equal(
+		selectPermissionNotificationRoute(
+			"tui",
+			{ TERM_PROGRAM: "ghostty" },
+			{ isTTY: true, platform: "darwin" },
+		),
+		"osc777",
+	);
+	assert.equal(
+		selectPermissionNotificationRoute(
+			"tui",
+			{ CMUX_SURFACE_ID: "surface-id", TERM_PROGRAM: "ghostty" },
+			{ isTTY: true, platform: "darwin" },
+		),
+		"osc777",
+	);
+	assert.equal(
+		selectPermissionNotificationRoute(
+			"rpc",
+			{ CMUX_SURFACE_ID: "surface-id" },
+			{ isTTY: false, platform: "darwin" },
+		),
+		"cmux",
+	);
+	assert.equal(
+		selectPermissionNotificationRoute("tui", {}, {
+			isTTY: true,
+			platform: "darwin",
+		}),
+		"macos",
+	);
+	assert.equal(
+		selectPermissionNotificationRoute("tui", {}, {
+			isTTY: true,
+			platform: "linux",
+		}),
+		undefined,
+	);
+	assert.equal(
+		selectPermissionNotificationRoute(
+			"tui",
+			{ TERM_PROGRAM: "ghostty", TMUX: "/tmp/tmux.sock,1,1" },
+			{ isTTY: true, platform: "darwin" },
+		),
+		"macos",
+	);
+	assert.equal(
+		selectPermissionNotificationRoute(
+			"tui",
+			{ CMUX_SURFACE_ID: "surface-id", TMUX: "/tmp/tmux.sock,1,1" },
+			{ isTTY: true, platform: "darwin" },
+		),
+		"cmux",
+	);
+});
+
+test("formats OSC 777 notifications and strips delimiter/control characters", () => {
+	const escape = String.fromCharCode(27);
+	const bell = String.fromCharCode(7);
+
+	assert.equal(
+		formatOsc777Notification("pi", "Permission required: bash"),
+		`${escape}]777;notify;pi;Permission required: bash${bell}`,
+	);
+	assert.equal(
+		formatOsc777Notification("p;i", `Need;${bell}confirm`),
+		`${escape}]777;notify;p i;Need confirm${bell}`,
+	);
+});
+
+test("handles asynchronous terminal write errors without leaking listeners", async () => {
+	const output = new EventEmitter() as EventEmitter & {
+		write: (
+			chunk: string,
+			callback: (error?: Error | null) => void,
+		) => boolean;
+	};
+
+	output.write = (_chunk, callback) => {
+		const error = new Error("EPIPE");
+		queueMicrotask(() => {
+			output.emit("error", error);
+			callback(error);
+		});
+		return false;
+	};
+
+	assert.equal(await writeNotificationSequence(output, "notification"), false);
+	assert.equal(output.listenerCount("error"), 0);
+});
+
+test("quotes fields in macOS notification scripts", () => {
+	assert.equal(
+		formatAppleScriptNotification('p"i', "Permission required: bash"),
+		`display notification "Permission required: bash" with title "p${String.fromCharCode(92)}"i"`,
+	);
+});
 
 test("splits simple chains without splitting quoted separators", () => {
 	const chain = analyzeBashCommand("cd repo && rg 'one|two;three' . | head -20");

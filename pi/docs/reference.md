@@ -183,7 +183,9 @@ Prompt flow:
 
 Writes to protected system paths, destructive or permission-changing shell commands, and remote-execution commands always require an interactive one-time confirmation. They are not covered by yolo or session rules. Sensitive bash reads remain blocked.
 
-The prompt also sets the below-editor pointer widget and fires cmux alert hooks.
+The prompt sets the below-editor pointer widget and sends an OSC 777 desktop notification in interactive Ghostty or cmux sessions outside tmux. tmux passthrough is not enabled in this configuration, so Pi uses a contextual fallback: the cmux CLI inside a cmux surface or macOS Notification Center through `osascript` on macOS. Other unsupported platforms have no fallback. Notification failures are ignored.
+
+OSC 777 has no delivery acknowledgement, so Pi cannot detect notifications suppressed by terminal or OS settings.
 
 ### Commands
 

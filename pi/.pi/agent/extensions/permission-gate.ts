@@ -682,6 +682,80 @@ export function isProtectedPath(path: string, cwd: string): boolean {
 	);
 }
 
+export type PermissionNotificationRoute = "osc777" | "cmux" | "macos";
+
+export function selectPermissionNotificationRoute(
+	mode: string,
+	env: Record<string, string | undefined>,
+	options: { isTTY: boolean; platform: string },
+): PermissionNotificationRoute | undefined {
+	const inCmux = Boolean(env.CMUX_SURFACE_ID || env.CMUX_WORKSPACE_ID);
+	const isGhostty = env.TERM_PROGRAM?.toLowerCase() === "ghostty";
+
+	// tmux does not forward OSC sequences by default, so use the OS fallback there.
+	if (
+		mode === "tui" &&
+		options.isTTY &&
+		!env.TMUX &&
+		(inCmux || isGhostty)
+	) {
+		return "osc777";
+	}
+	if (inCmux) return "cmux";
+	if (options.platform === "darwin") return "macos";
+	return undefined;
+}
+
+export function formatOsc777Notification(title: string, body: string): string {
+	const clean = (value: string) =>
+		value
+			.replace(/[;\x00-\x1f\x7f-\x9f]/g, " ")
+			.replace(/\s+/g, " ")
+			.trim();
+
+	return `\x1b]777;notify;${clean(title)};${clean(body)}\x07`;
+}
+
+export function formatAppleScriptNotification(title: string, body: string): string {
+	const quote = (value: string) =>
+		`"${value
+			.replace(/[\x00-\x1f\x7f-\x9f]/g, " ")
+			.replace(/\\/g, "\\\\")
+			.replace(/"/g, '\\"')
+			.replace(/\s+/g, " ")}"`;
+
+	return `display notification ${quote(body)} with title ${quote(title)}`;
+}
+
+interface NotificationOutput {
+	write(chunk: string, callback: (error?: Error | null) => void): boolean;
+	once(event: "error", listener: (error: Error) => void): NotificationOutput;
+	removeListener(event: "error", listener: (error: Error) => void): NotificationOutput;
+}
+
+export function writeNotificationSequence(
+	output: NotificationOutput,
+	sequence: string,
+): Promise<boolean> {
+	return new Promise((resolve) => {
+		let settled = false;
+		const finish = (success: boolean) => {
+			if (settled) return;
+			settled = true;
+			output.removeListener("error", onError);
+			resolve(success);
+		};
+		const onError = () => finish(false);
+
+		output.once("error", onError);
+		try {
+			output.write(sequence, (error) => finish(!error));
+		} catch {
+			finish(false);
+		}
+	});
+}
+
 function unreachable(value: never): never {
 	throw new Error(`Unhandled permission rule: ${JSON.stringify(value)}`);
 }
@@ -898,7 +972,6 @@ export default function (pi: ExtensionAPI) {
 
 	const PERMISSION_WIDGET_ID = "permission-gate-alert";
 	const PERMISSION_BOX_WIDTH = 56;
-	let cmuxWarned = false;
 
 	function boxLine(text: string): string {
 		return `│ ${text.slice(0, PERMISSION_BOX_WIDTH - 4).padEnd(PERMISSION_BOX_WIDTH - 4)} │`;
@@ -991,27 +1064,44 @@ export default function (pi: ExtensionAPI) {
 		ctx.ui.setWidget(PERMISSION_WIDGET_ID, undefined);
 	}
 
-	async function runCmuxCommand(args: string[]): Promise<string | undefined> {
+	async function runNotificationCommand(
+		command: string,
+		args: string[],
+	): Promise<void> {
 		try {
-			const result = await pi.exec("cmux", args, { timeout: 2000 });
-			if (result.code === 0) return undefined;
-			return `${args[0]} exited ${result.code}${result.stderr ? `: ${String(result.stderr).trim()}` : ""}`;
-		} catch (error) {
-			return `${args[0]} failed: ${error instanceof Error ? error.message : String(error)}`;
+			await pi.exec(command, args, { timeout: 2000 });
+		} catch {
+			// Notifications are best-effort. Unsupported backends should fail silently.
 		}
 	}
 
-	async function alertCmux(ctx: ExtensionContext, body: string): Promise<void> {
-		const failures = (
-			await Promise.all([
-				runCmuxCommand(["notify", "--title", "pi", "--body", body]),
-				runCmuxCommand(["trigger-flash"]),
-			])
-		).filter(Boolean);
+	function sendOsc777Notification(title: string, body: string): Promise<boolean> {
+		return writeNotificationSequence(
+			process.stdout,
+			formatOsc777Notification(title, body),
+		);
+	}
 
-		if (failures.length > 0 && !cmuxWarned) {
-			cmuxWarned = true;
-			ctx.ui.notify(`cmux alert failed: ${failures.join("; ")}`, "warning");
+	async function sendFallbackNotification(body: string): Promise<void> {
+		const env = process.env;
+		const route = selectPermissionNotificationRoute("fallback", env, {
+			isTTY: false,
+			platform: process.platform,
+		});
+
+		if (route === "cmux") {
+			await runNotificationCommand("cmux", [
+				"notify",
+				"--title",
+				"pi",
+				"--body",
+				body,
+			]);
+		} else if (route === "macos") {
+			await runNotificationCommand("osascript", [
+				"-e",
+				formatAppleScriptNotification("pi", body),
+			]);
 		}
 	}
 
@@ -1020,7 +1110,23 @@ export default function (pi: ExtensionAPI) {
 		toolName: string,
 	): Promise<void> {
 		showPermissionWidget(ctx, toolName);
-		await alertCmux(ctx, `Permission required: ${toolName}`);
+		const body = `Permission required: ${toolName}`;
+		const route = selectPermissionNotificationRoute(ctx.mode, process.env, {
+			isTTY: process.stdout.isTTY === true,
+			platform: process.platform,
+		});
+
+		if (route === "osc777") {
+			void sendOsc777Notification("pi", body)
+				.then((sent) => {
+					if (!sent) return sendFallbackNotification(body);
+				})
+				.catch(() => sendFallbackNotification(body))
+				.catch(() => {});
+			return;
+		}
+
+		await sendFallbackNotification(body);
 	}
 
 	async function twoStepPrompt(
