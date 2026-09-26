@@ -12,12 +12,12 @@
  */
 import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { basename } from "node:path";
 
 import { composeAgentTitle } from "./lib/herdr-title.ts";
 
 const SUMMARY_ENTRY_TYPE = "conversation-summary";
 const TOKEN_NAME = "title";
+const GLYPH_TOKEN_NAME = "pi_glyph";
 const SOURCE = "herdr:jd";
 const TTL_MS = 6 * 60 * 60 * 1000;
 
@@ -43,14 +43,15 @@ export default function (pi) {
 			SOURCE,
 			"--clear-token",
 			TOKEN_NAME,
+			"--clear-token",
+			GLYPH_TOKEN_NAME,
 		]);
 	}
 
 	function publish(text) {
-		if (!text) {
-			clear();
-			return;
-		}
+		const titleArgs = text
+			? ["--token", `${TOKEN_NAME}=${text}`]
+			: ["--clear-token", TOKEN_NAME];
 		run([
 			"pane",
 			"report-metadata",
@@ -58,7 +59,8 @@ export default function (pi) {
 			"--source",
 			SOURCE,
 			"--token",
-			`${TOKEN_NAME}=${text}`,
+			`${GLYPH_TOKEN_NAME}=π`,
+			...titleArgs,
 			"--ttl-ms",
 			String(TTL_MS),
 		]);
@@ -140,7 +142,6 @@ export default function (pi) {
 		publish(
 			composeAgentTitle({
 				title,
-				dir: basename(ctx.cwd ?? ""),
 				parentTitle,
 			}),
 		);

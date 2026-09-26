@@ -72,7 +72,6 @@ export function formatForkSuffix(parentTitle: unknown): string {
 
 export function composeAgentTitle(options: {
 	title: unknown;
-	dir?: unknown;
 	parentTitle?: unknown;
 	maxChars?: number;
 }): string {
@@ -80,14 +79,12 @@ export function composeAgentTitle(options: {
 	const title = cleanPhrase(options.title, MAX_AGENT_TITLE_CHARS);
 	if (!title) return "";
 
-	const dir = cleanPhrase(options.dir, MAX_AGENT_TITLE_CHARS);
-	const prefix = dir ? `${dir} · ` : "";
 	const suffix = formatForkSuffix(options.parentTitle);
-	const available = maxChars - prefix.length - suffix.length;
+	const available = maxChars - suffix.length;
 
 	if (available <= 2) {
-		return truncatePhrase(`${prefix}${title}${suffix}`, maxChars);
+		return truncatePhrase(`${title}${suffix}`, maxChars);
 	}
 
-	return `${prefix}${truncatePhrase(title, available)}${suffix}`;
+	return `${truncatePhrase(title, available)}${suffix}`;
 }

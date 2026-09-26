@@ -30,9 +30,9 @@ reload_config = "prefix+r"
 # Herdr uses a mode for resizing; keep reload on tmux's prefix+r instead.
 resize_mode = "prefix+shift+r"
 
-# Show the conversation short title on the pi agent row in the Agent sidebar.
-# The title is reported as pane metadata by the Pi herdr-jd bridge, and is
+# Show the Pi glyph after the location and the conversation title below it.
+# Both tokens are reported as pane metadata by the Pi herdr-jd bridge and
 # carried on the agent record that owns the pane. Reload with prefix+r after
 # changing this.
 [ui.sidebar.agents.rows_by_agent]
-pi = [["state_icon", "machine", "workspace", "tab"], ["agent", "$title"]]
+pi = [["state_icon", "machine", "workspace", "tab", "$pi_glyph"], ["$title"]]
