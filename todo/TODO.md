@@ -45,5 +45,4 @@
 
 ## P5: Minor
 
-- [ ] Commit or drop the two local Herdr settings in `herdr/.config/herdr/config.toml` (`onboarding`, theme `auto_switch`)
 - [ ] Consider a richer `/usage` table renderer if the widget output is too dense

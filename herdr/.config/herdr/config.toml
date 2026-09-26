@@ -1,10 +1,14 @@
+onboarding = false
 # Carry over the useful parts of the tmux setup without trying to reproduce
 # tmux-only status bar commands or nested-session routing.
 
 [theme]
 name = "dracula"
 
+auto_switch = false
 [ui]
+sidebar_width = 40
+sidebar_max_width = 40
 # Use tmux-like internal pane dividers without an outside frame.
 pane_gaps = false
 pane_outer_borders = false
