@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# bootstrap - set up a machine from this Dotfiles checkout in one command.
+#
+# Initializes and hydrates agent skills, stows every package, generates merged
+# settings, and reconciles Herdr integrations and plugins. Safe to re-run.
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -z "$repo_root" || ! -f "$repo_root/.stow-local-ignore" ]]; then
+  echo "bootstrap: run this from a Dotfiles checkout." >&2
+  exit 1
+fi
+cd "$repo_root"
+
+# `agents` is handled by setup-agent-skills, which also stows it.
+packages=(bin fzf ghostty git herdr lint nvim opencode pgcli pi starship tmux zed zsh)
+
+require() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "bootstrap: missing required tool: $1" >&2
+    exit 1
+  fi
+}
+
+require git
+require stow
+require jq
+require herdr
+require python3
+
+if ! python3 -c 'import tomllib' >/dev/null 2>&1; then
+  echo "bootstrap: python3 with tomllib (3.11+) is required by setup-herdr" >&2
+  exit 1
+fi
+
+echo "==> Agent skills"
+./scripts/setup-agent-skills
+
+echo "==> Stowing packages: ${packages[*]}"
+stow --target="$HOME" -R "${packages[@]}"
+
+echo "==> Merging generated settings"
+"$repo_root/bin/bin/merge-settings"
+
+echo "==> Herdr integrations and plugins"
+./scripts/setup-herdr
+
+echo "bootstrap: done."

@@ -1,0 +1,169 @@
+#!/usr/bin/env bash
+# setup-herdr - reconcile Herdr agent integrations and plugins from the
+# committed manifest at herdr/.config/herdr/herdr-setup.toml.
+#
+# Herdr registers plugins imperatively and keeps no declarative plugin list, so
+# this script replays the manifest. It is safe to re-run.
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/setup-herdr [--refresh] [--allow-missing-herdr]
+
+Reconcile Herdr integrations and plugins from the committed manifest.
+
+Options:
+  --refresh                Reinstall integrations even when already present, to
+                           pick up changes from a Herdr update.
+  --allow-missing-herdr    Exit 0 when herdr is not installed and the manifest
+                           declares work. Without this flag, a missing herdr is
+                           an error so setup cannot silently look complete.
+  -h, --help               Show this help.
+EOF
+}
+
+refresh=0
+allow_missing=0
+for arg in "$@"; do
+  case "$arg" in
+    --refresh) refresh=1 ;;
+    --allow-missing-herdr) allow_missing=1 ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "setup-herdr: unknown option: $arg" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -z "$repo_root" || ! -f "$repo_root/.stow-local-ignore" ]]; then
+  echo "setup-herdr: run this from a Dotfiles checkout." >&2
+  exit 1
+fi
+cd "$repo_root"
+
+manifest="$repo_root/herdr/.config/herdr/herdr-setup.toml"
+if [[ ! -f "$manifest" ]]; then
+  echo "setup-herdr: manifest not found: $manifest" >&2
+  exit 1
+fi
+
+if ! command -v python3 >/dev/null 2>&1 || ! python3 -c 'import tomllib' >/dev/null 2>&1; then
+  echo "setup-herdr: python3 with tomllib (3.11+) is required to read $manifest" >&2
+  exit 1
+fi
+
+# Emit tab-separated records: integration<TAB>name or plugin<TAB>source<TAB>ref
+parsed="$(python3 - "$manifest" <<'PY'
+import sys
+import tomllib
+
+
+def clean(field, value):
+    if not isinstance(value, str):
+        raise SystemExit(f"{field} must be a string, got {type(value).__name__}")
+    if not value:
+        raise SystemExit(f"{field} must not be empty")
+    if any(ch in value for ch in "\t\n\r"):
+        raise SystemExit(f"{field} must not contain tabs or newlines: {value!r}")
+    return value
+
+
+with open(sys.argv[1], "rb") as handle:
+    data = tomllib.load(handle)
+
+integrations = data.get("integrations", [])
+if not isinstance(integrations, list):
+    raise SystemExit("'integrations' must be an array of strings")
+for name in integrations:
+    print(f"integration\t{clean('integration name', name)}")
+
+plugins = data.get("plugins", [])
+if not isinstance(plugins, list):
+    raise SystemExit("'plugins' must be an array")
+for plugin in plugins:
+    if isinstance(plugin, str):
+        print(f"plugin\t{clean('plugin source', plugin)}\t")
+        continue
+    if not isinstance(plugin, dict):
+        raise SystemExit(f"plugin entry must be a string or table, got {type(plugin).__name__}")
+    source = clean("plugin source", plugin.get("source", ""))
+    ref = plugin.get("ref", "")
+    ref = clean("plugin ref", ref) if ref else ""
+    print(f"plugin\t{source}\t{ref}")
+PY
+)" || {
+  echo "setup-herdr: failed to parse $manifest" >&2
+  exit 1
+}
+
+if [[ -z "$parsed" ]]; then
+  echo "setup-herdr: manifest declares no integrations or plugins."
+  exit 0
+fi
+
+if ! command -v herdr >/dev/null 2>&1; then
+  if [[ $allow_missing -eq 1 ]]; then
+    echo "setup-herdr: herdr not found on PATH; skipping declared setup." >&2
+    exit 0
+  fi
+  echo "setup-herdr: herdr not found on PATH; install it or pass --allow-missing-herdr." >&2
+  exit 1
+fi
+
+# Fresh status lookup, used before install and to classify uninstall failures.
+integration_state() {
+  herdr integration status 2>/dev/null | sed -n "s/^${1}: \([a-z]*\).*/\1/p" | head -n 1
+}
+
+# Tolerate an uninstall that failed because the integration was absent, but
+# propagate a real cleanup failure.
+uninstall_integration() {
+  local name="$1"
+  if herdr integration uninstall "$name" >/dev/null 2>&1; then
+    return 0
+  fi
+  if [[ "$(integration_state "$name")" == "not" ]]; then
+    return 0
+  fi
+  echo "setup-herdr: failed to uninstall integration $name" >&2
+  return 1
+}
+
+while IFS=$'\t' read -r kind a b; do
+  [[ -z "$kind" ]] && continue
+  case "$kind" in
+    integration)
+      state="$(integration_state "$a")"
+      if [[ $refresh -eq 1 || "$state" == "outdated" ]]; then
+        uninstall_integration "$a"
+        herdr integration install "$a"
+        echo "integration $a: installed"
+      elif [[ "$state" == "current" || "$state" == "installed" ]]; then
+        echo "integration $a: already installed"
+      else
+        herdr integration install "$a"
+        echo "integration $a: installed"
+      fi
+      ;;
+    plugin)
+      if [[ -n "$b" ]]; then
+        herdr plugin install "$a" --ref "$b" --yes
+      else
+        herdr plugin install "$a" --yes
+      fi
+      echo "plugin $a: installed"
+      ;;
+    *)
+      echo "setup-herdr: unknown entry kind: $kind" >&2
+      exit 1
+      ;;
+  esac
+done <<<"$parsed"
+
+echo "setup-herdr: done."

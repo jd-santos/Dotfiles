@@ -2,6 +2,21 @@
 
 ## In Progress
 
+- [ ] [MEDIUM] [Herdr setup portability](todo/work/herdr-portability/README.md)
+  - [x] Add `herdr/.config/herdr/herdr-setup.toml` manifest
+  - [x] Add `scripts/setup-herdr` to reconcile integrations and plugins
+  - [x] Add `scripts/bootstrap` for one-command machine setup
+  - [x] Ignore the generated Pi integration file in `.gitignore`
+  - [x] Update root `README.md` package table and install flow
+  - [x] Note the generated integration file in `pi/README.md`
+  - [x] Validate scripts and reconcile the pi integration
+
+- [ ] [LOW] Route Pi permission prompts through OSC 777 with contextual fallback
+  - [ ] Send OSC 777 in direct Ghostty/cmux TUI sessions; route other contexts to an available cmux or macOS fallback
+  - [ ] Keep notification failures silent and remove the cmux flash action
+  - [ ] Add focused tests and sync Pi documentation
+  - [ ] Run focused validation
+
 - [ ] [HIGH] Reconcile stale PRs and ship Pi and Skills work
   - [x] Preserve PR #27's unique priority-scale work and rebase it onto current `main`
   - [x] Publish the Skills `i-am-baby` work and retained `execute-code.sh` change

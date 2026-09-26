@@ -10,10 +10,11 @@ Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). M
 | [`agents`](agents/README.md)          | AI agent skills ([Agent Skills](https://agentskills.io) standard)                                                      |
 | `bin`                                 | User scripts installed to `~/bin`, including `merge-settings` and the Pi auth wrapper                                  |
 | `docs/`                               | Repo documentation and the Typst terminal workflow cheatsheet, not a stow package                                      |
+| `scripts/`                            | Setup helpers (`setup-agent-skills`, `setup-herdr`, `bootstrap`), not a stow package                                   |
 | `fzf`                                 | [fzf](https://github.com/junegunn/fzf) setup (PATH and shell integration)                                              |
 | `ghostty`                             | [Ghostty](https://ghostty.org) terminal (Dracula theme, Nerd Font icons)                                               |
 | `git`                                 | Git config, global gitignore, LFS, [`~/.gitconfig.local`](git/.gitconfig.local.example) for machine-specific overrides |
-| `herdr`                               | [Herdr](https://herdr.dev/) workspace manager config (tmux-like keys, Dracula theme)                                    |
+| `herdr`                               | [Herdr](https://herdr.dev/) config (tmux-like keys, Dracula theme, portable setup manifest)                            |
 | `lint`                                | Markdown lint rules (`.markdownlint.jsonc`)                                                                            |
 | [`nvim`](nvim/.config/nvim/README.md) | Neovim (LazyVim, fzf-lua, tokyonight)                                                                                  |
 | `opencode`                            | [OpenCode](https://opencode.ai/) AI assistant config and local agent prompts                                           |
@@ -92,6 +93,7 @@ Custom keybindings on top of [LazyVim defaults](https://www.lazyvim.org/keymaps)
 
 | Date       | Change                                                                         |
 | ---------- | ------------------------------------------------------------------------------ |
+| 2026-09-25 | Added portable Herdr manifest, `setup-herdr`, and `bootstrap` scripts           |
 | 2026-05-31 | Refreshed package docs, stow commands, tmux shortcuts, and cheatsheet source   |
 | 2026-05-07 | Added `ui-read-and-shortcuts` Pi extension (read preview, slash command hints) |
 | 2026-05-04 | Updated Pi enabled models                                                      |
@@ -134,6 +136,31 @@ To initialize, hydrate, and verify the agent skills in one command, run:
 ```bash
 ./scripts/setup-agent-skills
 ```
+
+### Set Up a New Machine
+
+Prerequisites: `git`, `stow`, `jq`, `python3` 3.11 or newer, and
+[Herdr](https://herdr.dev/) installed. `bootstrap` stops with a clear error if
+one is missing.
+
+`bootstrap` runs the steps above in order, generates merged settings, then
+reconciles Herdr integrations and plugins:
+
+```bash
+./scripts/bootstrap
+```
+
+Herdr registers plugins imperatively, so `scripts/setup-herdr` reads
+`herdr/.config/herdr/herdr-setup.toml` and replays it. Re-run it after editing
+the manifest, or pass `--refresh` to reinstall integrations after a Herdr
+update. Pass `--allow-missing-herdr` to skip the Herdr step on a machine
+without Herdr.
+
+> **Trust:** plugin installation runs third-party code as your user, including
+> any build commands the plugin declares. Review a plugin's source and
+> `herdr-plugin.toml` before adding it to the manifest, and pin `ref` so a
+> future run reproduces a known revision instead of whatever upstream HEAD has
+> become.
 
 `docs/` is not a stow package. Keep it in the repo unless you intentionally want those files linked into `$HOME`.
 
