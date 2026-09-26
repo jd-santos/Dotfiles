@@ -1,6 +1,6 @@
 # Pi GPT-6 Sol and Luna migration
 
-Status: Ready for merge
+Status: Merged in PR #31.
 
 ## Purpose
 

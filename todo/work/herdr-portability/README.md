@@ -1,6 +1,6 @@
 # Herdr setup portability
 
-Status: Ready for review
+Status: Merged in PR #32.
 
 ## Purpose
 

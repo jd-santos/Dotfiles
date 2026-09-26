@@ -24,4 +24,5 @@ _darcs
 ^AGENTS\.md$
 ^LICENSE$
 ^docs$
+^todo$
 ^\.stow-local-ignore$
