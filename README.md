@@ -9,6 +9,7 @@ Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). M
 | `.pi/`                                | Repo-local Pi prompt templates, including `/ship`                                                                      |
 | [`agents`](agents/README.md)          | AI agent skills ([Agent Skills](https://agentskills.io) standard)                                                      |
 | `bin`                                 | User scripts installed to `~/bin`, including `merge-settings` and the Pi auth wrapper                                  |
+| `cmux`                                | [cmux](https://github.com/manaflow-ai/cmux) terminal config and cmux-specific Ghostty UI overrides                     |
 | `docs/`                               | Repo documentation and the Typst terminal workflow cheatsheet, not a stow package                                      |
 | `scripts/`                            | Setup helpers (`setup-agent-skills`, `setup-herdr`, `bootstrap`), not a stow package                                   |
 | `fzf`                                 | [fzf](https://github.com/junegunn/fzf) setup (PATH and shell integration)                                              |
@@ -128,7 +129,7 @@ Initialize the Skills submodule before stowing packages:
 
 ```bash
 git submodule update --init --recursive
-stow agents bin fzf ghostty git herdr lint nvim opencode pgcli pi starship tmux zed zsh
+stow agents bin cmux fzf ghostty git herdr lint nvim opencode pgcli pi starship tmux zed zsh
 ```
 
 To initialize, hydrate, and verify the agent skills in one command, run:
@@ -189,7 +190,7 @@ stow --simulate nvim
 The `stowp` function (included in `.zshrc`) previews changes and prompts before applying:
 
 ```bash
-stowp agents bin fzf ghostty git herdr lint nvim opencode pgcli pi starship tmux zed zsh
+stowp agents bin cmux fzf ghostty git herdr lint nvim opencode pgcli pi starship tmux zed zsh
 stowp nvim zsh     # Preview specific packages, then confirm
 ```
 

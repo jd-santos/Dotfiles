@@ -1,0 +1,4 @@
+# cmux-specific terminal UI overrides managed by stow.
+# This file is written by `cmux config surface-tab-bar-font-size`.
+
+surface-tab-bar-font-size = 13

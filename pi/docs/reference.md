@@ -104,6 +104,8 @@ MCP servers live in `.config/mcp/mcp.json` after stowing.
 | --- | --- | --- |
 | `brave-search` | `npx -y @brave/brave-search-mcp-server --transport stdio` | Reads `BRAVE_API_KEY` from the environment |
 | `svelte` | `npx -y @sveltejs/mcp` | Svelte docs and tooling context |
+| `xcode` | `xcrun mcpbridge` | Uses Xcode beta through `DEVELOPER_DIR` |
+| `atlassian` | `atlassian-mcp` | Local wrapper on `PATH`; keeps private checkout paths out of git |
 
 ## Subagents
 
@@ -389,7 +391,8 @@ Guardrails:
 
 - Runs only when UI is available, so print-mode Pi runs cannot trigger it
 - Calls `openai-codex/gpt-5.4-mini` directly with Pi's `complete()` helper
-- Falls back to `anthropic/claude-haiku-4-5` only when the primary summary model is not configured
+- Falls back to `anthropic/claude-haiku-4-5` when the primary summary model is not configured or its request fails
+- Prints one warning per session when a configured summary model fails and another fallback model will be tried
 - Does not spawn another `pi` process
 - Does not fall back to the active conversation model
 - Disables thinking for the summary request

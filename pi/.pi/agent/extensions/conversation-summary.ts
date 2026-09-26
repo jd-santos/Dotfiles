@@ -162,6 +162,7 @@ export default function (pi: ExtensionAPI) {
 	let automaticSummaryCount = 0;
 	let capNoticeShown = false;
 	let authNoticeShown = false;
+	let failedModelNoticesShown = new Set<string>();
 	let generating = false;
 	let sessionSerial = 0;
 	let activeSummaryController: AbortController | undefined;
@@ -188,6 +189,22 @@ export default function (pi: ExtensionAPI) {
 		lastSavedSessionName = undefined;
 	}
 
+	function notifySummaryFallback(
+		ctx: ExtensionContext,
+		failedLabel: string,
+		nextLabel: string,
+		message: string,
+	) {
+		const key = `${failedLabel}->${nextLabel}`;
+		if (!ctx.hasUI || failedModelNoticesShown.has(key)) return;
+
+		failedModelNoticesShown.add(key);
+		ctx.ui.notify(
+			`Summary model ${failedLabel} failed (${message}); trying ${nextLabel}`,
+			"warning",
+		);
+	}
+
 	// Restore summary state on session load.
 	pi.on("session_start", (_event, ctx) => {
 		sessionSerial += 1;
@@ -197,6 +214,7 @@ export default function (pi: ExtensionAPI) {
 		automaticSummaryCount = 0;
 		capNoticeShown = false;
 		authNoticeShown = false;
+		failedModelNoticesShown = new Set<string>();
 		generating = false;
 		activeSummaryController?.abort();
 		activeSummaryController = undefined;
@@ -265,8 +283,11 @@ export default function (pi: ExtensionAPI) {
 			},
 		];
 
-		let selectedModel;
-		let auth;
+		const availableCandidates: Array<{
+			model: NonNullable<ReturnType<typeof ctx.modelRegistry.find>>;
+			auth: { apiKey: string; headers?: Record<string, string> };
+			label: string;
+		}> = [];
 		const errors: string[] = [];
 
 		for (const candidate of candidates) {
@@ -289,12 +310,17 @@ export default function (pi: ExtensionAPI) {
 				continue;
 			}
 
-			selectedModel = model;
-			auth = candidateAuth;
-			break;
+			availableCandidates.push({
+				model,
+				auth: {
+					apiKey: candidateAuth.apiKey,
+					headers: candidateAuth.headers,
+				},
+				label: candidate.label,
+			});
 		}
 
-		if (!selectedModel || !auth) {
+		if (availableCandidates.length === 0) {
 			if (ctx.hasUI && !authNoticeShown) {
 				ctx.ui.notify(errors.join(" | "), "warning");
 				authNoticeShown = true;
@@ -304,95 +330,124 @@ export default function (pi: ExtensionAPI) {
 
 		if (expectedSessionSerial !== sessionSerial) return;
 
-		const controller = new AbortController();
-		activeSummaryController = controller;
-		const timeout = setTimeout(() => controller.abort(), SUMMARY_TIMEOUT_MS);
+		for (const [index, candidate] of availableCandidates.entries()) {
+			if (expectedSessionSerial !== sessionSerial) return;
 
-		try {
-			if (ctx.hasUI) {
-				ctx.ui.setStatus(
-					SUMMARY_STATUS_KEY,
-					currentSummary ? `${currentSummary} ↻` : "(generating summary...)",
-				);
-			}
+			const nextCandidate = availableCandidates[index + 1];
+			const controller = new AbortController();
+			activeSummaryController = controller;
+			const timeout = setTimeout(() => controller.abort(), SUMMARY_TIMEOUT_MS);
 
-			const response = await complete(
-				selectedModel,
-				{
-					messages: [
-						{
-							role: "user" as const,
-							content: [
-								{ type: "text" as const, text: buildSummaryPrompt(sketch) },
-							],
-							timestamp: Date.now(),
-						},
-					],
-				},
-				{
-					apiKey: auth.apiKey,
-					headers: auth.headers,
-					maxTokens: 64,
-					reasoning: "low",
-					maxRetries: 0,
-					maxRetryDelayMs: 5_000,
-					signal: controller.signal,
-					timeoutMs: SUMMARY_TIMEOUT_MS,
-				},
-			);
-
-			if (expectedSessionSerial !== sessionSerial || controller.signal.aborted)
-				return;
-			if (response.stopReason === "error") {
-				throw new Error(
-					response.errorMessage ?? "summary model returned an error",
-				);
-			}
-
-			const summary = cleanSummary(
-				response.content
-					.filter(
-						(content): content is { type: "text"; text: string } =>
-							content.type === "text",
-					)
-					.map((content) => content.text)
-					.join("\n"),
-			);
-
-			if (!summary) {
-				if (ctx.hasUI)
+			try {
+				if (ctx.hasUI) {
 					ctx.ui.setStatus(
 						SUMMARY_STATUS_KEY,
-						currentSummary ?? "(empty summary)",
+						currentSummary ? `${currentSummary} ↻` : "(generating summary...)",
 					);
-				return;
-			}
+				}
 
-			automaticSummaryCount += 1;
-			currentSummary = summary;
-			lastSummaryAtTurn = turnCount;
-
-			pi.appendEntry(SUMMARY_ENTRY_TYPE, {
-				summary,
-				turnCount,
-				source: "auto",
-				generatedAt: Date.now(),
-				automaticSummaryCount,
-			});
-			saveCurrentSummaryAsSessionName();
-			if (ctx.hasUI) ctx.ui.setStatus(SUMMARY_STATUS_KEY, summary);
-		} catch (err) {
-			if (ctx.hasUI && expectedSessionSerial === sessionSerial) {
-				const message = err instanceof Error ? err.message : String(err);
-				ctx.ui.setStatus(
-					SUMMARY_STATUS_KEY,
-					currentSummary ?? `(summary error: ${message})`,
+				const response = await complete(
+					candidate.model,
+					{
+						messages: [
+							{
+								role: "user" as const,
+								content: [
+									{ type: "text" as const, text: buildSummaryPrompt(sketch) },
+								],
+								timestamp: Date.now(),
+							},
+						],
+					},
+					{
+						apiKey: candidate.auth.apiKey,
+						headers: candidate.auth.headers,
+						maxTokens: 64,
+						thinkingEnabled: false,
+						maxRetries: 0,
+						maxRetryDelayMs: 5_000,
+						signal: controller.signal,
+						timeoutMs: SUMMARY_TIMEOUT_MS,
+					},
 				);
+
+				if (
+					expectedSessionSerial !== sessionSerial ||
+					controller.signal.aborted
+				)
+					return;
+				if (response.stopReason === "error") {
+					throw new Error(
+						response.errorMessage ?? "summary model returned an error",
+					);
+				}
+
+				const summary = cleanSummary(
+					response.content
+						.filter(
+							(content): content is { type: "text"; text: string } =>
+								content.type === "text",
+						)
+						.map((content) => content.text)
+						.join("\n"),
+				);
+
+				if (!summary) {
+					const message = "empty summary";
+					errors.push(`${candidate.label}: ${message}`);
+					if (nextCandidate) {
+						notifySummaryFallback(
+							ctx,
+							candidate.label,
+							nextCandidate.label,
+							message,
+						);
+					}
+					continue;
+				}
+
+				automaticSummaryCount += 1;
+				currentSummary = summary;
+				lastSummaryAtTurn = turnCount;
+
+				pi.appendEntry(SUMMARY_ENTRY_TYPE, {
+					summary,
+					turnCount,
+					source: "auto",
+					generatedAt: Date.now(),
+					automaticSummaryCount,
+				});
+				saveCurrentSummaryAsSessionName();
+				if (ctx.hasUI) ctx.ui.setStatus(SUMMARY_STATUS_KEY, summary);
+				return;
+			} catch (err) {
+				if (expectedSessionSerial !== sessionSerial) return;
+				if (controller.signal.aborted && activeSummaryController !== controller)
+					return;
+
+				const message = err instanceof Error ? err.message : String(err);
+				errors.push(`${candidate.label}: ${message}`);
+				if (nextCandidate) {
+					notifySummaryFallback(
+						ctx,
+						candidate.label,
+						nextCandidate.label,
+						message,
+					);
+				}
+			} finally {
+				clearTimeout(timeout);
+				if (activeSummaryController === controller)
+					activeSummaryController = undefined;
 			}
-		} finally {
-			clearTimeout(timeout);
-			if (activeSummaryController === controller)
-				activeSummaryController = undefined;
+		}
+
+		if (ctx.hasUI && expectedSessionSerial === sessionSerial) {
+			const message = errors.at(-1) ?? "summary model returned an error";
+			ctx.ui.setStatus(
+				SUMMARY_STATUS_KEY,
+				currentSummary ?? `(summary error: ${message})`,
+			);
 		}
 	}
 

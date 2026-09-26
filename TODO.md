@@ -60,6 +60,7 @@
 
 - [ ] Evaluate a structured context-planning tool if prompt guidance does not produce consistent work sizing
 - [ ] Consider an optional generated handoff prompt or user-triggered compaction helper after the advisory workflow is proven
+- [ ] Research educational UX practices that could improve `shareable-doc-writer` output
 - [ ] Extend `/usage` with cached pricing, JSON export, per-project filtering, and trend deltas
 - [ ] Consider a richer `/usage` table renderer if the widget output is too dense
 
@@ -75,6 +76,8 @@
 - [x] Refresh Pi GPT-5.6 defaults and OpenRouter shortlist
 - [x] Convert Pi `/ship` prompt into reusable `ship` skill
 - [x] Update Pi model defaults and scoped model list
+- [x] Print one Pi conversation summary fallback warning per session
+- [x] Fix Pi conversation summary fallback when Codex token parsing fails
 - [x] Rewrite Pi README into a readable overview with minimal reference docs
 - [x] Add changelog-writer skill (Keep a Changelog sections with optional SemVer)
 - [x] Persist Pi conversation summaries as session names without extra LLM calls

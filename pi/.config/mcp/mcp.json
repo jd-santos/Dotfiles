@@ -2,7 +2,12 @@
   "mcpServers": {
     "brave-search": {
       "command": "npx",
-      "args": ["-y", "@brave/brave-search-mcp-server", "--transport", "stdio"],
+      "args": [
+        "-y",
+        "@brave/brave-search-mcp-server",
+        "--transport",
+        "stdio"
+      ],
       "env": {
         "BRAVE_API_KEY": "${BRAVE_API_KEY}"
       }
@@ -18,6 +23,12 @@
         "DEVELOPER_DIR": "/Applications/Xcode-beta.app/Contents/Developer"
       },
       "lifecycle": "lazy"
+    },
+    "atlassian": {
+      "command": "atlassian-mcp",
+      "args": [],
+      "lifecycle": "lazy",
+      "idleTimeout": 10
     }
   }
 }
