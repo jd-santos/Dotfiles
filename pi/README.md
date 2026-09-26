@@ -52,7 +52,7 @@ Local-only files stay out of git:
 | `.pi/agent/themes/*.json` | Catppuccin and Dracula themes |
 | `docs/reference.md` | Detailed reference notes that are useful but too dense for the README |
 
-The repo's root `.stow-local-ignore` keeps `README.md` and `docs/` from being linked into `$HOME`.
+The Pi package's `.stow-local-ignore` keeps its README, docs, and macOS metadata out of `$HOME`.
 
 ## How the pieces fit together
 

@@ -36,7 +36,7 @@ Not tracked:
 - `.mcp-managed`, the local marker that identifies a generated MCP config
 - Promptfoo exports under `~/.pi/agent/evals/promptfoo/`
 
-The repo root `.stow-local-ignore` ignores top-level `README.md` and `docs/` in each package, so this documentation stays in the dotfiles repo.
+The Pi package's `.stow-local-ignore` keeps its README, docs, and macOS metadata out of the installed tree.
 
 ## Settings
 
