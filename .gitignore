@@ -57,6 +57,8 @@ config/.config//gh/
 .pi-lens/
 
 # Pi stow package local runtime files
+# Herdr-generated agent integration, recreated by scripts/setup-herdr
+pi/.pi/agent/extensions/herdr-agent-state.ts
 pi/.pi/agent/auth.json
 pi/.pi/agent/settings.json
 pi/.pi/agent/settings.local.json

@@ -11,9 +11,11 @@ Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). M
 | `bin`                                 | User scripts installed to `~/bin`, including `merge-settings` and the Pi auth wrapper                                  |
 | `cmux`                                | [cmux](https://github.com/manaflow-ai/cmux) terminal config and cmux-specific Ghostty UI overrides                     |
 | `docs/`                               | Repo documentation and the Typst terminal workflow cheatsheet, not a stow package                                      |
+| `scripts/`                            | Setup helpers (`setup-agent-skills`, `setup-herdr`, `bootstrap`), not a stow package                                   |
 | `fzf`                                 | [fzf](https://github.com/junegunn/fzf) setup (PATH and shell integration)                                              |
 | `ghostty`                             | [Ghostty](https://ghostty.org) terminal (Dracula theme, Nerd Font icons)                                               |
 | `git`                                 | Git config, global gitignore, LFS, [`~/.gitconfig.local`](git/.gitconfig.local.example) for machine-specific overrides |
+| `herdr`                               | [Herdr](https://herdr.dev/) config (tmux-like keys, Dracula theme, portable setup manifest)                            |
 | `lint`                                | Markdown lint rules (`.markdownlint.jsonc`)                                                                            |
 | [`nvim`](nvim/.config/nvim/README.md) | Neovim (LazyVim, fzf-lua, tokyonight)                                                                                  |
 | `opencode`                            | [OpenCode](https://opencode.ai/) AI assistant config and local agent prompts                                           |
@@ -50,6 +52,26 @@ Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). M
 
 **Copy Mode (vi-style):** Press `Prefix` + `[` to enter, `v` to select, `y` to copy.
 
+### Herdr (Prefix: `` ` ``)
+
+| Shortcut                     | Description                                   |
+| ---------------------------- | --------------------------------------------- |
+| Backtick twice               | Send a literal backtick to the active pane    |
+| `Prefix` + `c`               | Create a tab                                  |
+| `Prefix` + `1-9`             | Switch tabs                                   |
+| `Prefix` + `h/j/k/l`         | Navigate panes                                |
+| `Prefix` + `Shift+Backslash` | Split right                                   |
+| `Prefix` + `-`               | Split down                                    |
+| `Prefix` + `x`               | Close pane                                    |
+| `Prefix` + `z`               | Zoom or unzoom pane                           |
+| `Prefix` + `[`               | Enter vi-style copy mode                      |
+| `Prefix` + `r`               | Reload Herdr config                           |
+| `Prefix` + `Shift+r`         | Enter resize mode, then use `h/j/k/l`         |
+| `Prefix` + `q`               | Detach while leaving panes running            |
+
+Use `herdr --remote <host>` to attach to a remote Herdr server over SSH.
+That workflow does not need the tmux F12 nested-session toggle.
+
 ### Neovim (Leader: `Space`)
 
 Custom keybindings on top of [LazyVim defaults](https://www.lazyvim.org/keymaps):
@@ -72,6 +94,7 @@ Custom keybindings on top of [LazyVim defaults](https://www.lazyvim.org/keymaps)
 
 | Date       | Change                                                                         |
 | ---------- | ------------------------------------------------------------------------------ |
+| 2026-09-25 | Added portable Herdr manifest, `setup-herdr`, and `bootstrap` scripts           |
 | 2026-05-31 | Refreshed package docs, stow commands, tmux shortcuts, and cheatsheet source   |
 | 2026-05-07 | Added `ui-read-and-shortcuts` Pi extension (read preview, slash command hints) |
 | 2026-05-04 | Updated Pi enabled models                                                      |
@@ -97,7 +120,7 @@ stow zsh          # Creates symlinks for all files in zsh/ to ~/
 ### Install Multiple Tools
 
 ```bash
-stow nvim git starship zsh   # Install multiple configurations
+stow herdr nvim git starship zsh   # Install multiple configurations
 ```
 
 ### Install Everything
@@ -106,7 +129,7 @@ Initialize the Skills submodule before stowing packages:
 
 ```bash
 git submodule update --init --recursive
-stow agents bin cmux fzf ghostty git lint nvim opencode pgcli pi starship tmux zed zsh
+stow agents bin cmux fzf ghostty git herdr lint nvim opencode pgcli pi starship tmux zed zsh
 ```
 
 To initialize, hydrate, and verify the agent skills in one command, run:
@@ -114,6 +137,31 @@ To initialize, hydrate, and verify the agent skills in one command, run:
 ```bash
 ./scripts/setup-agent-skills
 ```
+
+### Set Up a New Machine
+
+Prerequisites: `git`, `stow`, `jq`, `python3` 3.11 or newer, and
+[Herdr](https://herdr.dev/) installed. `bootstrap` stops with a clear error if
+one is missing.
+
+`bootstrap` runs the steps above in order, generates merged settings, then
+reconciles Herdr integrations and plugins:
+
+```bash
+./scripts/bootstrap
+```
+
+Herdr registers plugins imperatively, so `scripts/setup-herdr` reads
+`herdr/.config/herdr/herdr-setup.toml` and replays it. Re-run it after editing
+the manifest, or pass `--refresh` to reinstall integrations after a Herdr
+update. Pass `--allow-missing-herdr` to skip the Herdr step on a machine
+without Herdr.
+
+> **Trust:** plugin installation runs third-party code as your user, including
+> any build commands the plugin declares. Review a plugin's source and
+> `herdr-plugin.toml` before adding it to the manifest, and pin `ref` so a
+> future run reproduces a known revision instead of whatever upstream HEAD has
+> become.
 
 `docs/` is not a stow package. Keep it in the repo unless you intentionally want those files linked into `$HOME`.
 
@@ -142,7 +190,7 @@ stow --simulate nvim
 The `stowp` function (included in `.zshrc`) previews changes and prompts before applying:
 
 ```bash
-stowp agents bin cmux fzf ghostty git lint nvim opencode pgcli pi starship tmux zed zsh
+stowp agents bin cmux fzf ghostty git herdr lint nvim opencode pgcli pi starship tmux zed zsh
 stowp nvim zsh     # Preview specific packages, then confirm
 ```
 
@@ -170,6 +218,7 @@ zsh/.zshrc                              → ~/.zshrc
 git/.gitconfig                          → ~/.gitconfig
 tmux/.tmux.conf                         → ~/.tmux.conf
 starship/.config/starship.toml          → ~/.config/starship.toml
+herdr/.config/herdr/config.toml          → ~/.config/herdr/config.toml
 ```
 
 **Key Principle:** The directory structure _inside_ each package mirrors the path from `$HOME`.

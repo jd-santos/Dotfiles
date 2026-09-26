@@ -1,0 +1,17 @@
+# Declarative Herdr setup, reconciled by scripts/setup-herdr.
+#
+# Herdr does not read this file. It is the committed source of truth for agent
+# integrations and GitHub plugins so a new machine can reproduce them with one
+# `scripts/setup-herdr` run instead of per-plugin install commands.
+
+# Built-in agent integrations, installed via `herdr integration install <name>`.
+# Run `herdr integration status` to list valid names.
+integrations = ["pi"]
+
+# GitHub plugins, installed via `herdr plugin install <source> [--ref <ref>]`.
+# `source` is `owner/repo` or `owner/repo/subdir`.
+# `ref` is optional and pins a tag, branch, or commit for reproducibility.
+#
+# [[plugins]]
+# source = "owner/repo/subdir"
+# ref = "v1.0.0"

@@ -1,0 +1,31 @@
+# Carry over the useful parts of the tmux setup without trying to reproduce
+# tmux-only status bar commands or nested-session routing.
+
+[theme]
+name = "dracula"
+
+[ui]
+# Use tmux-like internal pane dividers without an outside frame.
+pane_gaps = false
+pane_outer_borders = false
+
+[keys]
+# Match the tmux prefix. Press it twice to send a literal backtick to the pane.
+prefix = "backtick"
+
+# Keep the familiar tmux actions where Herdr has matching controls.
+new_tab = "prefix+c"
+switch_tab = "prefix+1..9"
+focus_pane_left = "prefix+h"
+focus_pane_down = "prefix+j"
+focus_pane_up = "prefix+k"
+focus_pane_right = "prefix+l"
+split_vertical = "prefix+|"
+split_horizontal = "prefix+minus"
+close_pane = "prefix+x"
+zoom = "prefix+z"
+copy_mode = "prefix+["
+reload_config = "prefix+r"
+
+# Herdr uses a mode for resizing; keep reload on tmux's prefix+r instead.
+resize_mode = "prefix+shift+r"
