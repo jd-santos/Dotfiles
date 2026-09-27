@@ -40,8 +40,8 @@ Shared settings live in `.pi/agent/settings.base.json`. Local overrides live in
 Current shared settings include:
 
 - Theme: `catppuccin-mocha`
-- Default model: `openai-codex/gpt-6-sol`
-- Thinking level: `medium`
+- Default model: `openai-codex/gpt-6-luna`
+- Thinking level: `high`
 - Thinking block: visible on output
 - Startup: quiet
 - Packages: `npm:pi-mcp-adapter`, `npm:pi-lens`, and pinned `npm:pi-subagents@0.51.0`

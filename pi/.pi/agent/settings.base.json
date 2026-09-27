@@ -1,5 +1,5 @@
 {
-  "defaultThinkingLevel": "medium",
+  "defaultThinkingLevel": "high",
   "skills": [
     "~/.agents/skills"
   ],
@@ -65,5 +65,5 @@
   "hideThinkingBlock": false,
   "lastChangelogVersion": "0.75.3",
   "defaultProvider": "openai-codex",
-  "defaultModel": "gpt-6-sol"
+  "defaultModel": "gpt-6-luna"
 }

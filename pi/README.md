@@ -77,7 +77,7 @@ GPT-6 Luna, GLM-5.3-Flash, GPT-6 Sol, Qwen3.8 27B, DeepSeek V4.1 Flash, and
 Kimi K3 remain at the bottom of the cycle. `/model` still opens the full
 selector, and `/scoped-models` toggles the scoped list interactively.
 
-The shared default is `openai-codex/gpt-6-sol` with medium thinking.
+The shared default is `openai-codex/gpt-6-luna` with high thinking.
 OpenRouter standby models, including GPT-5.6 Pro routes, GLM 5.2, Qwen 3.7,
 and Gemma 4, stay out of the `Ctrl+P` cycle but remain
 available through `/model` when the provider catalog and auth expose them.
