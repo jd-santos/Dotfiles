@@ -1,6 +1,6 @@
 # Move Pi MCP servers to native support
 
-Status: Validated for a local commit. The user confirmed native Pi MCP and OpenRouter authentication work after restarting Pi in Herdr with the updated wrapper. Private migration backups remain pending a cleanup decision.
+Status: Ready for review in [PR #38](https://github.com/jd-santos/Dotfiles/pull/38). The user confirmed native Pi MCP and OpenRouter authentication work after restarting Pi in Herdr. Private migration backups remain pending a cleanup decision.
 
 ## Goal
 
