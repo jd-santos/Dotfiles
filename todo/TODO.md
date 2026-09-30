@@ -36,6 +36,11 @@
 
 ## P4: Low
 
+- [ ] [Move Pi MCP servers to native support](work/pi-native-mcp-trial/README.md)
+- [ ] Review the pinned `pi-subagents` upgrade for its `typebox` peer
+  dependency fix [context: medium]
+- [ ] Recheck the Parallel web extension for an upstream `typebox` peer
+  dependency fix [context: small]
 - [ ] [Pi permission prompt notifications](work/pi-permission-notifications/README.md)
 - [ ] Revisit `commit-message-writer` skill for progressive disclosure and tone
 - [ ] Evaluate a structured context-planning tool if prompt guidance does not produce consistent work sizing

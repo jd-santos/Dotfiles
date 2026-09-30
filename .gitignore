@@ -62,6 +62,9 @@ pi/.pi/agent/extensions/herdr-agent-state.ts
 pi/.pi/agent/auth.json
 pi/.pi/agent/settings.json
 pi/.pi/agent/settings.local.json
+pi/.pi/agent/mcp.json
+pi/.pi/agent/mcp.local.json
+pi/.pi/agent/.mcp-managed
 pi/.pi/agent/sessions/
 pi/.pi/agent/bin/
 pi/.pi/agent/mcp-cache.json

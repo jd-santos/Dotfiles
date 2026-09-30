@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "svelte": {
+      "command": "npx",
+      "args": ["-y", "@sveltejs/mcp"]
+    },
+    "xcode": {
+      "command": "xcrun",
+      "args": ["mcpbridge"]
+    }
+  }
+}
