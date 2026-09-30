@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# merge-settings — merge settings.base.json + settings.local.json → settings.json
+# merge-settings — merge tracked defaults with machine-local overrides
 #
-# Run after pulling dotfiles to apply shared settings without overwriting
-# machine-specific overrides. Requires jq.
+# Run after pulling dotfiles to apply shared settings and Pi MCP servers
+# without overwriting local overrides. Requires jq.
 #
 # Per-tool local override files (not tracked in dotfiles):
 #   ~/.config/zed/settings.local.json
 #   ~/.pi/agent/settings.local.json
+#   ~/.pi/agent/mcp.local.json
 #
-# Keys in the local file win on conflict. All other base keys are kept.
+# Keys in local files win on conflict. All other base keys are kept.
 
 set -euo pipefail
 
@@ -22,26 +23,38 @@ merge_json() {
   local base="$2"
   local local_file="$3"
   local output="$4"
+  local tmp
 
   if [[ ! -f "$base" ]]; then
     echo "⚠  $label: base not found at $base, skipping"
     return
   fi
+  if [[ -d "$output" ]]; then
+    echo "$label: output is a directory: $output" >&2
+    return 1
+  fi
 
-  # Remove a stale symlink so the output is always a real file
-  [[ -L "$output" ]] && rm "$output"
-
-  # Strip // line comments (used by Zed) before passing to jq
+  tmp="$(mktemp "$output.XXXXXX")"
+  # Strip // line comments (used by Zed) before passing to jq.
   if [[ -f "$local_file" ]]; then
-    jq -s '.[0] * .[1]' \
+    if ! jq -s '.[0] * .[1]' \
       <(grep -v '^[[:space:]]*//' "$base") \
       <(grep -v '^[[:space:]]*//' "$local_file") \
-      > "$output"
+      > "$tmp"; then
+      rm "$tmp"
+      return 1
+    fi
     echo "✓  $label: merged base + local → settings.json"
   else
-    grep -v '^[[:space:]]*//' "$base" | jq . > "$output"
+    if ! grep -v '^[[:space:]]*//' "$base" | jq . > "$tmp"; then
+      rm "$tmp"
+      return 1
+    fi
     echo "✓  $label: no local override found, copied base → settings.json"
   fi
+
+  chmod 600 "$tmp"
+  mv -f "$tmp" "$output"
 }
 
 merge_json "Zed" \
@@ -53,3 +66,66 @@ merge_json "Pi" \
   "$HOME/.pi/agent/settings.base.json" \
   "$HOME/.pi/agent/settings.local.json" \
   "$HOME/.pi/agent/settings.json"
+
+merge_pi_mcp() {
+  local base="$HOME/.pi/agent/mcp.base.json"
+  local local_file="$HOME/.pi/agent/mcp.local.json"
+  local output="$HOME/.pi/agent/mcp.json"
+  local marker="$HOME/.pi/agent/.mcp-managed"
+  local tmp
+
+  if [[ ! -f "$base" ]]; then
+    echo "⚠  Pi MCP: base not found at $base, skipping"
+    return
+  fi
+  if [[ -d "$output" ]]; then
+    echo "Pi MCP: output is a directory: $output" >&2
+    return 1
+  fi
+
+  tmp="$(mktemp "$output.XXXXXX")"
+  if [[ -f "$local_file" ]]; then
+    if ! jq -s '
+      if length == 2 and all(.[]; type == "object" and (.mcpServers | type == "object"))
+      then .[0] * .[1]
+      else error("Pi MCP base and local files must contain mcpServers objects") end
+    ' "$base" "$local_file" > "$tmp"; then
+      rm "$tmp"
+      return 1
+    fi
+  else
+    if ! jq -e 'if type == "object" and (.mcpServers | type == "object") then . else error("Pi MCP base must contain mcpServers") end' "$base" > "$tmp"; then
+      rm "$tmp"
+      return 1
+    fi
+  fi
+
+  if ! jq -e '
+    def valid_server:
+      type == "object" and
+      ((.command | type == "string" and length > 0) != (.url | type == "string" and length > 0));
+    if (.mcpServers | type == "object") and all(.mcpServers[]; valid_server)
+    then . else error("Pi MCP servers require exactly one command or URL") end
+  ' "$tmp" >/dev/null; then
+    rm "$tmp"
+    return 1
+  fi
+
+  if [[ -e "$output" && ! -e "$marker" ]] && ! cmp -s "$output" "$tmp"; then
+    rm "$tmp"
+    echo "Pi MCP: existing mcp.json is not generated; move its personal servers to mcp.local.json before merging" >&2
+    return 1
+  fi
+
+  chmod 600 "$tmp"
+  mv -f "$tmp" "$output"
+  touch "$marker"
+  chmod 600 "$marker"
+  if [[ -f "$local_file" ]]; then
+    echo "✓  Pi MCP: merged base + local → mcp.json"
+  else
+    echo "✓  Pi MCP: no local override found, copied base → mcp.json"
+  fi
+}
+
+merge_pi_mcp

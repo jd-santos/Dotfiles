@@ -43,6 +43,12 @@ find_real_pi() {
 
 real_pi="$(find_real_pi)"
 
+# Herdr panes need an explicit opt-in for 1Password desktop prompts on macOS.
+# Keep an explicit user setting, including false, and pass the flag to Pi's MCP children.
+if [[ "${HERDR_ENV:-}" == 1 && "${OSTYPE:-}" == darwin* && -z "${OP_BIOMETRIC_UNLOCK_ENABLED+x}" ]]; then
+  export OP_BIOMETRIC_UNLOCK_ENABLED=true
+fi
+
 if [[ "${OPENROUTER_API_KEY:-}" == op://* ]]; then
   if ! command -v op >/dev/null 2>&1; then
     printf 'pi wrapper: OPENROUTER_API_KEY is a 1Password reference, but op is not on PATH\n' >&2
