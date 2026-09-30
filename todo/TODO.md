@@ -36,7 +36,6 @@
 
 ## P4: Low
 
-- [ ] [Move Pi MCP servers to native support](work/pi-native-mcp-trial/README.md)
 - [ ] Review the pinned `pi-subagents` upgrade for its `typebox` peer
   dependency fix [context: medium]
 - [ ] Recheck the Parallel web extension for an upstream `typebox` peer

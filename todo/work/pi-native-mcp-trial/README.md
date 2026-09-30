@@ -1,6 +1,6 @@
 # Move Pi MCP servers to native support
 
-Status: Ready for review in [PR #38](https://github.com/jd-santos/Dotfiles/pull/38). The user confirmed native Pi MCP and OpenRouter authentication work after restarting Pi in Herdr. Private migration backups remain pending a cleanup decision.
+Status: Retained record. [PR #38](https://github.com/jd-santos/Dotfiles/pull/38) merged on 2026-09-30. The user confirmed native Pi MCP and OpenRouter authentication after restarting Pi in Herdr. Private migration backups were removed during post-merge cleanup.
 
 ## Goal
 
@@ -10,7 +10,7 @@ Keep standard Svelte and Xcode servers tracked in this public repo while keeping
 
 Track `pi/.pi/agent/mcp.base.json` with safe native definitions. `merge-settings` combines it with ignored `~/.pi/agent/mcp.local.json` into owner-only `~/.pi/agent/mcp.json`. The local file contains a personal HTTP server and the Xcode beta directory override on this computer. Atlassian remains optional on the computer with an `atlassian-mcp` wrapper. The generic `~/.config/mcp/mcp.json` remains for other clients and is no longer a Pi input.
 
-The adapter's shared-config discovery, lazy lifecycle fields, and proxy tool are not native Pi features. Pi uses its own MCP manager and codemode exposure. Do not put personal URLs, 1Password references, or credentials in Git. Preserve a path to restore the local config until a fresh native session is validated.
+The adapter's shared-config discovery, lazy lifecycle fields, and proxy tool are not native Pi features. Pi uses its own MCP manager and codemode exposure. Do not put personal URLs, 1Password references, or credentials in Git. Private rollback copies were kept through validation and removed after the merge.
 
 ## Acceptance criteria
 
@@ -27,11 +27,11 @@ The adapter's shared-config discovery, lazy lifecycle fields, and proxy tool are
 - [x] Move this computer's server and Xcode beta override into ignored local config; update Pi settings and docs.
 - [x] Trace Herdr's missing 1Password modal. The user reports that `OP_BIOMETRIC_UNLOCK_ENABLED=true` restores the prompt and native MCP connection in an interactive pane.
 - [x] Confirm a fresh native Pi session connects the required servers with the updated wrapper; user reported success after restarting Pi in Herdr.
-- [ ] Ask before removing the private migration backups; retain them until cleanup is authorized.
+- [x] Remove the two private migration backups after the user's post-merge cleanup request.
 - [x] Investigate remaining third-party package warnings without modifying installed manifests.
 
-## Validation and remaining issue
+## Validation and follow-up
 
 An isolated `PI_CODING_AGENT_DIR` test connected Svelte (4 tools), Xcode (53), and the personal HTTP server (4). The current generated native config has all three entries with mode `600`; Pi settings no longer load the adapter. `bash -n`, the focused merge test (including invalid sources, unmanaged output, and output-directory rejection), JSON checks, and two scoped review rounds passed without remaining blockers. After the migration, `pi mcp list` from an agent tool shell without a TTY connected Svelte and Xcode but failed to authenticate the personal server. `op vault list` prompted normally in Ghostty but not in a Herdr shell despite its PTY and `Aqua` launch context. The Herdr command succeeded with `OP_BIOMETRIC_UNLOCK_ENABLED=true`, and the user reports native `pi mcp list` also works with that flag. The `~/bin/pi` wrapper now sets the flag on macOS in Herdr unless the user set it explicitly, so it reaches the OpenRouter startup resolver and native Pi's MCP resolver. `bin/tests/pi-wrapper.test.sh` covers the flag and opt-out. The user subsequently confirmed the restarted Pi session works. `/reload` alone cannot change the current process environment.
 
-The personal config was backed up privately before migration, and a separate pre-correction backup remains. Neither backup is in this repo. The older pinned `pi-subagents@0.51.0` has a `typebox` manifest warning; npm reports a newer release with the correct peer declaration, but upgrading the pin needs review. The latest published Parallel web extension still declares `typebox` as a dependency, so that warning requires an upstream fix.
+The personal config and pre-correction backups were never tracked and were removed after validation and merge. The older pinned `pi-subagents@0.51.0` has a `typebox` manifest warning; npm reports a newer release with the correct peer declaration, but upgrading the pin needs review. The latest published Parallel web extension still declares `typebox` as a dependency, so that warning requires an upstream fix.
