@@ -5,12 +5,12 @@
   ],
   "enableSkillCommands": true,
   "enabledModels": [
-    "openai-codex/gpt-6-sol",
+    "openai-codex/gpt-6.1-sol",
     "openai-codex/gpt-5.6-terra",
     "openai-codex/gpt-6-luna",
     "openrouter/openai/gpt-6-luna",
     "openrouter/z-ai/glm-5.3-flash",
-    "openrouter/openai/gpt-6-sol",
+    "openrouter/openai/gpt-6.1-sol",
     "openrouter/qwen/qwen3.8-27b",
     "openrouter/deepseek/deepseek-v4.1-flash",
     "openrouter/moonshotai/kimi-k3"
@@ -30,7 +30,8 @@
       "strict": true,
       "allow": [
         "openai-codex/gpt-5.6-terra",
-        "openai-codex/gpt-6-*",
+        "openai-codex/gpt-6-luna",
+        "openai-codex/gpt-6.1-sol",
         "openrouter/deepseek/deepseek-v4.1-*"
       ]
     },
@@ -52,11 +53,11 @@
         "thinking": "xhigh"
       },
       "oracle": {
-        "model": "openai-codex/gpt-6-sol",
+        "model": "openai-codex/gpt-6.1-sol",
         "thinking": "high"
       },
       "delegate": {
-        "model": "openai-codex/gpt-6-sol",
+        "model": "openai-codex/gpt-6.1-sol",
         "thinking": "medium"
       }
     }
@@ -64,5 +65,5 @@
   "hideThinkingBlock": false,
   "lastChangelogVersion": "0.75.3",
   "defaultProvider": "openai-codex",
-  "defaultModel": "gpt-6-sol"
+  "defaultModel": "gpt-6.1-sol"
 }
