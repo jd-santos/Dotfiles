@@ -301,13 +301,14 @@ test("plugin labels are quiet and pi-lens status is omitted", () => {
 	);
 	const failure = footerModule.pluginStatuses(
 		new Map([
-			["mcp", theme.fg("error", "MCP: 1/1 connection failed")],
+			["mcp", theme.fg("error", "🔌 MCP: 1/1 connection failed")],
 			["usage", theme.fg("warning", "usage: 123 records, warning")],
 		]),
 		theme,
 		false,
 	);
 	assert.equal(failure.length, 2);
+	assert.match(layout.plain(failure[0]), /^mcp ↔ 1\/1 connection failed/);
 });
 
 test("the permission gate publishes its actual initial and toggled modes", async () => {

@@ -67,6 +67,7 @@ export function pluginStatuses(statuses: ReadonlyMap<string, string>, theme: The
 			body = body.replace(/LSP\s+(Active|Inactive)/i, (_, state) => state.toLowerCase());
 		} else if (id === "usage" || id === "mcp") {
 			body = body.replace(new RegExp(`${id}:\\s*`, "i"), "");
+			if (id === "mcp") body = body.replace(/🔌\uFE0F?/gu, "↔");
 		}
 		const color = priority === 0 ? "error" : priority === 1 ? "warning" : "muted";
 		// Preserve value styling while making the plugin label quiet.
