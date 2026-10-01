@@ -52,7 +52,7 @@ function statusPriority(theme: ThemeLike, text: string): number {
 }
 
 export function pluginStatuses(statuses: ReadonlyMap<string, string>, theme: ThemeLike, details: boolean): string[] {
-	const known = new Set(["model-source", "tps", "permission-gate", "conv-summary"]);
+	const known = new Set(["model-source", "tps", "permission-gate", "conv-summary", "pi-lens-lsp"]);
 	const result: Array<{ text: string; priority: number }> = [];
 	for (const [id, raw] of statuses) {
 		if (known.has(id) || !plain(raw)) continue;
@@ -67,6 +67,7 @@ export function pluginStatuses(statuses: ReadonlyMap<string, string>, theme: The
 			body = body.replace(/LSP\s+(Active|Inactive)/i, (_, state) => state.toLowerCase());
 		} else if (id === "usage" || id === "mcp") {
 			body = body.replace(new RegExp(`${id}:\\s*`, "i"), "");
+			if (id === "mcp") body = body.replace(/🔌\uFE0F?/gu, "↔");
 		}
 		const color = priority === 0 ? "error" : priority === 1 ? "warning" : "muted";
 		// Preserve value styling while making the plugin label quiet.

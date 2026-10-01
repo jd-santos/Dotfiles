@@ -29,6 +29,7 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 
 ### Removed
 
+- Retire Pi's `/plan` prompt and mandatory two-round planning instructions. Pi's task-capture rules apply now; shared `work-routing` is available after pinning a Skills commit that contains it.
 - Remove Pi's MCP adapter and the Brave Search server from the retained
   generic MCP config.
 - Remove the hardcoded cua-driver `PATH` entry from zsh. A machine that installs cua-driver outside an existing `PATH` entry needs to add `$HOME/.local/bin` locally.

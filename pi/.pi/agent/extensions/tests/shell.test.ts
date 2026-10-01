@@ -282,7 +282,7 @@ test("model and thinking expense tiers use the shared palette", async () => {
 	await h.emit("session_shutdown");
 });
 
-test("plugin labels are quiet while colored failures survive and sort first", () => {
+test("plugin labels are quiet and pi-lens status is omitted", () => {
 	const theme = makeTheme();
 	const error = theme.fg("error", "LSP Inactive");
 	const lines = footerModule.pluginStatuses(
@@ -294,23 +294,21 @@ test("plugin labels are quiet while colored failures survive and sort first", ()
 		theme,
 		false,
 	);
-	assert.equal(lines.length, 2);
-	assert.match(layout.plain(lines[0]), /^lsp inactive/);
-	assert.ok(lines[0].includes(theme.fg("dim", "lsp ")));
-	assert.ok(lines[0].includes(theme.fg("error", "inactive")));
+	assert.deepEqual(lines.map(layout.plain), ["other ready"]);
 	assert.equal(
 		layout.styledStatus(`\x1b[2J${error}\x1b]0;new title\x07`),
 		error,
 	);
 	const failure = footerModule.pluginStatuses(
 		new Map([
-			["mcp", theme.fg("error", "MCP: 1/1 connection failed")],
+			["mcp", theme.fg("error", "🔌 MCP: 1/1 connection failed")],
 			["usage", theme.fg("warning", "usage: 123 records, warning")],
 		]),
 		theme,
 		false,
 	);
 	assert.equal(failure.length, 2);
+	assert.match(layout.plain(failure[0]), /^mcp ↔ 1\/1 connection failed/);
 });
 
 test("the permission gate publishes its actual initial and toggled modes", async () => {

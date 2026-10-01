@@ -18,7 +18,6 @@ This is the spillover doc for Pi details that are worth keeping but too dense fo
 | `.pi/agent/extensions/*.ts` | `~/.pi/agent/extensions/*.ts` | Local Pi extensions |
 | `.pi/agent/extensions/subagent/config.json` | `~/.pi/agent/extensions/subagent/config.json` | Runtime policy for the pinned `pi-subagents` package |
 | `.pi/agent/skills/parallel-task-research/SKILL.md` | `~/.pi/agent/skills/parallel-task-research/SKILL.md` | Pi-specific Parallel Task research workflow |
-| `.pi/agent/prompts/plan.md` | `~/.pi/agent/prompts/plan.md` | `/plan` prompt template |
 | `.pi/agent/prompts/ship.md` | `~/.pi/agent/prompts/ship.md` | `/ship` wrapper for the shared `ship` skill |
 | `.pi/agent/themes/*.json` | `~/.pi/agent/themes/*.json` | Catppuccin and Dracula themes |
 | `README.md` | Not stowed | Human-facing overview |
@@ -555,8 +554,9 @@ Compact display:
 The context meter uses up to 20 cells, with yellow at 50% and red at 80% to match
 the planning advisory. Missing or non-finite context usage reads `unavailable`.
 Labels stay dim; status values preserve extension colors. Errors and warnings
-sort before ordinary plugin status. `pi-lens-lsp` is shortened to `lsp`. Lens's
-separate diagnostic widget keeps its own styling and content.
+sort before ordinary plugin status. The MCP status uses `↔` instead of the
+adapter's plug emoji for terminal legibility. Lens's separate diagnostic widget
+keeps its own styling and content.
 
 `/shell` toggles compact and detailed telemetry. `/shell compact` and
 `/shell details` select explicitly. The choice is stored as a `shell-display`
@@ -652,34 +652,13 @@ thinking expense tiers, plugin severity colors, branch and permission updates,
 autocomplete, scroll indicators, display persistence, and listener cleanup.
 Verified with Pi 0.85.1.
 
-## Plan prompt
+## Planning and task records
 
-Location: `.pi/agent/prompts/plan.md`
+The shared `work-routing` skill chooses the shortest useful route for discovery or implementation once the Skills submodule is pinned to a commit containing that skill. Pi has no separate planning prompt; until then its global instructions provide the same task-capture and safety rules. For a substantial request, even an answer-only deliverable, check whether it belongs in the project's backlog. If it is project-specific and worth tracking beyond the exchange, use `todo-manager` to update the project's authoritative queue without waiting for the word TODO. Preserve existing queues until migration is authorized.
 
-`/plan [topic]` runs a two-round planning template.
+In a project using the workbench, `todo/TODO.md` indexes priorities and short tasks. When details or independent slices would clutter that index, use one linked `todo/work/<descriptive-name>/README.md` for status, acceptance criteria, and the detailed checklist. Add `plan.md` only when design needs more room. Do not create files simply because a skill expects them.
 
-Round 1 asks clarifying questions about intent, scope, constraints, and success criteria. It does not propose solutions yet.
-
-Round 2 restates the problem, offers 2 to 3 approaches with tradeoffs, and calls out remaining assumptions or unknowns.
-
-The prompt saves plans only on explicit instruction, using `todo-manager` to
-locate the existing queue. In new or migrated workbenches, small tasks live under
-P1–P5 headings in `todo/TODO.md`; substantial work uses a stable
-`todo/work/<descriptive-name>/README.md`. That record owns its execution
-checklist, acceptance criteria, status, and ownership. A separate `plan.md` is
-optional for larger designs. Do not duplicate checklists or competing plans.
-
-Code starts only after an explicit go-ahead. An implementation go-ahead after
-agreement also authorizes saving the agreed plan first, not a Git commit. Legacy
-queues require an authorized migration. Pair `/plan` with `/readonly` when the
-no-write planning period should be enforced by the permission gate.
-
-`todo/README.md` introduces and maps the workbench for humans. `todo/DONE.md`
-links to history, PRs, the existing changelog, and retained evidence. It may
-highlight selected major releases but is not another completed-task ledger.
-Concurrent workers use separate worktrees and primarily edit their own records;
-the coordinator or integrator reconciles shared index edits. Markdown ownership
-notes do not provide locking across worktrees.
+Purely exploratory or unrelated questions do not create tasks. `/readonly` enforces a requested read-only session through the permission gate. Tool permissions, safety checks, review, and delivery rules still apply to authorized implementation. Concurrent workers use separate worktrees and primarily edit their own records; the coordinator reconciles shared index changes. Ownership notes are not locks.
 
 ## Ship prompt
 

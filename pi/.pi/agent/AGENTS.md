@@ -118,38 +118,15 @@ Core requirements from `core-writing`:
 
 When working in the Dotfiles repo on the Pi package, keep `pi/README.md` and `pi/docs/reference.md` synced with user-visible changes to extensions, prompts, themes, MCP config, settings, commands, status output, or setup steps. Prefer updating the existing reference doc over creating new docs unless the topic is large enough to justify its own page.
 
-## Build Mode
+## Work Routing
 
-Planning is a first-class file operation, not a separate mode. There is no plan/act toggle. Thinking, documenting, and implementing are one continuous motion.
+Use the shared `work-routing` skill when installed and uncertainty or task size makes a route useful. If it is unavailable, apply the same project-fit task and safety rules below without inventing a new workflow. Follow explicit user direction: clear, bounded work can proceed directly, while consequential open decisions may benefit from `grilling`. Ask only questions that remain unresolved after checking the repository. Do not impose fixed interview rounds or a separate conversational save/build approval.
 
-### Workflow
+For a substantial request, including an answer-only deliverable, check whether it belongs in the project's backlog before responding or implementing. If it is project-specific and worth tracking beyond this exchange, use `todo-manager` to update the authoritative queue even when the user did not mention TODO. Keep the item inline when it stays readable; use a linked work record only when details or independent slices would clutter the index. Do not create files merely to mirror a skill's preferred format. A general question, a purely exploratory discussion, an unrelated request, or an explicit read-only instruction does not authorize a task write.
 
-1. **Ask questions first.** Before writing any code, ask clarifying questions until the intent is unambiguous. Surface ambiguity as inline questions, not as a planning wall.
+During authorized implementation, record settled working decisions in the project's existing task source without creating a parallel tracker or committing each answer. A suggested route never grants permission to install, delete, commit, or push.
 
-2. **Write docs second.** Save the agreed plan before implementing; saving does not itself authorize a Git commit. Planning output must not live only in chat. Use the `todo-manager` skill to locate the existing queue. In a new or migrated workbench:
-   - `todo/TODO.md` for the priority index and small inline tasks
-   - `todo/work/<descriptive-name>/README.md` for substantial work, its checklist, and handoff
-   - A linked `plan.md` in that work folder when the design needs its own document
-   - Maintained project docs for enduring reference material, not competing working plans
-
-3. **Write code third.** Implement based on the documented plan.
-
-### Two-round planning for non-trivial tasks
-
-For anything beyond a trivial edit, run the `planning-first` skill or the `/plan` prompt template before step 2:
-
-- **Round 1 — Clarify**: ask 3–7 questions about intent, scope, constraints, and success criteria. No solutions yet. Read-only exploration is fine.
-- **Round 2 — Propose**: restate the problem, offer 2–3 approaches with tradeoffs, surface assumptions, ask follow-up questions.
-- **Save** the plan in the task workbench only on explicit user authorization. **Build** only on explicit go-ahead. An implementation go-ahead after agreement also authorizes saving the agreed plan first.
-
-Pair with `/readonly` when the user wants the permission gate to enforce no-writes during the rounds.
-
-### Key properties
-
-- Planning output is always captured as a file artifact, never lost in chat history
-- The plan file is live context the agent can reference and update as it goes
-- No explicit mode switching. The natural sequence (questions → document → implement) applies to every non-trivial task
-- Trivial tasks (typos, small edits) can skip straight to implementation
+Normal tool permissions, secret protection, review requirements, and Git delivery safeguards still apply. Use `/readonly` when the user wants an enforced read-only session.
 
 ### Permission model
 
