@@ -52,7 +52,7 @@ function statusPriority(theme: ThemeLike, text: string): number {
 }
 
 export function pluginStatuses(statuses: ReadonlyMap<string, string>, theme: ThemeLike, details: boolean): string[] {
-	const known = new Set(["model-source", "tps", "permission-gate", "conv-summary"]);
+	const known = new Set(["model-source", "tps", "permission-gate", "conv-summary", "pi-lens-lsp"]);
 	const result: Array<{ text: string; priority: number }> = [];
 	for (const [id, raw] of statuses) {
 		if (known.has(id) || !plain(raw)) continue;

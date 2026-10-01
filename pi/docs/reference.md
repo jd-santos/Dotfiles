@@ -555,8 +555,8 @@ Compact display:
 The context meter uses up to 20 cells, with yellow at 50% and red at 80% to match
 the planning advisory. Missing or non-finite context usage reads `unavailable`.
 Labels stay dim; status values preserve extension colors. Errors and warnings
-sort before ordinary plugin status. `pi-lens-lsp` is shortened to `lsp`. Lens's
-separate diagnostic widget keeps its own styling and content.
+sort before ordinary plugin status. Lens's separate diagnostic widget keeps its
+own styling and content.
 
 `/shell` toggles compact and detailed telemetry. `/shell compact` and
 `/shell details` select explicitly. The choice is stored as a `shell-display`
