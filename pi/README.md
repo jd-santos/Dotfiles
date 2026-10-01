@@ -47,7 +47,6 @@ Local-only files stay out of git:
 | `.pi/agent/extensions/*.ts` | Local Pi extensions |
 | `.pi/agent/skills/parallel-task-research/SKILL.md` | Pi skill for choosing and running approved Parallel Task research or enrichment |
 | `.pi/agent/extensions/subagent/config.json` | Conservative runtime limits for the pinned `pi-subagents` package |
-| `.pi/agent/prompts/plan.md` | `/plan` prompt template for two-round planning |
 | `.pi/agent/prompts/ship.md` | `/ship` prompt template that delegates to the shared `ship` skill |
 | `.pi/agent/themes/*.json` | Catppuccin and Dracula themes |
 | `docs/reference.md` | Detailed reference notes that are useful but too dense for the README |
@@ -68,7 +67,7 @@ The extensions mostly cooperate through UI status keys:
 6. `footer.ts` reads those statuses and renders one compact footer.
 7. The pinned `pi-subagents` package gives the parent an explicit delegation tool and runs focused child Pi sessions.
 8. Command-style extensions such as `lg.ts`, `cost-tracker.ts`, `usage.ts`, and `promptfoo-export.ts` add reports or export artifacts only when called.
-9. Prompt templates such as `/plan` and `/ship` give repeatable workflows for higher-level tasks.
+9. The `/ship` prompt delegates delivery to the shared `ship` skill. After the Skills submodule is updated to a commit containing `work-routing`, that skill helps choose a discovery or implementation route.
 
 That split keeps each extension small while making the UI feel like one system.
 
@@ -186,7 +185,6 @@ To upgrade, review the upstream diff, change the exact version in `.pi/agent/set
 | `/summary clear` | Clear the current summary |
 | `/shell [compact\|details]` | Toggle telemetry detail, or choose a display explicitly; saved with the session |
 | `/promptfoo-export [name]` | Export the active branch as a promptfoo eval stub |
-| `/plan [topic]` | Run the two-round planning prompt |
 | `/ship [instructions]` | Review, commit, and deliver local work by push or PR |
 
 ## Extensions
@@ -245,25 +243,7 @@ submodule, install pinned external skills, and restow the package.
 
 ## Prompt templates
 
-### `/plan`
-
-`/plan` runs a two-round planning workflow:
-
-1. Clarify intent, scope, constraints, and success criteria.
-2. Propose approaches with tradeoffs and remaining assumptions.
-
-The prompt says not to write files during the planning rounds. After approval,
-`todo-manager` locates the project queue. New workbenches use `todo/TODO.md` as a
-P1–P5 priority index and stable `todo/work/<descriptive-name>/` folders for
-substantial plans and execution checklists. Legacy queues stay in place until
-migration is authorized. An implementation go-ahead also authorizes saving the
-agreed plan first, but not a Git commit. Pair `/plan` with `/readonly` when you
-want the permission gate to enforce the no-write period.
-
-`todo/README.md` is the human introduction and map. `todo/DONE.md` points to Git,
-PRs, the existing changelog, and retained evidence, with optional major release
-highlights. Parallel agents mostly edit separate work records; ownership notes
-are coordination hints, not locks.
+Discovery and planning use the shared `work-routing` skill when it is installed and a route is useful; Pi does not provide a separate planning prompt. Until the Skills submodule pin includes the router, the global Pi instructions provide the same task-capture and safety rules. For a substantial project-specific request, including an answer-only deliverable, agents check whether it is worth tracking in the project's existing queue even without an explicit TODO request. `todo-manager` keeps short items inline and uses a work record only when detail would clutter the queue. Purely exploratory or unrelated questions do not create tasks, and `/readonly` enforces a requested read-only session. Plans are optional for substantial design.
 
 ### `/ship`
 

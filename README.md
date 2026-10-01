@@ -21,7 +21,7 @@ Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). M
 | [`nvim`](nvim/.config/nvim/README.md) | Neovim (LazyVim, fzf-lua, tokyonight)                                                                                  |
 | `opencode`                            | [OpenCode](https://opencode.ai/) AI assistant config and local agent prompts                                           |
 | [`pgcli`](pgcli/README.md)            | [pgcli](https://www.pgcli.com/) PostgreSQL CLI (auto-completion, keyring, env var connection)                          |
-| [`pi`](pi/README.md)                  | [Pi](https://pi.dev/) coding agent (extensions, Catppuccin theme, `/plan` template, MCP servers)                       |
+| [`pi`](pi/README.md)                  | [Pi](https://pi.dev/) coding agent (extensions, Catppuccin theme, work routing, MCP servers)                       |
 | `starship`                            | [Starship](https://starship.rs/) prompt with Nerd Font icons                                                           |
 | `tmux`                                | Tmux (backtick prefix, vim-style navigation, nested session support)                                                   |
 | `zed`                                 | [Zed](https://zed.dev/) editor settings merged by `merge-settings`                                                     |
