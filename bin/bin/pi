@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Resolve 1Password-backed OpenRouter auth before handing off to Pi.
+# Resolve 1Password-backed OpenRouter auth and the Parallel Task MCP key
+# before handing off to Pi.
 
 set -euo pipefail
 
@@ -56,6 +57,16 @@ if [[ "${OPENROUTER_API_KEY:-}" == op://* ]]; then
     export OPENROUTER_API_KEY="$resolved_openrouter_key"
   else
     printf 'pi wrapper: failed to resolve OPENROUTER_API_KEY with 1Password\n' >&2
+  fi
+fi
+
+if [[ "${PARALLEL_API_KEY:-}" == op://* ]]; then
+  if ! command -v op >/dev/null 2>&1; then
+    printf 'pi wrapper: PARALLEL_API_KEY is a 1Password reference, but op is not on PATH\n' >&2
+  elif resolved_parallel_key="$(op read "$PARALLEL_API_KEY" 2>/dev/null)" && [[ -n "$resolved_parallel_key" ]]; then
+    export PARALLEL_API_KEY="$resolved_parallel_key"
+  else
+    printf 'pi wrapper: failed to resolve PARALLEL_API_KEY with 1Password\n' >&2
   fi
 fi
 

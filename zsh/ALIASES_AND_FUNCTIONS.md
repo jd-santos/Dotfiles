@@ -138,14 +138,16 @@ Detailed function reference with usage examples.
 
 ### `pi()`
 
-Launch Pi through the `~/bin/pi` wrapper, which resolves the OpenRouter API key
-from 1Password when `OPENROUTER_API_KEY` is an `op://` reference.
+Launch Pi through the `~/bin/pi` wrapper, which resolves API keys from
+1Password when `OPENROUTER_API_KEY` or `PARALLEL_API_KEY` is an `op://`
+reference.
 
 **Usage:** `pi [args...]`
 
 **Notes:**
 
-- Keeps the real OpenRouter key out of git and out of the parent shell
+- Keeps the real OpenRouter and Parallel keys out of git and out of the parent shell
+- `PARALLEL_API_KEY` authenticates the Parallel Task MCP server configured in `~/.config/mcp/mcp.json`
 - The executable wrapper also covers child processes and non-interactive launches
 - Falls back to the installed Pi command if `op` is unavailable or locked
 

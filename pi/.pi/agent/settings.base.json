@@ -1,7 +1,8 @@
 {
   "defaultThinkingLevel": "medium",
   "skills": [
-    "~/.agents/skills"
+    "~/.agents/skills",
+    "~/.pi/agent/skills"
   ],
   "enableSkillCommands": true,
   "enabledModels": [
