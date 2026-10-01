@@ -41,17 +41,18 @@ Local-only files stay out of git:
 | Path | Purpose |
 | --- | --- |
 | `.pi/agent/settings.base.json` | Shared settings, model list, theme, packages, and skills path |
-| `.pi/agent/mcp.base.json` | Native Pi MCP defaults for Svelte and Xcode |
+| `.pi/agent/mcp.base.json` | Native Pi MCP defaults for Svelte, Xcode, and Parallel Task |
 | `.config/mcp/mcp.json` | Generic MCP config retained for other clients; Pi does not read it |
 | `.pi/agent/AGENTS.md` | Global instructions loaded by Pi at session start |
 | `.pi/agent/extensions/*.ts` | Local Pi extensions |
+| `.pi/agent/skills/parallel-task-research/SKILL.md` | Pi skill for choosing and running approved Parallel Task research or enrichment |
 | `.pi/agent/extensions/subagent/config.json` | Conservative runtime limits for the pinned `pi-subagents` package |
 | `.pi/agent/prompts/plan.md` | `/plan` prompt template for two-round planning |
 | `.pi/agent/prompts/ship.md` | `/ship` prompt template that delegates to the shared `ship` skill |
 | `.pi/agent/themes/*.json` | Catppuccin and Dracula themes |
 | `docs/reference.md` | Detailed reference notes that are useful but too dense for the README |
 
-The repo's root `.stow-local-ignore` keeps `README.md` and `docs/` from being linked into `$HOME`.
+The Pi package's `.stow-local-ignore` keeps its README, docs, and macOS metadata out of `$HOME`.
 
 ## How the pieces fit together
 
@@ -84,19 +85,62 @@ The shared default is `openai-codex/gpt-6-sol` with medium thinking.
 OpenRouter standby models, including GPT-5.6 Pro routes, GLM 5.2, Qwen 3.7,
 and Gemma 4, stay out of the `Ctrl+P` cycle but remain
 available through `/model` when the provider catalog and auth expose them.
-The `~/bin/pi`
-wrapper resolves the OpenRouter `op://` reference through 1Password before
-launching Pi, so the key does not live in git. Keep `~/bin` before Homebrew in
-`PATH` so child Pi processes and other non-interactive launches use the wrapper
-too. On macOS inside Herdr, the wrapper enables 1Password desktop prompts for both OpenRouter and native MCP commands unless `OP_BIOMETRIC_UNLOCK_ENABLED` was set explicitly. Restart Pi to pick up the flag.
+The `~/bin/pi` wrapper resolves `OPENROUTER_API_KEY` and `PARALLEL_API_KEY`
+through `op read` when either variable is an `op://` reference, then launches
+Pi with the resolved keys. This keeps the key values out of git. Keep `~/bin`
+before Homebrew in `PATH` so child Pi processes and other non-interactive
+launches use the wrapper too. On macOS inside Herdr, the wrapper enables
+1Password desktop prompts for OpenRouter and native MCP command resolvers when
+`OP_BIOMETRIC_UNLOCK_ENABLED` is unset. An explicitly set value, including
+`false`, takes precedence. Restart Pi to pick up the flag.
 
 If a resumed session opens on a model you did not expect, the session restore
 won. Start a fresh session with `/new` or `pi --no-session` to use the
 configured default.
 
-Pi's built-in MCP support reads `~/.pi/agent/mcp.json`. `merge-settings` builds it from tracked `.pi/agent/mcp.base.json` and optional `~/.pi/agent/mcp.local.json`. The tracked defaults include Svelte through `npx` and Xcode through `xcrun mcpbridge`. Add personal HTTP servers or computer-specific wrappers only to `mcp.local.json`, under `mcpServers`. Keep credentials out of Git and use environment references or command-resolved headers. For example, personal HTTP server settings stay local; Atlassian needs a local `atlassian-mcp` wrapper on the computer that uses it.
+Pi's built-in MCP support reads `~/.pi/agent/mcp.json`. `merge-settings`
+builds it from tracked `.pi/agent/mcp.base.json` and optional
+`~/.pi/agent/mcp.local.json`. The tracked defaults include Svelte through
+`npx`, Xcode through `xcrun mcpbridge`, and Parallel Task over streamable HTTP.
+Add personal HTTP servers or computer-specific wrappers only to `mcp.local.json`,
+under `mcpServers`. Keep credentials out of Git and use environment references
+or command-resolved headers. Personal HTTP servers stay local; Atlassian needs a
+local `atlassian-mcp` wrapper on the computer that uses it.
 
-The stowed `.config/mcp/mcp.json` remains available to other MCP clients, but Pi no longer reads it. Brave Search is no longer configured here; use the Parallel web extension for search. See [docs/reference.md](docs/reference.md#mcp) for merge and verification details.
+| Pi server | Source | Notes |
+| --- | --- | --- |
+| `svelte` | Tracked base | `npx -y @sveltejs/mcp` |
+| `xcode` | Tracked base | `xcrun mcpbridge`; use a local `DEVELOPER_DIR` override for Xcode beta |
+| `parallel-task` | Tracked base | Remote streamable HTTP server; bearer auth uses `PARALLEL_API_KEY`, with direct tool exposure |
+| Personal HTTP server | Local override on this computer | Command-resolved `Authorization` header; keep its URL and resolver private |
+| `atlassian` | Optional local override | Requires an `atlassian-mcp` wrapper on `PATH` on the computer that uses it |
+
+Place local entries under `mcpServers` in `~/.pi/agent/mcp.local.json`. A matching server name overrides individual base properties, so an Xcode beta override needs only:
+
+```json
+{
+  "mcpServers": {
+    "xcode": {
+      "env": { "DEVELOPER_DIR": "/Applications/Xcode-beta.app/Contents/Developer" }
+    }
+  }
+}
+```
+
+Add any personal servers alongside it, and set the local file to owner-only
+access with `chmod 600 ~/.pi/agent/mcp.local.json`. Then run `merge-settings` and
+check connections with `pi mcp list`. The local and generated files are ignored
+by Git. Native Pi headers accept `"${NAME}"` or `"!command"` instead of a
+literal token. The tracked Parallel Task entry uses `headers.Authorization`
+with `Bearer ${PARALLEL_API_KEY}` and `exposure: "direct"`. The `~/bin/pi`
+wrapper resolves an `op://` reference before launch. Adapter-specific
+`bearerToken` and `directTools` fields are not native Pi settings.
+
+The stowed `.config/mcp/mcp.json` remains available to other MCP clients, but Pi
+does not read it. Its Parallel Task entry retains adapter-specific settings
+for those clients. Brave Search has been removed; use the Parallel web
+extension for search. See [docs/reference.md](docs/reference.md#mcp) for merge
+and verification details.
 
 ## Subagents
 

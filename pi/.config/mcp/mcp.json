@@ -17,6 +17,12 @@
       "args": [],
       "lifecycle": "lazy",
       "idleTimeout": 10
+    },
+    "parallel-task": {
+      "url": "https://task-mcp.parallel.ai/mcp",
+      "auth": "bearer",
+      "bearerTokenEnv": "PARALLEL_API_KEY",
+      "directTools": true
     }
   }
 }
