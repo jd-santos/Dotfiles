@@ -18,8 +18,9 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 
 ### Changed
 
-- Switch Pi to native MCP support with tracked Svelte, Xcode, and Parallel
-  Task defaults, private local server overrides, and generated MCP settings.
+- Switch Pi's default, scoped Sol routes, and Sol subagents to GPT-6.1 Sol while keeping GPT-6 Luna and GPT-5.6 Terra selectable.
+- Switch Pi to native MCP support with tracked Svelte and Xcode defaults,
+  private local server overrides, and generated MCP settings.
 - Put Pi's glyph beside the location in Herdr's Agent sidebar and show the conversation title alone on the next row.
 - Widen the Herdr sidebar to 40 columns and disable onboarding and automatic theme switching.
 - Switch Pi's default and active Sol/Luna routes to GPT-6, prioritize Codex in the scoped model cycle, and route subagents to GPT-6 while retaining GPT-5.6 Terra as a selectable fallback.

@@ -47,7 +47,7 @@ Shared settings live in `.pi/agent/settings.base.json`. Local overrides live in
 Current shared settings include:
 
 - Theme: `catppuccin-mocha`
-- Default model: `openai-codex/gpt-6-sol`
+- Default model: `openai-codex/gpt-6.1-sol`
 - Thinking level: `medium`
 - Thinking block: visible on output
 - Startup: quiet
@@ -72,12 +72,12 @@ package.
 
 Scoped model cycle:
 
-- `openai-codex/gpt-6-sol`
+- `openai-codex/gpt-6.1-sol`
 - `openai-codex/gpt-5.6-terra`
 - `openai-codex/gpt-6-luna`
 - `openrouter/openai/gpt-6-luna`
 - `openrouter/z-ai/glm-5.3-flash`
-- `openrouter/openai/gpt-6-sol`
+- `openrouter/openai/gpt-6.1-sol`
 - `openrouter/qwen/qwen3.8-27b`
 - `openrouter/deepseek/deepseek-v4.1-flash`
 - `openrouter/moonshotai/kimi-k3`
@@ -181,12 +181,13 @@ Pi packages have full system access. `pi-subagents` launches child Pi processes 
 | Researcher | `openai-codex/gpt-6-luna` | Xhigh | Focused external research after its web tools are available |
 | Worker | `openai-codex/gpt-6-luna` | Xhigh | Bounded implementation |
 | Reviewer | `openai-codex/gpt-6-luna` | Xhigh | Fresh-context review |
-| Oracle | `openai-codex/gpt-6-sol` | High | Difficult decisions and assumption checks |
-| Delegate | `openai-codex/gpt-6-sol` | Medium | General delegated work |
+| Oracle | `openai-codex/gpt-6.1-sol` | High | Difficult decisions and assumption checks |
+| Delegate | `openai-codex/gpt-6.1-sol` | Medium | General delegated work |
 
 The strict model scope allows the retained
-`openai-codex/gpt-5.6-terra` route, `openai-codex/gpt-6-*`, and
-`openrouter/deepseek/deepseek-v4.1-*`. Out-of-scope inherited models,
+`openai-codex/gpt-5.6-terra` route, `openai-codex/gpt-6-luna`,
+`openai-codex/gpt-6.1-sol`, and `openrouter/deepseek/deepseek-v4.1-*`.
+Out-of-scope inherited models,
 explicit overrides, and fallback models fail instead of silently running.
 
 The bundled researcher requires `pi-web-access`, which is intentionally not installed with the initial adoption. Until that separate package is reviewed, use the parent session's Parallel web tools for external research. Scout, reviewer, oracle, worker, and delegate do not require it.
