@@ -62,7 +62,7 @@ The extensions mostly cooperate through UI status keys:
 1. `permission-gate.ts` decides whether write, edit, and bash tool calls should run.
 2. `format-on-save.ts` watches successful write and edit calls and formats supported files.
 3. `context-planner.ts` snapshots context usage after each user prompt and injects a hidden planning advisory for the agent run.
-4. `auto-compact.ts` compacts after a completed turn reaches 70% of the active model's context window.
+4. `auto-compact.ts` compacts after a completed turn reaches 80% of the active model's configured context window.
 5. `tps-tracker.ts`, `usage.ts`, `conversation-summary.ts`, and `ui-read-and-shortcuts.ts` publish status with `ctx.ui.setStatus()`.
 6. `footer.ts` reads those statuses and renders one compact footer.
 7. The pinned `pi-subagents` package gives the parent an explicit delegation tool and runs focused child Pi sessions.
@@ -200,7 +200,7 @@ To upgrade, review the upstream diff, change the exact version in `.pi/agent/set
 | `conversation-summary.ts` | Short session summary for the footer and session name, plus a short title for Herdr, with Anthropic fallback if Codex summary requests fail | Footer summary, `/summary` command, Herdr title, one fallback warning per session |
 | `herdr-jd.ts` | General Pi to Herdr bridge; reports display-only values as Herdr pane metadata | `π` after location, title on the next Agent sidebar row |
 | `context-planner.ts` | Prompt-time context capacity advisory for work sizing and handoffs | Hidden agent context, no automatic actions |
-| `auto-compact.ts` | Model-aware compaction at 70% context usage | Compaction start, completion, or failure notice |
+| `auto-compact.ts` | Model-aware compaction at 80% context usage | Compaction start, completion, or failure notice |
 | `promptfoo-export.ts` | Promptfoo eval starter export from the active branch | Files under `~/.pi/agent/evals/promptfoo/` |
 | `ui-read-and-shortcuts.ts` | Read previews, slash command hints, workspace and model borders | Directory, branch, and permission mode attached to the prompt; model and thinking below it |
 | `footer.ts` | Owns telemetry, session summary, and shared workspace data | Context meter, cost, speed, quiet plugin labels, bold summary, `/shell`, branch-aware terminal title |
