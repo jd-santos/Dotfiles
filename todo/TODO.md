@@ -36,10 +36,29 @@
 
 ## P4: Low
 
+- [ ] Verify Pi Sol/Luna context limits before changing compaction policy [context: small]
+  - [x] Create `investigate/pi-context-window` and trace footer, advisory, and automatic compaction
+  - [x] Confirm bundled and cached Codex metadata reports 272,000 tokens; OpenRouter reports 1,050,000 for `gpt-6-luna` and `gpt-6.1-sol`
+  - Findings: `footer.ts` and `context-planner.ts` use Pi's `getContextUsage()`, which takes the limit from model metadata. Model context definitions remain unchanged.
+  - [x] Raise `auto-compact.ts` from 70% to 80%, or 217,600 tokens with the Codex default; sync Pi docs and verify all 9 compaction/advisory tests, LSP diagnostics, and `git diff --check`
+  - Decision: retain Pi's configured model budgets while using more of the existing short-context window.
+  - Evidence: [Pi Codex Sol catalog](https://pi.dev/models/openai-codex/gpt-6-1-sol), [Pi OpenRouter Sol catalog](https://pi.dev/models/openrouter/openai-gpt-6-1-sol). Catalog values do not prove the backend's maximum supported capacity.
+  - [ ] Verify supported capacity on the ChatGPT Codex route and whether 272k is a conservative default before applying a provider-specific override
+
+- [ ] Evaluate an explicit long-context pricing opt-in UI for Pi [context: medium]
+  - [ ] Research provider-specific long-context input, cache, and output pricing tiers, including whether subscription routes follow the same policies
+  - [ ] Design separate indicators for configured context budget, pricing boundary, and supported model capacity; offer a deliberate session-scoped opt-in with cost warnings and a return to conservative defaults
+  - OpenAI reference: prompts above 272k can incur 2× input/cache and 1.5× output pricing for the whole request. Do not treat this as a cache invalidation boundary or assume the API rates apply to Codex subscription usage.
+  - No pricing-tier UI or model-window overrides are implemented by the 80% compaction change.
 - [ ] Review the pinned `pi-subagents` upgrade for its `typebox` peer
   dependency fix [context: medium]
 - [ ] Recheck the Parallel web extension for an upstream `typebox` peer
   dependency fix [context: small]
+- [ ] Document and investigate Parallel research completion and result access in Pi [context: medium]
+  - [ ] Check existing Parallel extension support for background completion; design persistent run tracking, bounded status checks, result retrieval, and agent wake-up without an agent polling loop
+  - [ ] Investigate why API-created research links do not open results or appear in the user's Parallel history; verify API versus web-app workspace visibility without accessing secrets
+  - [ ] Provide a durable local report fallback and document retrieval, failure handling, and Pi usage in `pi/README.md` and `pi/docs/reference.md`
+  - Evidence: the context-limit research completed and was retrieved successfully through `getStatus` and `getResultMarkdown`, but the returned platform URL was not usable for the user. API retrieval and browser visibility must be verified separately.
 - [ ] [Pi permission prompt notifications](work/pi-permission-notifications/README.md)
 - [ ] Revisit `commit-message-writer` skill for progressive disclosure and tone
 - [ ] Evaluate a structured context-planning tool if prompt guidance does not produce consistent work sizing
