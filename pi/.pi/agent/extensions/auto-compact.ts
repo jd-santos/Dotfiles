@@ -5,7 +5,7 @@ import type {
 	ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 
-const COMPACT_AT_PERCENT = 70;
+const COMPACT_AT_PERCENT = 80;
 const RETRY_AFTER_ADDITIONAL_TOKENS = 5_000;
 
 export default function (pi: ExtensionAPI) {
@@ -38,7 +38,7 @@ export default function (pi: ExtensionAPI) {
 		compacting = true;
 		if (ctx.hasUI)
 			ctx.ui.notify(
-				`Context reached ${usage.percent.toFixed(1)}%; compacting at the 70% limit.`,
+				`Context reached ${usage.percent.toFixed(1)}%; compacting at the ${COMPACT_AT_PERCENT}% limit.`,
 				"info",
 			);
 		const fail = (error: Error) => {

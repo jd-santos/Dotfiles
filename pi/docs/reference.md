@@ -522,9 +522,9 @@ The extension is advisory-only. It does not edit TODO files, compact context, sw
 
 Location: `.pi/agent/extensions/auto-compact.ts`
 
-After each completed turn, the extension checks `ctx.getContextUsage()`. At 70% of the active model's context window, it asks Pi to run the normal compaction flow. Because the threshold uses the reported percentage, it adapts when the active model has a different context-window size.
+After each completed turn, the extension checks `ctx.getContextUsage()`. At 80% of the active model's configured context window, it asks Pi to run the normal compaction flow. Because the threshold uses the reported percentage, it adapts when the active model has a different context-window size. With a configured 272,000-token window, the trigger is 217,600 tokens. This change does not override model metadata or opt into a higher pricing tier.
 
-Only one compaction request can be active. A failed attempt waits for at least 5,000 more context tokens before retrying, which prevents a failure loop. Manual `/compact` remains available. The context-planning extension still begins wrap-up guidance at 50% and reserves its 80% threshold as a fallback ceiling rather than the expected compaction point.
+Only one compaction request can be active. A failed attempt waits for at least 5,000 more context tokens before retrying, which prevents a failure loop. Manual `/compact` remains available. The context-planning extension still begins wrap-up guidance at 50%. Its 80% working ceiling now matches the automatic compaction threshold. The check runs at turn end, so usage can exceed 80% during a turn; this is not a hard request limit.
 
 Test model-aware triggering, overlap protection, and failure backoff without starting a model session:
 

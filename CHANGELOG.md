@@ -18,6 +18,7 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 
 ### Changed
 
+- Raise Pi's automatic compaction threshold from 70% to 80% of the configured model context window, without changing model limits or pricing tiers.
 - Switch Pi's default, scoped Sol routes, and Sol subagents to GPT-6.1 Sol while keeping GPT-6 Luna and GPT-5.6 Terra selectable.
 - Switch Pi to native MCP support with tracked Svelte and Xcode defaults,
   private local server overrides, and generated MCP settings.
