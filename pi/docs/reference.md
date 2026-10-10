@@ -46,7 +46,7 @@ Shared settings live in `.pi/agent/settings.base.json`. Local overrides live in
 Current shared settings include:
 
 - Theme: `catppuccin-mocha`
-- Default model: `openai-codex/gpt-6.1-sol`
+- Default model: `openai/gpt-6.1-sol`
 - Thinking level: `medium`
 - Thinking block: visible on output
 - Startup: quiet
@@ -71,9 +71,9 @@ package.
 
 Scoped model cycle:
 
-- `openai-codex/gpt-6.1-sol`
-- `openai-codex/gpt-5.6-terra`
-- `openai-codex/gpt-6-luna`
+- `openai/gpt-6.1-sol`
+- `openai/gpt-5.6-terra`
+- `openai/gpt-6-luna`
 - `openrouter/openai/gpt-6-luna`
 - `openrouter/z-ai/glm-5.3-flash`
 - `openrouter/openai/gpt-6.1-sol`
@@ -176,16 +176,16 @@ Pi packages have full system access. `pi-subagents` launches child Pi processes 
 
 | Role | Model | Thinking | Intended use |
 | --- | --- | --- | --- |
-| Scout | `openai-codex/gpt-6-luna` | Xhigh | Local code reconnaissance and compressed handoffs |
-| Researcher | `openai-codex/gpt-6-luna` | Xhigh | Focused external research after its web tools are available |
-| Worker | `openai-codex/gpt-6-luna` | Xhigh | Bounded implementation |
-| Reviewer | `openai-codex/gpt-6-luna` | Xhigh | Fresh-context review |
-| Oracle | `openai-codex/gpt-6.1-sol` | High | Difficult decisions and assumption checks |
-| Delegate | `openai-codex/gpt-6.1-sol` | Medium | General delegated work |
+| Scout | `openai/gpt-6-luna` | Xhigh | Local code reconnaissance and compressed handoffs |
+| Researcher | `openai/gpt-6-luna` | Xhigh | Focused external research after its web tools are available |
+| Worker | `openai/gpt-6-luna` | Xhigh | Bounded implementation |
+| Reviewer | `openai/gpt-6-luna` | Xhigh | Fresh-context review |
+| Oracle | `openai/gpt-6.1-sol` | High | Difficult decisions and assumption checks |
+| Delegate | `openai/gpt-6.1-sol` | Medium | General delegated work |
 
 The strict model scope allows the retained
-`openai-codex/gpt-5.6-terra` route, `openai-codex/gpt-6-luna`,
-`openai-codex/gpt-6.1-sol`, and `openrouter/deepseek/deepseek-v4.1-*`.
+`openai/gpt-5.6-terra` route, `openai/gpt-6-luna`,
+`openai/gpt-6.1-sol`, and `openrouter/deepseek/deepseek-v4.1-*`.
 Out-of-scope inherited models,
 explicit overrides, and fallback models fail instead of silently running.
 
@@ -450,7 +450,7 @@ Commands:
 Guardrails:
 
 - Runs only when UI is available, so print-mode Pi runs cannot trigger it
-- Calls `openai-codex/gpt-5.4-mini` directly with Pi's `complete()` helper
+- Calls `openai/gpt-6-luna` directly with Pi's `complete()` helper
 - Falls back to `anthropic/claude-haiku-4-5` when the primary summary model is not configured or its request fails
 - Prints one warning per session when a configured summary model fails and another fallback model will be tried
 - Does not spawn another `pi` process
