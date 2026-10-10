@@ -52,8 +52,14 @@
   - No pricing-tier UI or model-window overrides are implemented by the 80% compaction change.
 - [ ] Review the pinned `pi-subagents` upgrade for its `typebox` peer
   dependency fix [context: medium]
-- [ ] Recheck the Parallel web extension for an upstream `typebox` peer
+  - [x] Upgrade shared package pin to `0.76.1` and regenerate local settings
+  - [ ] Restart or reload Pi, then smoke test a subagent launch; this session
+        still had old child-runtime extension paths loaded
+- [x] Recheck the Parallel web extension for an upstream `typebox` peer
   dependency fix [context: small]
+  - Finding: `@parallel-web/pi-extension@1.3.0` still declares `typebox` in
+    dependencies. `merge-settings` patches the installed manifest until an
+    upstream release fixes it.
 - [ ] Document and investigate Parallel research completion and result access in Pi [context: medium]
   - [ ] Check existing Parallel extension support for background completion; design persistent run tracking, bounded status checks, result retrieval, and agent wake-up without an agent polling loop
   - [ ] Investigate why API-created research links do not open results or appear in the user's Parallel history; verify API versus web-app workspace visibility without accessing secrets

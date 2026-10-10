@@ -20,7 +20,7 @@
   "quietStartup": true,
   "packages": [
     "npm:pi-lens",
-    "npm:pi-subagents@0.51.0",
+    "npm:pi-subagents@0.76.1",
     "npm:@parallel-web/pi-extension"
   ],
   "subagents": {
