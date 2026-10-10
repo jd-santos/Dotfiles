@@ -6,9 +6,9 @@
   ],
   "enableSkillCommands": true,
   "enabledModels": [
-    "openai-codex/gpt-6.1-sol",
-    "openai-codex/gpt-5.6-terra",
-    "openai-codex/gpt-6-luna",
+    "openai/gpt-6.1-sol",
+    "openai/gpt-5.6-terra",
+    "openai/gpt-6-luna",
     "openrouter/openai/gpt-6-luna",
     "openrouter/z-ai/glm-5.3-flash",
     "openrouter/openai/gpt-6.1-sol",
@@ -20,7 +20,7 @@
   "quietStartup": true,
   "packages": [
     "npm:pi-lens",
-    "npm:pi-subagents@0.51.0",
+    "npm:pi-subagents@0.76.1",
     "npm:@parallel-web/pi-extension"
   ],
   "subagents": {
@@ -30,41 +30,41 @@
       "enforce": true,
       "strict": true,
       "allow": [
-        "openai-codex/gpt-5.6-terra",
-        "openai-codex/gpt-6-luna",
-        "openai-codex/gpt-6.1-sol",
+        "openai/gpt-5.6-terra",
+        "openai/gpt-6-luna",
+        "openai/gpt-6.1-sol",
         "openrouter/deepseek/deepseek-v4.1-*"
       ]
     },
     "agentOverrides": {
       "scout": {
-        "model": "openai-codex/gpt-6-luna",
+        "model": "openai/gpt-6-luna",
         "thinking": "xhigh"
       },
       "researcher": {
-        "model": "openai-codex/gpt-6-luna",
+        "model": "openai/gpt-6-luna",
         "thinking": "xhigh"
       },
       "worker": {
-        "model": "openai-codex/gpt-6-luna",
+        "model": "openai/gpt-6-luna",
         "thinking": "xhigh"
       },
       "reviewer": {
-        "model": "openai-codex/gpt-6-luna",
+        "model": "openai/gpt-6-luna",
         "thinking": "xhigh"
       },
       "oracle": {
-        "model": "openai-codex/gpt-6.1-sol",
+        "model": "openai/gpt-6.1-sol",
         "thinking": "high"
       },
       "delegate": {
-        "model": "openai-codex/gpt-6.1-sol",
+        "model": "openai/gpt-6.1-sol",
         "thinking": "medium"
       }
     }
   },
   "hideThinkingBlock": false,
   "lastChangelogVersion": "0.75.3",
-  "defaultProvider": "openai-codex",
+  "defaultProvider": "openai",
   "defaultModel": "gpt-6.1-sol"
 }

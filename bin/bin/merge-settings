@@ -9,7 +9,9 @@
 #   ~/.pi/agent/settings.local.json
 #   ~/.pi/agent/mcp.local.json
 #
-# Keys in local files win on conflict. All other base keys are kept.
+# Zed local keys win on conflict. Pi keeps shared keys managed by the tracked
+# base file so stale local values cannot hide shared updates. Put intentional Pi
+# overrides for shared keys under localOverrides in settings.local.json.
 
 set -euo pipefail
 
@@ -17,6 +19,47 @@ if ! command -v jq &>/dev/null; then
   echo "Error: jq is required (brew install jq)" >&2
   exit 1
 fi
+
+resolve_script_path() {
+  local source_path="${BASH_SOURCE[0]}"
+  local source_dir
+  local target
+
+  while [[ -L "$source_path" ]]; do
+    source_dir="$(cd -P "$(dirname "$source_path")" >/dev/null 2>&1 && pwd)"
+    target="$(readlink "$source_path")"
+    if [[ "$target" == /* ]]; then
+      source_path="$target"
+    else
+      source_path="$source_dir/$target"
+    fi
+  done
+
+  source_dir="$(cd -P "$(dirname "$source_path")" >/dev/null 2>&1 && pwd)"
+  printf '%s/%s\n' "$source_dir" "$(basename "$source_path")"
+}
+
+script_path="$(resolve_script_path)"
+repo_root=""
+if repo_candidate="$(cd "$(dirname "$script_path")/../.." >/dev/null 2>&1 && pwd -P)"; then
+  repo_root="$repo_candidate"
+fi
+
+base_path() {
+  local installed_path="$1"
+  local repo_relative_path="$2"
+
+  if [[ -f "$installed_path" ]]; then
+    printf '%s\n' "$installed_path"
+    return
+  fi
+  if [[ -n "$repo_root" && -f "$repo_root/$repo_relative_path" ]]; then
+    printf '%s\n' "$repo_root/$repo_relative_path"
+    return
+  fi
+
+  printf '%s\n' "$installed_path"
+}
 
 merge_json() {
   local label="$1"
@@ -58,17 +101,145 @@ merge_json() {
 }
 
 merge_json "Zed" \
-  "$HOME/.config/zed/settings.base.json" \
+  "$(base_path "$HOME/.config/zed/settings.base.json" "zed/.config/zed/settings.base.json")" \
   "$HOME/.config/zed/settings.local.json" \
   "$HOME/.config/zed/settings.json"
 
-merge_json "Pi" \
-  "$HOME/.pi/agent/settings.base.json" \
-  "$HOME/.pi/agent/settings.local.json" \
-  "$HOME/.pi/agent/settings.json"
+merge_pi_settings() {
+  local label="Pi"
+  local base
+  base="$(base_path "$HOME/.pi/agent/settings.base.json" "pi/.pi/agent/settings.base.json")"
+  local local_file="$HOME/.pi/agent/settings.local.json"
+  local output="$HOME/.pi/agent/settings.json"
+  local tmp
+  local ignored_keys
+
+  if [[ ! -f "$base" ]]; then
+    echo "⚠  $label: base not found at $base, skipping"
+    return
+  fi
+  if [[ -d "$output" ]]; then
+    echo "$label: output is a directory: $output" >&2
+    return 1
+  fi
+
+  tmp="$(mktemp "$output.XXXXXX")"
+  if [[ -f "$local_file" ]]; then
+    if ! jq -s '
+      def local_top_level_overrides($base):
+        with_entries(
+          select(.key as $key | $key == "lastChangelogVersion" or ($base | has($key) | not))
+        );
+      def explicit_local_overrides:
+        (.localOverrides // ._localOverrides // {});
+      .[0] as $base
+      | .[1] as $local
+      | $base * (($local | del(.localOverrides, ._localOverrides) | local_top_level_overrides($base)) * ($local | explicit_local_overrides))
+    ' \
+      <(grep -v '^[[:space:]]*//' "$base") \
+      <(grep -v '^[[:space:]]*//' "$local_file") \
+      > "$tmp"; then
+      rm "$tmp"
+      return 1
+    fi
+    ignored_keys="$(jq -s -r '
+      .[0] as $base
+      | .[1] as $local
+      | $local
+      | del(.localOverrides, ._localOverrides)
+      | [keys[] as $key | select($key != "lastChangelogVersion" and ($base | has($key))) | $key]
+      | join(", ")
+    ' \
+      <(grep -v '^[[:space:]]*//' "$base") \
+      <(grep -v '^[[:space:]]*//' "$local_file"))"
+    if [[ -n "$ignored_keys" ]]; then
+      echo "ℹ  $label: ignored managed local key(s): $ignored_keys"
+    fi
+    echo "✓  $label: merged base + local → settings.json"
+  else
+    if ! grep -v '^[[:space:]]*//' "$base" | jq . > "$tmp"; then
+      rm "$tmp"
+      return 1
+    fi
+    echo "✓  $label: no local override found, copied base → settings.json"
+  fi
+
+  chmod 600 "$tmp"
+  mv -f "$tmp" "$output"
+}
+
+patch_pi_package_manifests() {
+  local settings="$HOME/.pi/agent/settings.json"
+  local npm_root="$HOME/.pi/agent/npm/node_modules"
+  local package_rows=()
+  local package_row
+  local package_name
+  local expected_version
+  local installed_version
+  local manifest
+  local tmp
+
+  if [[ ! -f "$settings" || ! -d "$npm_root" ]]; then
+    return
+  fi
+
+  while IFS= read -r package_row; do
+    package_rows+=("$package_row")
+  done < <(jq -r '
+    .packages[]?
+    | select(type == "string" and startswith("npm:"))
+    | sub("^npm:"; "")
+    | if startswith("@")
+      then capture("^(?<name>@[^/]+/[^@]+)(@(?<version>.+))?$")
+      else capture("^(?<name>[^@]+)(@(?<version>.+))?$")
+      end
+    | [.name, (.version // "")]
+    | @tsv
+  ' "$settings")
+
+  for package_row in "${package_rows[@]}"; do
+    IFS=$'\t' read -r package_name expected_version <<< "$package_row"
+    manifest="$npm_root/$package_name/package.json"
+    if [[ ! -f "$manifest" ]]; then
+      echo "⚠  Pi package $package_name: not installed, run pi install npm:$package_name${expected_version:+@$expected_version}"
+      continue
+    fi
+
+    installed_version="$(jq -r '.version // ""' "$manifest")"
+    if [[ -n "$expected_version" && "$installed_version" != "$expected_version" ]]; then
+      echo "⚠  Pi package $package_name: settings request $expected_version but installed ${installed_version:-unknown}; run pi update npm:$package_name@$expected_version"
+    fi
+
+    if ! jq -e '.dependencies.typebox? != null' "$manifest" >/dev/null; then
+      continue
+    fi
+
+    tmp="$(mktemp "$manifest.XXXXXX")"
+    if ! jq '
+      .dependencies |= del(.typebox)
+      | if (.dependencies | length) == 0 then del(.dependencies) else . end
+      | .peerDependencies = ((.peerDependencies // {}) + {typebox: "*"})
+      | .peerDependenciesMeta = (
+          (.peerDependenciesMeta // {})
+          + {typebox: ((.peerDependenciesMeta.typebox // {}) + {optional: true})}
+        )
+    ' "$manifest" > "$tmp"; then
+      rm "$tmp"
+      return 1
+    fi
+
+    chmod --reference="$manifest" "$tmp" 2>/dev/null || chmod 644 "$tmp"
+    mv -f "$tmp" "$manifest"
+    echo "✓  Pi package $package_name: moved host-provided typebox to peerDependencies"
+  done
+}
+
+merge_pi_settings
+patch_pi_package_manifests
 
 merge_pi_mcp() {
-  local base="$HOME/.pi/agent/mcp.base.json"
+  local base
+  base="$(base_path "$HOME/.pi/agent/mcp.base.json" "pi/.pi/agent/mcp.base.json")"
   local local_file="$HOME/.pi/agent/mcp.local.json"
   local output="$HOME/.pi/agent/mcp.json"
   local marker="$HOME/.pi/agent/.mcp-managed"

@@ -403,15 +403,20 @@ export PI_CACHE_RETENTION=long  # extend prompt cache to 1h (saves cost on long 
 
 # Resolve the OpenRouter 1Password reference only when Pi starts, not on every
 # shell launch. This keeps the public dotfiles limited to an op:// reference
-# while giving Pi a real API key for OpenRouter requests.
+# while giving Pi a real API key for OpenRouter requests. The key lives in the
+# personal 1Password account; pin it so a signed-in work account is not used.
 pi () {
   local openrouter_key="${OPENROUTER_API_KEY:-}"
   if [[ "$openrouter_key" == op://* ]] && command -v op &>/dev/null; then
+    local op_account="${PI_OPENROUTER_OP_ACCOUNT:-my.1password.com}"
     local resolved_openrouter_key
-    if resolved_openrouter_key="$(op read "$openrouter_key" 2>/dev/null)"; then
+    if resolved_openrouter_key="$(op read --account "$op_account" "$openrouter_key")"; then
       OPENROUTER_API_KEY="$resolved_openrouter_key" command pi "$@"
       return
     fi
+    echo "pi: could not read OpenRouter key from 1Password ($op_account); run: op signin --account $op_account" >&2
+    OPENROUTER_API_KEY= command pi "$@"
+    return
   fi
 
   command pi "$@"

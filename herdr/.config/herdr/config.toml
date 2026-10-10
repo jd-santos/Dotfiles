@@ -13,6 +13,7 @@ sidebar_max_width = 40
 pane_gaps = false
 pane_outer_borders = false
 
+status_indicators = "symbols"
 [keys]
 # Match the tmux prefix. Press it twice to send a literal backtick to the pane.
 prefix = "backtick"
@@ -40,3 +41,9 @@ resize_mode = "prefix+shift+r"
 # changing this.
 [ui.sidebar.agents.rows_by_agent]
 pi = [["state_icon", "machine", "workspace", "tab", "$pi_glyph"], ["$title"]]
+
+[ui.sound]
+enabled = false
+
+[ui.toast]
+delivery = "system"
