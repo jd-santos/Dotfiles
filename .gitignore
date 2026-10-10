@@ -53,8 +53,10 @@ config/.config/github-copilot
 config/.config/raycast/
 config/.config//gh/
 
-# Pi lens cache
+# Pi Lens runtime data, except the shared config in the Pi Stow package
 .pi-lens/
+!/pi/.pi-lens/
+!/pi/.pi-lens/config.json
 
 # Pi stow package local runtime files
 # Herdr-generated agent integration, recreated by scripts/setup-herdr

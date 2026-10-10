@@ -36,6 +36,9 @@ packages, defaults, extensions, and role routing cannot hide shared updates.
 Put intentional local replacements for shared keys under `localOverrides` in
 the local file. Pi's native MCP support reads the generated
 `~/.pi/agent/mcp.json`; its tracked defaults and local overrides are separate.
+The tracked `.pi-lens/config.json` installs as `~/.pi-lens/config.json` and hides
+Lens's file-and-warning-count widget by default without disabling its tools.
+`/lens-widget-toggle` can show it for the current session.
 
 Local-only files stay out of git:
 
@@ -52,6 +55,7 @@ Local-only files stay out of git:
 
 | Path | Purpose |
 | --- | --- |
+| `.pi-lens/config.json` | Hide the Pi Lens diagnostics widget by default while keeping its tools enabled |
 | `.pi/agent/settings.base.json` | Shared settings, model list, theme, packages, and skills path |
 | `.pi/agent/mcp.base.json` | Native Pi MCP defaults for Svelte, Xcode, and Parallel Task |
 | `.config/mcp/mcp.json` | Generic MCP config retained for other clients; Pi does not read it |
@@ -236,8 +240,9 @@ Compact mode keeps context, cost, output tokens, speed, and live status visible.
 `/shell details` adds input and cache counts, permission rule counts, and completed
 usage scan counts. Details survive reload and resume. Long parent paths shorten
 before the current directory; each branch and permission field gets reserved
-space. Narrow telemetry wraps onto additional rows. Lens diagnostics remain below
-the editor, so they cannot separate the directory from the prompt.
+space. Narrow telemetry wraps onto additional rows. The Pi Lens diagnostics
+widget is hidden by default through `.pi-lens/config.json`; `/lens-widget-toggle`
+can show it for the current session without disabling Lens tools.
 
 The permission gate allows writes and edits inside the working directory by
 default. It prompts for changes outside that directory, unrecognized shell
