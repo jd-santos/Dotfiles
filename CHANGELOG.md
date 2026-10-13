@@ -18,6 +18,7 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 
 ### Changed
 
+- Restructure the Pi README around setup differences and component roles, with editable prompt and permission-flow illustrations.
 - Raise Pi's automatic compaction threshold from 70% to 80% of the configured model context window, without changing model limits or pricing tiers.
 - Switch Pi's default, scoped Sol routes, and Sol subagents to GPT-6.1 Sol while keeping GPT-6 Luna and GPT-5.6 Terra selectable.
 - Switch Pi to native MCP support with tracked Svelte and Xcode defaults,
@@ -37,6 +38,7 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 
 ### Fixed
 
+- Ignore Pi Lens runtime state in the Stow package while keeping its shared config tracked.
 - Enable 1Password desktop prompts for Pi launched in Herdr on macOS unless
   explicitly overridden.
 - Fall back to the Anthropic summary model when a Codex conversation-summary request fails, not only when Codex is unconfigured, and warn once per session when it happens.
