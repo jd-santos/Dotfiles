@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="350" viewBox="0 0 1100 350" role="img" aria-labelledby="title desc">
+  <title id="title">Pi prompt and compact footer recreation</title>
+  <desc id="desc">Catppuccin Mocha terminal with example project path and branch, ask permission mode, prompt input, GPT-6.1 Sol with medium thinking, a 32 percent context meter, example cost and speed, and a bold session summary. This is a recreation with dummy data, not a screenshot.</desc>
+  <rect width="1100" height="350" rx="12" fill="#1e1e2e"/>
+  <g font-family="'SFMono-Regular', Consolas, 'Liberation Mono', monospace" font-size="18" fill="#cdd6f4">
+    <text x="30" y="36" font-size="13" fill="#7f849c">PROMPT + COMPACT FOOTER · RECREATION / EXAMPLE DATA</text>
+    <path d="M30 72H105" stroke="#585b70"/>
+    <text x="118" y="78"><tspan fill="#7f849c">~/projects/</tspan><tspan fill="#89b4fa" font-weight="bold">demo</tspan><tspan fill="#7f849c">  git </tspan><tspan fill="#94e2d5">feature/docs</tspan></text>
+    <path d="M590 72H900" stroke="#585b70"/>
+    <text x="920" y="78"><tspan fill="#7f849c">perm </tspan><tspan fill="#a6adc8">ask</tspan></text>
+    <path d="M1020 72H1070" stroke="#585b70"/>
+    <text x="30" y="120">Make the README easier to navigate.</text>
+    <rect x="420" y="102" width="10" height="21" fill="#cdd6f4"/>
+    <path d="M30 158H65" stroke="#585b70"/>
+    <text x="78" y="164"><tspan fill="#fab387">gpt-6.1-sol</tspan><tspan fill="#7f849c">  think </tspan><tspan fill="#a6e3a1">medium</tspan><tspan fill="#a6adc8">  openai (sub)</tspan></text>
+    <path d="M655 158H1070" stroke="#585b70"/>
+    <text x="30" y="211" fill="#7f849c">ctx</text>
+    <rect x="78" y="196" width="220" height="16" fill="#585b70"/>
+    <rect x="78" y="196" width="66" height="16" fill="#89dceb"/>
+    <path d="M89 196V212 M100 196V212 M111 196V212 M122 196V212 M133 196V212 M144 196V212 M155 196V212 M166 196V212 M177 196V212 M188 196V212 M199 196V212 M210 196V212 M221 196V212 M232 196V212 M243 196V212 M254 196V212 M265 196V212 M276 196V212 M287 196V212" stroke="#1e1e2e" stroke-width="2"/>
+    <text x="312" y="211"><tspan fill="#89dceb">32%</tspan><tspan fill="#7f849c"> / 272k</tspan></text>
+    <text x="885" y="211"><tspan fill="#7f849c">cost </tspan>$0.184</text>
+    <text x="30" y="245"><tspan fill="#7f849c">out </tspan>2.4k<tspan fill="#7f849c">  t/s </tspan>48.2</text>
+    <text x="30" y="279"><tspan fill="#7f849c">» </tspan><tspan font-weight="bold">README cleanup</tspan></text>
+    <text x="30" y="322" font-size="13" fill="#7f849c">Below-editor widgets appear between the model border and footer when active.</text>
+  </g>
+</svg>

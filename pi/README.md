@@ -1,304 +1,155 @@
-# Pi Agent Config
+# My Pi setup
 
-Personal Pi setup for daily coding work. This package stows shared Pi config into `~/.pi/agent` and a generic MCP config into `~/.config/mcp`. `merge-settings` combines tracked defaults with local settings and MCP overrides into the files Pi reads.
+[Pi](https://pi.dev) is the terminal coding agent. This is the config I use on top of it: a custom prompt and footer, a permission gate, automatic formatting, code navigation, web research, and bounded subagent runs.
 
-The setup is built around a few goals:
+The files are managed with GNU Stow. Shared defaults live here; account details and machine-specific settings stay local.
 
-- Ask before writes and risky shell commands
-- Format files after edits without thinking about it
-- Keep cost, speed, usage, git state, and model state visible
-- Use context capacity when sizing work and preparing handoffs
-- Make Pi's footer useful without letting every extension fight for space
-- Keep planning, shipping, and agent instructions explicit
+## What I change from stock Pi
 
-Dense behavior notes live in [docs/reference.md](docs/reference.md). Agent-facing instructions belong in [`.pi/agent/AGENTS.md`](.pi/agent/AGENTS.md), not in this README.
+| Change | Why I use it |
+| --- | --- |
+| **A more useful prompt** | Directory, branch, permission mode, model, and thinking level stay next to the input. The footer shows context, cost, generation speed, and a short session summary. |
+| **Permission controls** | Routine inspection and edits inside the working directory don't interrupt me. Other operations get a confirmation prompt, with one-time or session-scoped approval. `/readonly` blocks changes. |
+| **Formatting after edits** | Prettier, Ruff, gofmt, or gdformat runs after Pi writes a supported file. |
+| **Code navigation and diagnostics** | Pi Lens adds symbol search, module outlines, AST search, and LSP checks so the agent can inspect code without reading whole files. |
+| **Context-aware work sizing** | The agent gets a capacity advisory at each prompt. It starts wrapping up at 50%; a separate extension requests compaction after a turn reaches 80%. |
+| **Parent-directed subagents** | Focused scouting, implementation, and review run in child sessions. The parent owns integration; children can't spawn more children. FleetView shows progress below the editor. |
+| **Research and delivery workflows** | Parallel supplies web tools and longer research jobs. Shared skills handle planning, task tracking, reviews, and shipping; `/ship` is the entry point for delivery. |
 
-## Install and update
+## The prompt
+
+![Recreation of the Pi prompt: directory, Git branch, and permission mode above the input; model and thinking below it; context, cost, speed, and session summary in the footer.](docs/assets/prompt.svg)
+
+*Recreation in Catppuccin Mocha, not a live screenshot. Paths, task text, and usage values are examples.*
+
+The top border answers **where am I working, on which branch, and with what permissions?** The bottom border answers **which model is running, and how much thinking is enabled?** The footer keeps session telemetry separate from both.
+
+- `/shell details` adds input and cache totals, rule counts, and completed usage scans. `/shell compact` hides that extra detail. The choice survives reload and resume.
+- Context turns yellow at 50% and red at 80%. An unavailable reading is labeled, not treated as zero.
+- Model and thinking colors indicate rough expense tiers, not live prices.
+- Long paths shorten before the current directory; narrow telemetry wraps. Diagnostic and subagent widgets sit below the input without separating it from its borders.
+
+Catppuccin Mocha is the default. Latte, Frappé, Macchiato, Dracula, and the quieter `quiet-ink` palette are available through `/settings`. [Shell details](docs/reference.md#footer) · [Read previews and command hints](docs/reference.md#ui-read-preview-and-slash-shortcuts)
+
+## The permission gate
+
+![Two-step permission gate recreation: first choose allow once, always allow, deny, expand the command, or add a note; then choose the scope of an always-allow rule.](docs/assets/permission-gate.svg)
+
+*Recreation with an example command. The second panel shows the scope picker after choosing “Always allow…”. Icons and spacing vary by terminal.*
+
+The default isn't “ask before everything.” Writes and edits inside the working directory and recognized inspection commands can run without a prompt. Changes outside that directory, unrecognized commands, and risky operations need attention.
+
+At a prompt, I can allow once, allow for a chosen session scope, deny, inspect the full command, or send a note back to the agent. Scope choices start with the exact operation, then yolo and broader tool rules, with directory rules last. Rules reset between sessions.
+
+| Command | Effect |
+| --- | --- |
+| `/readonly` | Toggle read-only mode: block writes and edits, restrict bash to safe inspection |
+| `/yolo` | Toggle auto-approval for ordinary operations |
+| `/rules` | Show session rules |
+| `/reset-rules` | Clear rules and return to default mode |
+
+Sensitive bash reads stay blocked. Destructive, permission-changing, protected-system-path, and remote-execution operations still need one-time confirmation, even in yolo mode. Permission prompts can also trigger a desktop notification where supported.
+
+This is a consent layer, **not a sandbox**. Extensions and child Pi processes run with my user permissions. The shell scanner isn't a complete parser. [Rules, command handling, and notification support](docs/reference.md#permission-gate)
+
+## What the components are for
+
+### Local extensions
+
+These live in [`.pi/agent/extensions/`](.pi/agent/extensions/). The UI extensions own the layout; other extensions publish status into it.
+
+| Component | Job |
+| --- | --- |
+| `ui-read-and-shortcuts.ts` + `footer.ts` | Prompt borders, five-line read previews, shortcut hints, telemetry, and terminal title. Shared layout helpers live in `lib/shell-layout.ts`. |
+| `permission-gate.ts` | Tool approval, session rules, read-only/yolo modes, and permission notifications |
+| `format-on-save.ts` | Format successful writes and edits; formatter failures don't stop the session |
+| `context-planner.ts` + `auto-compact.ts` | Prompt-time capacity guidance and model-aware, end-of-turn compaction |
+| `conversation-summary.ts` | Short footer summary, session name, and Herdr title; `/summary` can override it |
+| `tps-tracker.ts` | Live generation speed and an end-of-turn speed notification |
+| `cost-tracker.ts` + `usage.ts` | `/costs` for this session; `/usage` for deduplicated Pi, child-agent, and Codex CLI usage plus Codex subscription allowance |
+| `lg.ts` | Scripted Git change summaries, without asking the model to count lines |
+| `herdr-jd.ts` | Display-only Pi metadata for Herdr's sidebar. The separate `herdr-agent-state.ts` integration is generated locally by `scripts/setup-herdr`. |
+| `promptfoo-export.ts` | Export the active conversation branch as a promptfoo evaluation starter |
+
+`/usage` keeps transcript content local. It looks up pricing at `models.dev` and queries the local Codex app-server for subscription allowance; neither request sends transcript content. [Extension reference](docs/reference.md#format-on-save)
+
+### Installed packages and MCP
+
+Packages are listed in [`.pi/agent/settings.base.json`](.pi/agent/settings.base.json). MCP connects Pi to external tools; its tracked defaults are in [`.pi/agent/mcp.base.json`](.pi/agent/mcp.base.json).
+
+| Component | Job |
+| --- | --- |
+| `pi-lens` | Code intelligence: ranked search, source outlines, AST operations, and LSP diagnostics |
+| `pi-subagents` | Child Pi sessions, role-based models, worktree isolation, and FleetView |
+| `@parallel-web/pi-extension` | Web search, page extraction, and research answers with sources |
+| Svelte MCP | Svelte development tools via `npx -y @sveltejs/mcp` |
+| Xcode MCP | Apple development tools via `xcrun mcpbridge` |
+| Parallel Task MCP | Longer research and batch enrichment jobs; the Pi-specific `parallel-task-research` skill guides tool choice |
+
+`pi-subagents` is pinned to `0.76.1`, which declares Pi's host-provided `typebox` package as a peer dependency. Runs default to fresh context, with up to three parallel children, six launches per run tree, and twenty launches per parent session. Scheduling and automatic missions are disabled. Substantial implementations get separate correctness and design reviews. Concurrent writers use separate Git worktrees.
+
+The bundled researcher role requires `pi-web-access`, which isn't installed here. Web research uses the parent session's Parallel tools instead. [Subagent models and limits](docs/reference.md#subagents) · [MCP configuration](docs/reference.md#mcp)
+
+### Instructions, skills, and prompts
+
+These are different layers, not interchangeable names for extensions:
+
+- **[AGENTS.md](.pi/agent/AGENTS.md)** is always-loaded policy: secret protection, task tracking, context limits, review requirements, and delivery safeguards.
+- **Skills** are on-demand workflows. Shared skills come from [jd-santos/Skills](https://github.com/jd-santos/Skills), pinned as the `agents/.agents` submodule and installed at `~/.agents/skills`. Pi-specific skills live in [`.pi/agent/skills/`](.pi/agent/skills/).
+- **Prompt templates** are slash-command entry points. [`/ship`](.pi/agent/prompts/ship.md) loads the shared shipping skill to review, commit, and push or open a PR. Direct pushes to `main` always need confirmation; branch/worktree cleanup needs separate authorization.
+
+Planning uses the shared `work-routing` skill when a route is useful, not a separate planning command. Project-specific work worth keeping goes into the project's existing task queue; exploratory questions don't create tasks. [Planning policy](docs/reference.md#planning-and-task-records) · [Shipping workflow](docs/reference.md#ship-prompt)
+
+## Commands I use
+
+The permission commands are listed above. These are the other everyday entry points:
+
+| Command | Use |
+| --- | --- |
+| `/model`, `Ctrl+P`, `/scoped-models` | Full model picker, cycle the shortlist, or change the shortlist |
+| `/shell [compact\|details]` | Toggle or select footer detail |
+| `/summary [text\|clear]` | Show, set, or clear the session summary |
+| `/lg [--staged\|--all]` | Unstaged + untracked changes by default; optionally staged or all changes against `HEAD` |
+| `/costs`, `/usage` | Current-session totals or cross-session usage report |
+| `/subagents-fleet` | Inspect, steer, or stop child runs |
+| `/subagents-doctor`, `/subagents-models [agent]` | Check the runtime or role-to-model mapping |
+| `/promptfoo-export [name]` | Export an evaluation starter |
+| `/ship [instructions]` | Review and deliver ready work |
+| `/reload` | Reload extensions, prompts, skills, and MCP configuration |
+
+## Install and configure
+
+With Pi and GNU Stow installed, run from the Dotfiles root:
 
 ```bash
 cd ~/Dotfiles
 stow pi
 merge-settings
+./scripts/setup-agent-skills
+pi mcp list
 ```
 
-Run `merge-settings` after pulling changes, editing local settings, changing
-MCP overrides, or updating Pi packages. The script uses the repo copy of a base
-file if the stowed `~/.pi/agent/*.base.json` link is missing, then writes the
-generated file back to `~/.pi/agent`. It also patches installed package
-manifests that still list Pi's host-provided `typebox` package under
-`dependencies`.
+Formatters need to be on `PATH`. Xcode MCP needs Xcode; Svelte MCP needs `npx`. Provider login and API access are configured locally, not in this repository.
 
-Tracked settings live in `.pi/agent/settings.base.json`. Machine-specific
-settings live in `~/.pi/agent/settings.local.json`, which is not tracked. The
-generated `~/.pi/agent/settings.json` is what Pi actually reads. Pi keeps
-shared keys from the tracked base file, so stale local copies of model lists,
-packages, defaults, extensions, and role routing cannot hide shared updates.
-Put intentional local replacements for shared keys under `localOverrides` in
-the local file. Pi's native MCP support reads the generated
-`~/.pi/agent/mcp.json`; its tracked defaults and local overrides are separate.
-The tracked `.pi-lens/config.json` installs as `~/.pi-lens/config.json` and hides
-Lens's file-and-warning-count widget by default without disabling its tools.
-`/lens-widget-toggle` can show it for the current session.
-
-Local-only files stay out of git:
-
-- `~/.pi/agent/settings.local.json`, local-only Pi settings and optional `localOverrides`
-- `~/.pi/agent/settings.json`, generated by `merge-settings`
-- `~/.pi/agent/mcp.local.json`, private or machine-specific MCP servers
-- `~/.pi/agent/mcp.json`, generated by `merge-settings`
-- `~/.pi/agent/auth.json`, provider auth
-- `~/.pi/agent/sessions/`, local transcripts
-- `~/.pi/agent/bin/`, local helper scripts
-- `~/.pi/agent/extensions/herdr-agent-state.ts`, the Herdr integration extension generated by `scripts/setup-herdr`
-
-## What is in this package
-
-| Path | Purpose |
+| Files | Role |
 | --- | --- |
-| `.pi-lens/config.json` | Hide the Pi Lens diagnostics widget by default while keeping its tools enabled |
-| `.pi/agent/settings.base.json` | Shared settings, model list, theme, packages, and skills path |
-| `.pi/agent/mcp.base.json` | Native Pi MCP defaults for Svelte, Xcode, and Parallel Task |
-| `.config/mcp/mcp.json` | Generic MCP config retained for other clients; Pi does not read it |
-| `.pi/agent/AGENTS.md` | Global instructions loaded by Pi at session start |
-| `.pi/agent/extensions/*.ts` | Local Pi extensions |
-| `.pi/agent/skills/parallel-task-research/SKILL.md` | Pi skill for choosing and running approved Parallel Task research or enrichment |
-| `.pi/agent/extensions/subagent/config.json` | Conservative runtime limits for the pinned `pi-subagents` package |
-| `.pi/agent/prompts/ship.md` | `/ship` prompt template that delegates to the shared `ship` skill |
-| `.pi/agent/themes/*.json` | Catppuccin and Dracula themes |
-| `docs/reference.md` | Detailed reference notes that are useful but too dense for the README |
+| `.pi/agent/settings.base.json` + local `~/.pi/agent/settings.local.json` | Shared defaults plus machine-specific settings |
+| `.pi/agent/mcp.base.json` + local `~/.pi/agent/mcp.local.json` | Shared MCP servers plus private/local overrides under `mcpServers` |
+| `~/.pi/agent/settings.json` + `~/.pi/agent/mcp.json` | Generated files Pi reads. Don't edit them directly. |
+| `.config/mcp/mcp.json` | Generic config for other clients. Pi doesn't read it. |
 
-The Pi package's `.stow-local-ignore` keeps its README, docs, and macOS metadata out of `$HOME`.
+Run `merge-settings` after pulling changes, editing settings or MCP inputs, or updating Pi packages. Shared settings take precedence over stale local copies; put intentional machine-specific replacements under `localOverrides` in `settings.local.json`. If a stowed base-file link is missing, the script uses the repo copy. It also patches installed manifests that still list Pi's host-provided `typebox` under `dependencies`.
 
-## How the pieces fit together
+Restart Pi for changes to launch-time environment or package versions; `/reload` handles extension changes. Lens's diagnostics widget is hidden by the tracked `.pi-lens/config.json`; `/lens-widget-toggle` shows it for the current session without disabling Lens tools.
 
-Pi starts from generated settings, then loads packages, extensions, prompts, themes, and agent instructions.
+The shared default is `openai/gpt-6.1-sol` with medium thinking. `Ctrl+P` cycles the configured shortlist; `/model` shows the full catalog. A resumed session can restore its old model: use `/new` or `pi --no-session` to start with the configured default. [Model list and wrapper behavior](docs/reference.md#settings)
 
-The extensions mostly cooperate through UI status keys:
+The `~/bin/pi` wrapper resolves `op://` references for OpenRouter and Parallel keys through 1Password. Keep `~/bin` ahead of Homebrew on `PATH` so child launches use it too. On macOS inside Herdr, it enables 1Password desktop prompts when `OP_BIOMETRIC_UNLOCK_ENABLED` is unset; an explicit value takes precedence. Restart Pi to pick up changes. Local settings, generated config, auth, sessions, and helper scripts are ignored by Git. Keep private server URLs and account information out of tracked files. [MCP overrides and verification](docs/reference.md#mcp)
 
-1. `permission-gate.ts` decides whether write, edit, and bash tool calls should run.
-2. `format-on-save.ts` watches successful write and edit calls and formats supported files.
-3. `context-planner.ts` snapshots context usage after each user prompt and injects a hidden planning advisory for the agent run.
-4. `auto-compact.ts` compacts after a completed turn reaches 80% of the active model's configured context window.
-5. `tps-tracker.ts`, `usage.ts`, `conversation-summary.ts`, and `ui-read-and-shortcuts.ts` publish status with `ctx.ui.setStatus()`.
-6. `footer.ts` reads those statuses and renders one compact footer.
-7. The pinned `pi-subagents` package gives the parent an explicit delegation tool and runs focused child Pi sessions.
-8. Command-style extensions such as `lg.ts`, `cost-tracker.ts`, `usage.ts`, and `promptfoo-export.ts` add reports or export artifacts only when called.
-9. The `/ship` prompt delegates delivery to the shared `ship` skill. After the Skills submodule is updated to a commit containing `work-routing`, that skill helps choose a discovery or implementation route.
+## Keeping this page current
 
-That split keeps each extension small while making the UI feel like one system.
+When a feature changes, update its description, commands, and any affected visual here. The [prompt recreation](docs/assets/prompt.svg) and [permission-flow recreation](docs/assets/permission-gate.svg) are editable SVGs with dummy data. Check layout and wording against the current extensions and theme; don't imply they're live screenshots.
 
-## Settings, models, and MCP
+Real screenshots are welcome if they're captured from a demo session and checked for private paths, account details, internal URLs, and conversation content before adding them to this public repo. Give each image a useful text description.
 
-The shared model shortlist comes from `enabledModels` in
-`.pi/agent/settings.base.json`. `Ctrl+P` cycles that scoped list. The current
-cycle starts with Codex GPT-6.1 Sol, GPT-5.6 Terra, and GPT-6 Luna. OpenRouter
-GPT-6 Luna, GLM-5.3-Flash, GPT-6.1 Sol, Qwen3.8 27B, DeepSeek V4.1 Flash, and
-Kimi K3 remain at the bottom of the cycle. `/model` still opens the full
-selector, and `/scoped-models` toggles the scoped list interactively.
-
-The shared default is `openai/gpt-6.1-sol` with medium thinking.
-OpenRouter standby models, including GPT-5.6 Pro routes, GLM 5.2, Qwen 3.7,
-and Gemma 4, stay out of the `Ctrl+P` cycle but remain
-available through `/model` when the provider catalog and auth expose them.
-The `~/bin/pi` wrapper resolves `OPENROUTER_API_KEY` and `PARALLEL_API_KEY`
-through `op read` when either variable is an `op://` reference, then launches
-Pi with the resolved keys. This keeps the key values out of git. Keep `~/bin`
-before Homebrew in `PATH` so child Pi processes and other non-interactive
-launches use the wrapper too. On macOS inside Herdr, the wrapper enables
-1Password desktop prompts for OpenRouter and native MCP command resolvers when
-`OP_BIOMETRIC_UNLOCK_ENABLED` is unset. An explicitly set value, including
-`false`, takes precedence. Restart Pi to pick up the flag.
-
-If a resumed session opens on a model you did not expect, the session restore
-won. Start a fresh session with `/new` or `pi --no-session` to use the
-configured default.
-
-Pi's built-in MCP support reads `~/.pi/agent/mcp.json`. `merge-settings`
-builds it from tracked `.pi/agent/mcp.base.json` and optional
-`~/.pi/agent/mcp.local.json`. The tracked defaults include Svelte through
-`npx`, Xcode through `xcrun mcpbridge`, and Parallel Task over streamable HTTP.
-Add personal HTTP servers or computer-specific wrappers only to `mcp.local.json`,
-under `mcpServers`. Keep credentials out of Git and use environment references
-or command-resolved headers. Personal HTTP servers stay local; Atlassian needs a
-local `atlassian-mcp` wrapper on the computer that uses it.
-
-| Pi server | Source | Notes |
-| --- | --- | --- |
-| `svelte` | Tracked base | `npx -y @sveltejs/mcp` |
-| `xcode` | Tracked base | `xcrun mcpbridge`; use a local `DEVELOPER_DIR` override for Xcode beta |
-| `parallel-task` | Tracked base | Remote streamable HTTP server; bearer auth uses `PARALLEL_API_KEY`, with direct tool exposure |
-| Personal HTTP server | Local override on this computer | Command-resolved `Authorization` header; keep its URL and resolver private |
-| `atlassian` | Optional local override | Requires an `atlassian-mcp` wrapper on `PATH` on the computer that uses it |
-
-Place local entries under `mcpServers` in `~/.pi/agent/mcp.local.json`. A matching server name overrides individual base properties, so an Xcode beta override needs only:
-
-```json
-{
-  "mcpServers": {
-    "xcode": {
-      "env": { "DEVELOPER_DIR": "/Applications/Xcode-beta.app/Contents/Developer" }
-    }
-  }
-}
-```
-
-Add any personal servers alongside it, and set the local file to owner-only
-access with `chmod 600 ~/.pi/agent/mcp.local.json`. Then run `merge-settings` and
-check connections with `pi mcp list`. The local and generated files are ignored
-by Git. Native Pi headers accept `"${NAME}"` or `"!command"` instead of a
-literal token. The tracked Parallel Task entry uses `headers.Authorization`
-with `Bearer ${PARALLEL_API_KEY}` and `exposure: "direct"`. The `~/bin/pi`
-wrapper resolves an `op://` reference before launch. Adapter-specific
-`bearerToken` and `directTools` fields are not native Pi settings.
-
-The stowed `.config/mcp/mcp.json` remains available to other MCP clients, but Pi
-does not read it. Its Parallel Task entry retains adapter-specific settings
-for those clients. Brave Search has been removed; use the Parallel web
-extension for search. See [docs/reference.md](docs/reference.md#mcp) for merge
-and verification details.
-
-## Subagents
-
-`pi-subagents` is pinned at `0.76.1`, so normal package updates do not move it
-to a newer release. This version declares Pi's host-provided `typebox` package
-as a peer dependency. The initial setup favors bounded, parent-directed
-delegation:
-
-- Scout, researcher, worker, and reviewer use GPT-6 Luna at xhigh thinking.
-- Oracle uses GPT-6.1 Sol at high thinking.
-- Delegate uses GPT-6.1 Sol at medium thinking.
-- Child model selection allows only GPT-5.6 Terra, GPT-6 Luna, GPT-6.1 Sol, and DeepSeek V4.1 routes.
-- Runs start with fresh context unless the call explicitly requests a fork.
-- A run can launch at most 6 children, with no more than 3 parallel tasks.
-- A parent session can launch at most 20 children and keep at most 2 top-level background runs active.
-- Delegation is limited to one child level; scheduled runs and automatic missions are disabled initially.
-- FleetView stays visible below the editor and updates from lifecycle artifacts without adding model messages.
-- The parent relies on completion and attention notices instead of automatically polling `status` or `list`.
-- Substantial implementations receive parallel correctness and design reviews, with at most one material-change follow-up round.
-- Artifacts stay with the Pi session instead of being written into the project.
-
-The package runs child Pi processes with the current user's permissions. The limits reduce accidental fan-out but are not a sandbox. Keep concurrent writers in separate Git worktrees and let the parent own integration.
-
-The bundled `researcher` expects the separate `pi-web-access` package. It is not installed yet. Use the parent session's Parallel web tools for web research until that dependency is reviewed.
-
-To upgrade, review the upstream diff, change the exact version in `.pi/agent/settings.base.json`, run `merge-settings`, and restart Pi. See [docs/reference.md](docs/reference.md#subagents) for the full local policy.
-
-## Main commands and prompts
-
-| Command | What it does |
-| --- | --- |
-| `/readonly` | Toggle read-only mode. Blocks writes and restricts bash to the safe list |
-| `/yolo` | Toggle auto-allow mode. Sensitive bash reads and high-risk operations still require confirmation |
-| `/rules` | Show active permission rules for the session |
-| `/reset-rules` | Clear permission rules and return to a fresh default state |
-| `/costs` | Show token, cost, and tool-call totals for the current session |
-| `/lg` | Summarize unstaged git changes and untracked files |
-| `/lg --staged` | Summarize staged git changes |
-| `/lg --all` | Summarize all changes against `HEAD`, plus untracked files |
-| `/usage` | Show deduplicated parent, child, Codex CLI, cost, and Codex subscription allowance usage |
-| `/subagents-doctor` | Check the installed subagent configuration and runtime |
-| `/subagents-models [agent]` | Show the effective model mapping for all roles or one role |
-| `/subagents-fleet` | Inspect, steer, or stop active and recent child runs |
-| `/summary` | Show the current conversation summary |
-| `/summary <text>` | Set the footer and session-name summary manually |
-| `/summary clear` | Clear the current summary |
-| `/shell [compact\|details]` | Toggle telemetry detail, or choose a display explicitly; saved with the session |
-| `/promptfoo-export [name]` | Export the active branch as a promptfoo eval stub |
-| `/ship [instructions]` | Review, commit, and deliver local work by push or PR |
-
-## Extensions
-
-| Extension | Purpose | User-facing output |
-| --- | --- | --- |
-| `permission-gate.ts` | Confirmation layer for writes, edits, and shell commands | Permission prompts, OSC 777 with cmux/macOS fallback notifications, `/readonly`, `/yolo`, `/rules`, `/reset-rules`, prompt mode status |
-| `format-on-save.ts` | Runs configured formatters after write and edit tools | No prompt. Formatter failures do not interrupt the session |
-| `cost-tracker.ts` | Tracks message token usage, estimated cost, and tool-call counts | `/costs` report |
-| `lg.ts` | Scripted git change summary | `/lg`, `/lg --staged`, `/lg --all` reports below the editor |
-| `tps-tracker.ts` | Live tokens-per-second during assistant streaming | Footer status while streaming, final notification after the turn |
-| `usage.ts` | Deduplicated parent, child, Codex CLI, cost, and subscription allowance analytics | `/usage` report and footer scan status |
-| `conversation-summary.ts` | Short session summary for the footer and session name, plus a short title for Herdr, with Anthropic fallback if Codex summary requests fail | Footer summary, `/summary` command, Herdr title, one fallback warning per session |
-| `herdr-jd.ts` | General Pi to Herdr bridge; reports display-only values as Herdr pane metadata | `π` after location, title on the next Agent sidebar row |
-| `context-planner.ts` | Prompt-time context capacity advisory for work sizing and handoffs | Hidden agent context, no automatic actions |
-| `auto-compact.ts` | Model-aware compaction at 80% context usage | Compaction start, completion, or failure notice |
-| `promptfoo-export.ts` | Promptfoo eval starter export from the active branch | Files under `~/.pi/agent/evals/promptfoo/` |
-| `ui-read-and-shortcuts.ts` | Read previews, slash command hints, workspace and model borders | Directory, branch, and permission mode attached to the prompt; model and thinking below it |
-| `footer.ts` | Owns telemetry, session summary, and shared workspace data | Context meter, cost, speed, quiet plugin labels, bold summary, `/shell`, branch-aware terminal title |
-
-`/usage` keeps session content local, but it makes two metadata requests: an HTTPS pricing lookup to `models.dev` and a local Codex app-server request for subscription allowance. Neither request sends Pi or Codex transcript content. Recorded Pi and child costs take precedence over external price estimates.
-
-The shell uses blue for the directory and teal for the branch in Catppuccin.
-Model and thinking values share an expense scale: blue for low, green for
-medium, peach or orange for high, and red for the highest tier. Unknown models
-stay neutral, while `off` and `minimal` thinking stay dim. The summary stays
-bold in the normal text color. Context changes to yellow at 50% and red at 80%,
-matching the planning advisory; unavailable context is labeled explicitly.
-Plugin status values retain their warning colors. Permission mode stays next to
-the directory, including `scoped` when session rules are active and yellow
-`yolo` when auto-allow is enabled.
-
-Compact mode keeps context, cost, output tokens, speed, and live status visible.
-`/shell details` adds input and cache counts, permission rule counts, and completed
-usage scan counts. Details survive reload and resume. Long parent paths shorten
-before the current directory; each branch and permission field gets reserved
-space. Narrow telemetry wraps onto additional rows. The Pi Lens diagnostics
-widget is hidden by default through `.pi-lens/config.json`; `/lens-widget-toggle`
-can show it for the current session without disabling Lens tools.
-
-The permission gate allows writes and edits inside the working directory by
-default. It prompts for changes outside that directory, unrecognized shell
-commands, and high-risk operations. Its scope picker starts with the exact
-operation, yolo, and global write/edit options. Command and folder scopes
-follow, with folder choices last. Yolo permits normal Git pushes, but
-sensitive reads and high-risk operations still require confirmation. See
-[docs/reference.md](docs/reference.md#permission-gate) for the command rules
-and scope order.
-
-## Shared skills
-
-Pi loads shared Agent Skills from `~/.agents/skills`. The skills are maintained
-in [jd-santos/Skills](https://github.com/jd-santos/Skills) and pinned in this
-Dotfiles repository as the `agents/.agents` submodule. Run
-`./scripts/setup-agent-skills` from the Dotfiles root to initialize the
-submodule, install pinned external skills, and restow the package.
-
-## Prompt templates
-
-Discovery and planning use the shared `work-routing` skill when it is installed and a route is useful; Pi does not provide a separate planning prompt. Until the Skills submodule pin includes the router, the global Pi instructions provide the same task-capture and safety rules. For a substantial project-specific request, including an answer-only deliverable, agents check whether it is worth tracking in the project's existing queue even without an explicit TODO request. `todo-manager` keeps short items inline and uses a work record only when detail would clutter the queue. Purely exploratory or unrelated questions do not create tasks, and `/readonly` enforces a requested read-only session. Plans are optional for substantial design.
-
-### `/ship`
-
-`/ship` is a thin wrapper around the shared `ship` skill in
-`~/.agents/skills/ship`. The skill recovers context from the session and Git,
-checks branches and sibling worktrees for conflicting activity, and turns ready
-work into focused Scoped Commits. It uses repository history to decide whether
-the current branch fits the work.
-
-Commits, non-`main` pushes, and pull request creation can proceed without a
-separate confirmation when permissions allow them. A direct push to `main`
-always requires confirmation. Pull request descriptions summarize the commits
-in the PR range; if the description cannot be populated, `/ship` returns the
-intended text with the PR link.
-
-Shipping also reconciles relevant task records against the actual diff and
-validation. Ready work leaves the live queue in its closeout commit; unfinished
-work stays. Useful evidence keeps stable paths, obsolete guidance is resolved,
-and file deletions require explicit approval. The existing `CHANGELOG.md` stays
-the release record, not a task ledger. Post-merge branch/worktree cleanup is a
-separate authorized operation.
-
-Use `/ship [extra instructions]` when local work is ready to review and deliver,
-even if the branch or worktree state is unclear.
-
-## Themes
-
-Catppuccin Latte, Frappé, Macchiato, and Mocha are available. Mocha is the default through `"theme": "catppuccin-mocha"` in `.pi/agent/settings.base.json`.
-
-Dracula is still available as `dracula`.
-
-`quiet-ink` is an optional darker palette with fewer persistent accent colors.
-Choose it through `/settings`; Catppuccin Mocha remains the default. Run `/reload`
-after updating the extensions. The shell was verified against Pi 0.85.1.
-
-## Keeping docs current
-
-When user-visible Pi behavior changes, update this README first. If the detail is valuable but too dense for the README, put it in [docs/reference.md](docs/reference.md) instead of creating another doc. This keeps the docs useful without turning them into a second codebase.
+Keep the overview here and detailed behavior in [docs/reference.md](docs/reference.md). The [`add-pi-feature` skill](../agents/.agents/skills/add-pi-feature/SKILL.md) includes the documentation and visual maintenance checklist.

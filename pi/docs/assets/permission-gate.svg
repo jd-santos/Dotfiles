@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="600" viewBox="0 0 1100 600" role="img" aria-labelledby="title desc">
+  <title id="title">Pi permission gate and session scope recreation</title>
+  <desc id="desc">Two example terminal panels for npm test. The first offers allow once, always allow, deny, show full command, and add note. The second shows session scope choices: exact operation, yolo, all write and edit operations, bash tool, npm executable, and current, parent, or grandparent directories. This is a recreation, not a screenshot. High-risk confirmation and sensitive-read blocks still apply.</desc>
+  <rect width="1100" height="600" rx="12" fill="#1e1e2e"/>
+  <g font-family="'SFMono-Regular', Consolas, 'Liberation Mono', monospace" fill="#cdd6f4">
+    <text x="30" y="36" font-size="13" fill="#7f849c">PERMISSION GATE · RECREATION / EXAMPLE DATA</text>
+    <text x="30" y="75" font-size="18" fill="#89b4fa">1. Choose what to do</text>
+    <text x="572" y="75" font-size="18" fill="#89b4fa">2. Choose an always-allow scope</text>
+    <rect x="22" y="94" width="516" height="427" rx="8" fill="#181825"/>
+    <rect x="564" y="94" width="514" height="427" rx="8" fill="#181825"/>
+    <g font-size="16">
+      <rect x="40" y="117" width="480" height="64" rx="6" fill="none" stroke="#585b70"/>
+      <text x="166" y="132" fill="#f9e2af">🔔 Permission required 🔔</text>
+      <text x="54" y="164">Allow bash command?</text>
+      <text x="40" y="211"><tspan fill="#a6adc8">Summary: </tspan>npm</text>
+      <text x="40" y="240" fill="#a6adc8">Raw command:</text>
+      <text x="59" y="267" fill="#7f849c">npm test</text>
+      <text x="59" y="318">✅  Allow this once</text>
+      <rect x="34" y="331" width="492" height="31" rx="4" fill="#45475a"/>
+      <text x="40" y="352"><tspan fill="#cba6f7">› </tspan>🔁  Always allow…</text>
+      <text x="59" y="386">🚫  Deny</text>
+      <text x="59" y="420">👁  Show full command</text>
+      <text x="59" y="454">✏️  Add note…</text>
+      <rect x="582" y="117" width="478" height="64" rx="6" fill="none" stroke="#585b70"/>
+      <text x="708" y="132" fill="#f9e2af">🔔 Permission required 🔔</text>
+      <text x="596" y="164">Scope for always allow:</text>
+      <text x="582" y="211"><tspan fill="#a6adc8">Summary: </tspan>npm</text>
+      <text x="582" y="240" fill="#a6adc8">Raw command:</text>
+      <text x="601" y="267" fill="#7f849c">npm test</text>
+      <rect x="576" y="285" width="496" height="31" rx="4" fill="#45475a"/>
+      <text x="582" y="306"><tspan fill="#cba6f7">› </tspan>📌 This exact operation for this session</text>
+      <text x="601" y="333">⚡ Everything (full yolo)</text>
+      <text x="601" y="360">✍️  All write + edit operations</text>
+      <text x="601" y="387">🔧 This tool type (bash)</text>
+      <text x="601" y="414">⌨️  npm for this session</text>
+      <text x="601" y="441">📁 This directory (~/projects/demo/)</text>
+      <text x="601" y="468">📂 Parent directory (~/projects/)</text>
+      <text x="601" y="495">📂📂 Grandparent directory (~/)</text>
+    </g>
+    <text x="30" y="553" font-size="15" fill="#a6adc8">Session rules reset between sessions. “Add note…” sends guidance back to the agent.</text>
+    <text x="30" y="579" font-size="15" fill="#f9e2af">Yolo doesn't bypass sensitive-read blocks or high-risk confirmations. This isn't a sandbox.</text>
+  </g>
+</svg>
