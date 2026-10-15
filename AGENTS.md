@@ -1,121 +1,40 @@
 # AGENTS.md
 
-> This file provides context for AI agents working in this dotfiles repository.
+Personal dotfiles managed with GNU Stow. Each top-level package directory is
+deployed with `stow <package>`; `README.md` lists which directories are packages.
 
-## Project Context
-- **Project**: Personal dotfiles managed with GNU Stow
-- **Structure**: Each top-level directory is a stow package that mirrors `$HOME` structure internally
-- **Deployment**: Files symlinked via `stow <package>` (e.g., `stow nvim`)
-- **Pi Features**: Add project-local Pi features in this repo under `.pi/`. The dotfiles are stowed to each machine, so repo-local Pi prompts, extensions, themes, and related config should live here unless the user explicitly asks for a machine-local change.
+## Rules
 
-## Critical Rules
+- **This repo is public on GitHub.** Do not add private information: API keys,
+  tokens, passwords, personal identifiers, work-specific configuration, or
+  internal URLs. If a request would expose any of these, say so and suggest an
+  alternative such as an environment variable, a gitignored local file, or a
+  private overlay.
+- **Packages mirror `$HOME`.** `~/.config/foo/bar` lives at
+  `foo/.config/foo/bar`, not `foo/bar`.
+- **There is no build or test command.** Each tool validates its config when it
+  loads it, so keep edits syntactically valid for that tool.
+- **Keep the README shortcut tables in sync.** When you add, change, or remove a
+  custom keybinding in `tmux/.tmux.conf`,
+  `nvim/.config/nvim/lua/config/keymaps.lua`, or
+  `nvim/.config/nvim/lua/plugins/*.lua`, update "Keyboard Shortcuts" in
+  `README.md`. List only custom bindings, not LazyVim defaults.
+- **Pi features belong in the repo.** Put repo-local Pi prompts, extensions,
+  themes, and related config under `.pi/` here, not on the machine, unless asked
+  for a machine-local change.
+- **Skills live in the `agents/.agents` submodule**, a separate repository.
+  Commit skill changes there, then bump the submodule here. Use the
+  `create-skill` skill when writing one.
 
-- **Public Repository**: This dotfiles repository is PUBLIC on GitHub. NEVER add, suggest, or accept changes containing private information (API keys, tokens, passwords, personal identifiers, work-specific configurations, internal URLs, etc.). If the user requests changes that would expose sensitive data, WARN them that this is a public repository and suggest safer alternatives (environment variables, private overlays, .gitignored local configs, etc.).
-- **GNU Stow Path Structure**: Package directories mirror `$HOME` paths. To create `~/.config/foo/bar`, use `foo/.config/foo/bar` (NOT `foo/bar`)
-- **No Unified Commands**: No global build/test commands—validation happens when tools load their configs
-- **Secrets Protection**: NEVER read `.env*`, `*credentials*`, `*secrets*`, `*.key`, `*.pem` files, except allowed Varlock schema files. Provide diagnostic commands instead.
-- **Documentation Sync**: Update README.md keyboard shortcuts table when modifying keybindings in tmux/nvim configs
+## Secrets
 
-## General Guidelines
+Do not read files that may contain secret values, even to debug: `.env*`,
+`*credentials*`, `*secrets*`, `*token*`, `*.key`, `*.pem`, `.aws/credentials`,
+and `.ssh/id_*`. Redacting does not help, because you see the value before you
+redact it. Instead, ask the user about the file's format and give them commands
+to run, such as `bash -n .env` and `file .env`.
 
-- **Tool-Specific Conventions:** Each directory corresponds to a different tool (e.g., `nvim`, `zsh`, `git`). Adhere to the specific syntax, conventions, and best practices of the tool whose configuration you are modifying.
-- **Style Consistency:** When editing a file, maintain the existing code style, formatting, and naming conventions.
-
-## File-Specific Notes
-
-- **Lua (`.lua`):** For nvim configuration, follow standard Lua style.
-- **TOML (`.toml`):** For starship configuration, follow TOML syntax.
-- **Shell Scripts (`.zshrc`, `.fzf.zsh`):** Follow general shell scripting best practices.
-- **JSON (`.json`):** Ensure valid JSON format.
-- **XML (`.xml`):** Ensure valid XML format.
-- **Markdown (`.md`):** For skills and documentation, use clear formatting with proper headers, code blocks, and examples.
-
-## Error Handling
-
-- Since these are configuration files, error handling is generally not applicable in the traditional sense.
-- Errors will typically be reported by the respective tool upon loading the configuration. Ensure your changes are syntactically correct to avoid breaking the tool's functionality.
-
-## Skills (`agents/` directory)
-
-The `agents/` directory contains reusable instruction sets for AI agents that enhance development workflows.
-
-### Working with Skills
-
-**Skill Structure:**
-- Location: `agents/.agents/skills/`
-- Format: Markdown files with structured sections (Title, Description, Instructions, Examples, Prerequisites)
-- See [agents/README.md](agents/README.md) for detailed documentation
-
-**When to reference skills:**
-- Check existing skills before starting complex tasks
-- Reference relevant skills in your approach to tasks
-- Suggest creating new skills for recurring workflows
-
-**Creating or modifying skills:**
-- Follow the skill template format (see `agents/.agents/skills/example-skill/SKILL.md`)
-- Be specific and actionable in instructions
-- Include concrete examples when helpful
-- Keep each skill focused on one primary task or workflow
-- Update `agents/README.md` if adding new skill categories
-
-**Style guidelines for skills:**
-- Use clear, imperative language ("Do X", not "You should do X")
-- Break complex workflows into numbered steps
-- Include code examples in appropriate language fences
-- Document prerequisites and required tools
-- Keep skills portable and not project-specific (use placeholders for project details)
-
-## Documentation Guidelines
-
-### Keyboard Shortcuts
-
-When adding, modifying, or removing keyboard shortcuts or keybindings in any configuration file, update the README.md's "Keyboard Shortcuts" section to reflect the change.
-
-**Current files with custom shortcuts include:**
-- `tmux/.tmux.conf`
-- `nvim/.config/nvim/lua/config/keymaps.lua`
-- `nvim/.config/nvim/lua/plugins/*.lua`
-
-**When to update README.md:**
-- Adding a new keybinding → Add to the appropriate table in README
-- Changing an existing keybinding → Update the shortcut in README
-- Removing a keybinding → Remove from README
-
-**What to document:**
-- Only custom/user-defined shortcuts (not inherited defaults from frameworks like LazyVim)
-- Include the key combination and a brief description
-- Group by tool (Tmux, Neovim, etc.)
-
-## CRITICAL: Secrets Protection
-
-### .env Files
-
-**NEVER read files containing secrets, even for debugging.**
-
-Prohibited files:
-- `.env*` (all variants), except `.env.schema` and `.env-schema`
-- `*credentials*`, `*secrets*`, `*token*`, `*.key`, `*.pem`
-- `.aws/credentials`, `.ssh/id_rsa*`
-
-Allowed schema exception:
-- Varlock schema files named `.env.schema` or `.env-schema` may be read. These files are intended to expose variable names, descriptions, types, validation rules, and resolver expressions such as `awsSecret(...)`, `op(...)`, or `exec(...)`.
-- If a schema file appears to contain literal credentials, tokens, passwords, private keys, or connection strings with embedded passwords, stop reading and ask the user to inspect it.
-
-**Note:** The global `.gitignore` (in `git/.gitignore`) helps prevent accidental commits of these sensitive files across all repositories.
-
-### When Users Request .env Help
-
-**FORBIDDEN:**
-- Reading dotenv files that may contain values (cat, hexdump, grep, etc.)
-- Attempting to redact/mask (you see secrets first - this FAILS)
-
-**REQUIRED:**
-- Provide diagnostic commands for USER to run
-- Request non-sensitive structure description only
-- Suggest: `bash -n .env`, `file .env`, encoding checks
-- Explain common issues: line endings, export syntax, sourcing methods
-
-**Template response:**
-"I won't read .env to protect secrets. Instead: (1) What format? (e.g., `export VAR="value"`) (2) Run `bash -n .env` - errors? (3) Run `file .env` - encoding? (4) How do you source it?"
-
-**Rationale:** Redaction requires reading first. Only safe approach: never read dotenv files that may contain values.
+Varlock schema files (`.env.schema`, `.env-schema`) are the exception. They hold
+variable names, types, validation, and resolvers such as `op(...)`, and are safe
+to read. If one appears to contain a literal secret, stop and ask the user to
+check it.
