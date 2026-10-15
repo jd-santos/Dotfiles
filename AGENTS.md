@@ -19,9 +19,10 @@ deployed with `stow <package>`; `README.md` lists which directories are packages
   `nvim/.config/nvim/lua/config/keymaps.lua`, or
   `nvim/.config/nvim/lua/plugins/*.lua`, update "Keyboard Shortcuts" in
   `README.md`. List only custom bindings, not LazyVim defaults.
-- **Pi features belong in the repo.** Put repo-local Pi prompts, extensions,
-  themes, and related config under `.pi/` here, not on the machine, unless asked
-  for a machine-local change.
+- **Pi features belong in the `pi` package.** Put Pi prompts, extensions,
+  themes, skills, and `settings.base.json` under `pi/.pi/agent/`, which stows to
+  `~/.pi/agent/`. Edit there rather than in `~/.pi` unless asked for a
+  machine-local change.
 - **Skills live in the `agents/.agents` submodule**, a separate repository.
   Commit skill changes there, then bump the submodule here. Use the
   `create-skill` skill when writing one.
