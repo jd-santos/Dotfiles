@@ -6,7 +6,6 @@ Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). M
 
 | Package                               | Description                                                                                                            |
 | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `.pi/`                                | Repo-local Pi prompt templates, including `/ship`                                                                      |
 | [`agents`](agents/README.md)          | AI agent skills ([Agent Skills](https://agentskills.io) standard)                                                      |
 | `bin`                                 | User scripts installed to `~/bin`, including `merge-settings` and the Pi auth wrapper                                  |
 | `cmux`                                | [cmux](https://github.com/manaflow-ai/cmux) terminal config and cmux-specific Ghostty UI overrides                     |

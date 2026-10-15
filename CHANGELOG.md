@@ -20,6 +20,10 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 
 - Slim `AGENTS.md` from 122 to about 40 lines, keeping only rules an agent would
   otherwise get wrong and merging the duplicated secrets guidance.
+- Point Pi feature guidance at the `pi` stow package and drop the stale repo-local
+  `.pi/` README row.
+- Bump the skills submodule for modernized authoring skills, spec-compliant
+  frontmatter, and the collection's move to Apache-2.0.
 - Restructure the Pi README around setup differences and component roles, with editable prompt and permission-flow illustrations.
 - Raise Pi's automatic compaction threshold from 70% to 80% of the configured model context window, without changing model limits or pricing tiers.
 - Switch Pi's default, scoped Sol routes, and Sol subagents to GPT-6.1 Sol while keeping GPT-6 Luna and GPT-5.6 Terra selectable.
