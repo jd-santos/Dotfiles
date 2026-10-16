@@ -91,6 +91,9 @@ __pycache__/
 .config/pgcli/log
 .config/pgcli/casing
 .psql_history
+# PostgreSQL service file - contains RDS hostnames/usernames per environment
+# Create this file locally at ~/.pg_service.conf (never commit it)
+.pg_service.conf
 
 # === macOS Specific ===
 # Ignore thumbnails created by macOS
