@@ -50,11 +50,12 @@
   - [ ] Design separate indicators for configured context budget, pricing boundary, and supported model capacity; offer a deliberate session-scoped opt-in with cost warnings and a return to conservative defaults
   - OpenAI reference: prompts above 272k can incur 2× input/cache and 1.5× output pricing for the whole request. Do not treat this as a cache invalidation boundary or assume the API rates apply to Codex subscription usage.
   - No pricing-tier UI or model-window overrides are implemented by the 80% compaction change.
-- [ ] Review the pinned `pi-subagents` upgrade for its `typebox` peer
-  dependency fix [context: medium]
+- [ ] Validate the pinned `pi-subagents` upgrade on Pi 1.3.0 [context: small]
   - [x] Upgrade shared package pin to `0.76.1` and regenerate local settings
-  - [ ] Restart or reload Pi, then smoke test a subagent launch; this session
-        still had old child-runtime extension paths loaded
+  - [x] Review and pin `0.78.0` for the upstream `chord` background-startup fix; sync Pi docs
+  - Evidence: [0.78.0 release](https://github.com/nicobailon/pi-subagents/releases/tag/v0.78.0) fixes the host dependency check. Local startup has not yet been tested with the new version.
+  - [ ] Run `merge-settings` and `pi update --extensions`, then restart Pi
+  - [ ] Smoke test foreground/background children, completion notifications, cancellation, and subscription-backed model routing
 - [x] Recheck the Parallel web extension for an upstream `typebox` peer
   dependency fix [context: small]
   - Finding: `@parallel-web/pi-extension@1.3.0` still declares `typebox` in
