@@ -86,7 +86,7 @@ Packages are listed in [`.pi/agent/settings.base.json`](.pi/agent/settings.base.
 | Xcode MCP | Apple development tools via `xcrun mcpbridge` |
 | Parallel Task MCP | Longer research and batch enrichment jobs; the Pi-specific `parallel-task-research` skill guides tool choice |
 
-`pi-subagents` is pinned to `0.76.1`, which declares Pi's host-provided `typebox` package as a peer dependency. Runs default to fresh context, with up to three parallel children, six launches per run tree, and twenty launches per parent session. Scheduling and automatic missions are disabled. Substantial implementations get separate correctness and design reviews. Concurrent writers use separate Git worktrees.
+`pi-subagents` is pinned to `0.78.0`, which fixes background startup on Pi hosts that no longer ship `chord` and keeps Pi's host-provided `typebox` package as a peer dependency. Runs default to fresh context, with up to three parallel children, six launches per run tree, and twenty launches per parent session. Scheduling and automatic missions are disabled. Substantial implementations get separate correctness and design reviews. Concurrent writers use separate Git worktrees.
 
 The bundled researcher role requires `pi-web-access`, which isn't installed here. Web research uses the parent session's Parallel tools instead. [Subagent models and limits](docs/reference.md#subagents) · [MCP configuration](docs/reference.md#mcp)
 

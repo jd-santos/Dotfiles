@@ -44,6 +44,8 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 
 ### Fixed
 
+- Pin `pi-subagents` to `0.78.0` for the upstream background-startup fix on Pi hosts that no longer ship `chord`.
+
 - Ignore Pi Lens runtime state in the Stow package while keeping its shared config tracked.
 - Enable 1Password desktop prompts for Pi launched in Herdr on macOS unless
   explicitly overridden.

@@ -55,7 +55,7 @@ Current shared settings include:
 - Thinking level: `medium`
 - Thinking block: visible on output
 - Startup: quiet
-- Packages: `npm:pi-lens`, pinned `npm:pi-subagents@0.76.1`, and
+- Packages: `npm:pi-lens`, pinned `npm:pi-subagents@0.78.0`, and
   `npm:@parallel-web/pi-extension`; MCP uses Pi's built-in support
 - Pi Lens's file-and-warning-count widget is hidden by default through
   `~/.pi-lens/config.json`; its tools remain enabled. `/lens-widget-toggle` can
@@ -174,14 +174,22 @@ repo.
 
 ## Subagents
 
-Package: `npm:pi-subagents@0.76.1`
+Package: `npm:pi-subagents@0.78.0`
 
 The exact npm version is pinned in `.pi/agent/settings.base.json`. Pi skips
 versioned npm specs during package updates. Upgrade deliberately by reviewing
 the upstream changes, changing the version in shared settings, running
-`merge-settings`, and restarting Pi. Version 0.76.1 declares Pi's host-provided
-`typebox` package as a peer dependency, which avoids duplicate runtime module
-warnings on current Pi releases.
+`merge-settings`, updating extensions with `pi update --extensions`, and restarting
+Pi. Version 0.78.0 fixes background startup by requiring `chord` only when the
+installed Pi declares it; Pi 1.2.0 and later no longer ship that dependency.
+It retains Pi's host-provided `typebox` package as a peer dependency.
+
+After updating, smoke test foreground and background children, completion
+notifications, cancellation, and the intended subscription-backed model route.
+The upstream startup fix covers the missing dependency on Pi 1.3.0, but the
+local runtime still needs validation. Reviewer, oracle, and evidence-auditor runs
+now produce structured acceptance reports only when `acceptance` is requested;
+ordinary review output does not require that option.
 
 Pi packages have full system access. `pi-subagents` launches child Pi processes
 that inherit the parent environment and user permissions. The package limits
