@@ -8,6 +8,7 @@
 #   ~/.config/zed/settings.local.json
 #   ~/.pi/agent/settings.local.json
 #   ~/.pi/agent/mcp.local.json
+#   ~/.claude/settings.json (Claude Code writes it; the tracked base merges into it)
 #
 # Zed local keys win on conflict. Pi keeps shared keys managed by the tracked
 # base file so stale local values cannot hide shared updates. Put intentional Pi
@@ -300,3 +301,44 @@ merge_pi_mcp() {
 }
 
 merge_pi_mcp
+
+# Claude Code writes its own settings.json (plugin installs, /config), so the
+# tracked base merges into the existing file instead of replacing it: base keys
+# win, everything else stays machine-local. "$HOME" in base strings expands here
+# so tracked paths carry no username.
+merge_claude_settings() {
+  local label="Claude Code"
+  local base
+  base="$(base_path "$HOME/.claude/settings.base.json" "claude/.claude/settings.base.json")"
+  local output="$HOME/.claude/settings.json"
+  local tmp
+
+  if [[ ! -f "$base" ]]; then
+    echo "⚠  $label: base not found at $base, skipping"
+    return
+  fi
+  if [[ -L "$output" || -d "$output" ]]; then
+    echo "$label: $output must be a regular file" >&2
+    return 1
+  fi
+
+  tmp="$(mktemp "$output.XXXXXX")"
+  if ! jq -s --arg home "$HOME" '
+    (.[0] | walk(if type == "string" then gsub("\\$HOME"; $home) else . end)) as $base
+    | (.[1] // {}) * $base
+  ' "$base" <(if [[ -f "$output" ]]; then cat "$output"; else echo '{}'; fi) > "$tmp"; then
+    rm "$tmp"
+    return 1
+  fi
+
+  if [[ -f "$output" ]] && cmp -s "$output" "$tmp"; then
+    rm "$tmp"
+    echo "✓  $label: settings.json already up to date"
+    return
+  fi
+  chmod 600 "$tmp"
+  mv -f "$tmp" "$output"
+  echo "✓  $label: merged base → settings.json"
+}
+
+merge_claude_settings

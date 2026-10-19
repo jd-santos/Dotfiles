@@ -1,0 +1,15 @@
+{
+  "$schema": "https://www.schemastore.org/claude-code-keybindings.json",
+  "$docs": "https://code.claude.com/docs/en/keybindings",
+  "bindings": [
+    {
+      "context": "Chat",
+      "bindings": {
+        "shift+tab": "effortSlider:increaseEffort",
+        "alt+m": "chat:cycleMode",
+        "alt+.": "diff:nextSource",
+        "alt+,": "diff:previousSource"
+      }
+    }
+  ]
+}

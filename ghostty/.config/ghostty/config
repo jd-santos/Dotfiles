@@ -30,3 +30,7 @@ cursor-style-blink = false
 # Mouse
 mouse-hide-while-typing = true
 copy-on-select = true
+
+# Keyboard
+# Left Option sends Alt (tmux Option+number, Claude Code Option+m/,/.); right Option still types special characters
+macos-option-as-alt = left

@@ -14,6 +14,9 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
   approved research and data enrichment.
 - Add Go binaries to `PATH` in zsh when Go is installed.
 - Track cmux terminal config as a `cmux` stow package.
+- Add the `shellfish` Claude Code mod and a local `dotfiles-mods` plugin marketplace under the `claude` stow package. The band above the prompt shows workspace, model, effort, a context bar coloured by category, rate-limit gauges, and estimated API cost; each turn's closing line becomes a receipt; the shelf pane shows subagents, context, turn, limit, and prompt-cache figures with a one-hour cache countdown and an opt-in `/keepalive` that re-reads the cache before it lapses; a per-turn usage log lands in `~/.claude/shellfish/`.
+- Track shared Claude Code settings in `claude/.claude/settings.base.json`, which `merge-settings` merges into the machine-local `~/.claude/settings.json`: no commit or PR attribution, and the `dotfiles-mods` marketplace with `shellfish` enabled.
+- Add Claude Code keybindings: `Shift+Tab` cycles effort, `Option+m` cycles permission mode, and `Option+.` / `Option+,` cycle a model shortlist, all for the current session only.
 - Add a `herdr-jd` Pi bridge that publishes a conversation short title to the Herdr Agent sidebar, generated in the same summary model call.
 
 ### Changed

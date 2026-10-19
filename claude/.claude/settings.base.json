@@ -1,0 +1,18 @@
+{
+  "theme": "dark-daltonized",
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "extraKnownMarketplaces": {
+    "dotfiles-mods": {
+      "source": {
+        "source": "directory",
+        "path": "$HOME/.claude/mods"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "shellfish@dotfiles-mods": true
+  }
+}
