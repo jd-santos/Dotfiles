@@ -8,6 +8,7 @@ Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). M
 | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | [`agents`](agents/README.md)          | AI agent skills ([Agent Skills](https://agentskills.io) standard)                                                      |
 | `bin`                                 | User scripts installed to `~/bin`, including `merge-settings` and the Pi auth wrapper                                  |
+| [`claude`](claude/.claude/mods/shellfish/README.md) | Claude Code keybindings, skills link, and the `shellfish` mod in a local plugin marketplace                 |
 | `cmux`                                | [cmux](https://github.com/manaflow-ai/cmux) terminal config and cmux-specific Ghostty UI overrides                     |
 | `docs/`                               | Repo documentation and the Typst terminal workflow cheatsheet, not a stow package                                      |
 | `scripts/`                            | Setup helpers (`setup-agent-skills`, `setup-herdr`, `bootstrap`), not a stow package                                   |
@@ -89,6 +90,17 @@ Custom keybindings on top of [LazyVim defaults](https://www.lazyvim.org/keymaps)
 | `<leader>fl` | LSP document symbols   |
 
 **fzf-lua Navigation:** `Ctrl+d/u` for preview scroll, `Ctrl+f/b` for half-page scroll.
+
+### Claude Code
+
+Set in `claude/.claude/keybindings.json`. The effort and model keys are answered by the [`shellfish`](claude/.claude/mods/shellfish/README.md) mod and change only the current session.
+
+| Shortcut         | Description                                         |
+| ---------------- | --------------------------------------------------- |
+| `Shift+Tab`      | Cycle effort: low, medium, high, xhigh, max         |
+| `Option+m`       | Cycle permission mode (Claude Code's `Shift+Tab`)   |
+| `Option+.`       | Next model: sonnet, haiku, fable, opus              |
+| `Option+,`       | Previous model                                      |
 
 ## Changes
 

@@ -1,0 +1,7 @@
+{
+  "name": "shellfish",
+  "version": "0.2.0",
+  "description": "Workspace, telemetry, cost log, subagent shelf, and per-session effort and model cycling for Claude Code",
+  "author": { "name": "JD Santos" },
+  "types": "./types/index.d.ts"
+}

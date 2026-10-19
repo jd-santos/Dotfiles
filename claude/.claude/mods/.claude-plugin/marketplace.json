@@ -1,0 +1,12 @@
+{
+  "name": "dotfiles-mods",
+  "owner": { "name": "JD Santos" },
+  "description": "Claude Code mods from JD's dotfiles",
+  "plugins": [
+    {
+      "name": "shellfish",
+      "source": "./shellfish",
+      "description": "Workspace, telemetry, cost log, subagent shelf, and per-session effort and model cycling for Claude Code"
+    }
+  ]
+}
