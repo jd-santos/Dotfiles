@@ -37,6 +37,9 @@ export function turnRow(session: string, cwd: string, receipt: Receipt, sessionC
     costUsd: Number(receipt.costUsd.toFixed(6)),
     sessionCostUsd: Number(sessionCostUsd.toFixed(6)),
     contextPercent: receipt.contextPercent,
+    cacheHit: receipt.cacheHit,
+    gapMs: receipt.gapMs,
+    cold: receipt.cold,
   }
 }
 

@@ -1,21 +1,31 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, SessionRateLimit, SessionUsage } from 'claude-code'
 
-import type { AgentRow, Breakdown, Card, Receipt, Speed, Summary, Totals } from '../types'
+import type { AgentRow, Breakdown, KeepAlive, Receipt, Speed, Summary, Totals } from '../types'
 import {
   EFFORTS,
   MODELS,
+  CACHE_TTL_MS,
   aliasOf,
   cacheHit,
-  contextMeter,
+  cacheRates,
+  coldCause,
+  column,
   cycle,
+  effectiveInputRate,
   fitCwd,
+  formatClock,
   formatCount,
   formatDuration,
   formatMode,
   formatModel,
   formatMoney,
+  gauge,
   pad,
+  paletteColor,
+  percentColor,
+  requestCost,
+  segments,
   shortenMiddle,
   sparkline,
   splitCwd,
@@ -34,14 +44,20 @@ const summary = atom({ plugin: 'shellfish', key: 'summary' } as const, null as S
 const receipts = atom({ plugin: 'shellfish', key: 'receipts' } as const, [] as Receipt[])
 const breakdown = atom({ plugin: 'shellfish', key: 'breakdown' } as const, null as Breakdown | null)
 const agents = atom({ plugin: 'shellfish', key: 'agents' } as const, [] as AgentRow[])
-const card = atom({ plugin: 'shellfish', key: 'card' } as const, null as Card)
 // Bumped after each model request so the band re-reads $.session.usage().
 const tick = atom({ plugin: 'shellfish', key: 'tick' } as const, 0)
+const warmUntil = atom({ plugin: 'shellfish', key: 'warmUntil' } as const, null as number | null)
+const clockTick = atom({ plugin: 'shellfish', key: 'clockTick' } as const, 0)
+const keepAlive = atom({ plugin: 'shellfish', key: 'keepAlive' } as const, null as KeepAlive | null)
 
 const SHELF = 'shellfish'
 const SUMMARY_MODEL = 'haiku'
 const SUMMARY_EVERY = 5
 const WARN_PERCENT = 80
+const KEEP_ALIVE_DEFAULT_MIN = 180
+const KEEP_ALIVE_MAX_MIN = 720
+// Probe this long before the entry lapses: a read refreshes its timer at read price.
+const KEEP_ALIVE_LEAD_MS = 2 * 60_000
 // Keybinding actions whose engine handlers live only in dialogs that are closed while
 // the prompt has focus, so ~/.claude/keybindings.json can point Chat keys at them and
 // the band's Buttons answer instead. See the README.
@@ -117,10 +133,10 @@ async function refreshBreakdown($: EngineInterface) {
   if (!found) return
   const slices = found.categories
     .filter(row => row.kind === 'used' && row.tokens > 0)
-    .sort((a, b) => b.tokens - a.tokens)
-    .map(row => ({ name: row.name, tokens: row.tokens, color: row.color }))
+    .map((row, i) => ({ name: row.name, tokens: row.tokens, color: paletteColor(i) }))
   await update($, breakdown, () => ({
     slices,
+    maxTokens: found.maxTokens,
     autoCompactAt: found.autoCompactThreshold ?? null,
     isAutoCompactEnabled: found.isAutoCompactEnabled,
   }))
@@ -130,7 +146,7 @@ function warn($: EngineInterface, usage: SessionUsage, autoCompactAt: number | n
   const percent = usage.context.percent ?? 0
   if (percent >= WARN_PERCENT && !warned.has('context')) {
     warned.add('context')
-    const at = autoCompactAt ? ` Claude Code auto-compacts near ${formatCount(autoCompactAt)} tokens.` : ''
+    const at = autoCompactAt ? ` Claude Code auto-compacts at ${autoCompactAt}%.` : ''
     $.ui.toast(`Context is at ${Math.round(percent)}%.${at}`)
   }
   for (const limit of usage.rateLimits) {
@@ -143,6 +159,47 @@ function warn($: EngineInterface, usage: SessionUsage, autoCompactAt: number | n
 
 function limitName(limit: SessionRateLimit): string {
   return limit.kind.replace('five_hour', '5h').replace('seven_day', '7d').replace(/_/g, ' ')
+}
+
+/**
+ * One keep-alive read: a tool-less fork over the session's transcript, so the API serves the
+ * prefix from cache and renews its timer. Costs a cache read of the conversation plus a few
+ * output tokens; a probe that reads nothing means the entry had already lapsed, so stop.
+ */
+async function probe($: EngineInterface) {
+  const at = await $.clock.now()
+  const reply = await $.model.fork({ prompt: 'Reply with only the word ok.' })
+  if (reply.isAnswered && reply.usage.cache_read_input_tokens > 0) {
+    await update($, warmUntil, () => at + CACHE_TTL_MS)
+    await update($, keepAlive, now => (now ? { ...now, probes: now.probes + 1 } : now))
+    return
+  }
+  await update($, keepAlive, () => null)
+  const why = !reply.isAnswered ? reply.reason : 'the entry had already lapsed'
+  $.ui.toast(`Keep-alive stopped: ${why}.`)
+}
+
+async function toggleKeepAlive($: EngineInterface, minutes: number) {
+  const now = await $.clock.now()
+  const next = await update($, keepAlive, alive => (alive ? null : { until: now + minutes * 60_000, probes: 0 }))
+  return next
+}
+
+function wallClock(ms: number): string {
+  const at = new Date(ms)
+  return `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`
+}
+
+/** `warm 3:40` while the last request's cache entry lives, `cold` once it has expired. */
+function cacheClock(until: number | null, now: number): { text: string; isWarm: boolean } | null {
+  if (until === null) return null
+  const left = until - now
+  return left > 0 ? { text: `warm ${formatClock(left)}`, isWarm: true } : { text: 'cold', isWarm: false }
+}
+
+function compactPercent(split: Breakdown | null): number | null {
+  if (!split?.autoCompactAt || split.maxTokens <= 0) return null
+  return Math.round((split.autoCompactAt / split.maxTokens) * 100)
 }
 
 function resets(limit: SessionRateLimit): string {
@@ -184,6 +241,14 @@ export const register: Register = on => {
       argumentHint: '[text|clear]',
     })
     await $.command.register({ name: 'shelf', description: 'Open the shellfish shelf: subagents and turn history' })
+    await $.command.register({
+      name: 'keepalive',
+      description: 'Keep the prompt cache warm while idle, for N minutes (default 180); "off" stops it',
+      argumentHint: '[minutes|off]',
+    })
+    // After a reload, the last turn's end is the best guess at when its cache entry lapses.
+    const lastTurn = (await read($, receipts)).at(-1)
+    if (lastTurn) await update($, warmUntil, now => now ?? lastTurn.at + CACHE_TTL_MS)
     const dir = await $.env.get('HOME')
     await update($, home, () => dir ?? null)
     const settings = (await $.settings.read()) as { effortLevel?: unknown }
@@ -194,7 +259,23 @@ export const register: Register = on => {
     const name = await $.session.model()
     await update($, model, now => now ?? name)
     await refreshBranch($)
+    void refreshBreakdown($)
     $.clock.every(2000, () => void pollAgents($))
+    $.clock.every(10_000, async () => {
+      const until = await read($, warmUntil)
+      const now = await $.clock.now()
+      // One more tick after expiry flips the label to cold; then the timer rests.
+      if (until !== null && now < until + 15_000) await update($, clockTick, n => n + 1)
+      const alive = await read($, keepAlive)
+      if (!alive) return
+      if (now >= alive.until) {
+        await update($, keepAlive, () => null)
+        $.ui.toast(`Keep-alive ended after ${alive.probes} probe${alive.probes === 1 ? '' : 's'}.`)
+        return
+      }
+      if (until === null || turn !== null || now < until - KEEP_ALIVE_LEAD_MS || now >= until) return
+      await probe($)
+    })
 
     return next(e)
   })
@@ -215,6 +296,23 @@ export const register: Register = on => {
     const now = await read($, summary)
 
     return { text: now ? `Summary${now.isManual ? '' : ' (auto)'}: ${now.text}` : 'No summary yet.' }
+  })
+
+  on('command.run', { command: 'keepalive' }, async ($, e) => {
+    const arg = e.args.trim().toLowerCase()
+    if (arg === 'off') {
+      await update($, keepAlive, () => null)
+      return { text: 'Keep-alive off.' }
+    }
+    const minutes = arg ? Number(arg) : KEEP_ALIVE_DEFAULT_MIN
+    if (!Number.isFinite(minutes) || minutes <= 0 || minutes > KEEP_ALIVE_MAX_MIN) {
+      return { text: `Usage: /keepalive [minutes 1-${KEEP_ALIVE_MAX_MIN}|off]` }
+    }
+    const now = await $.clock.now()
+    await update($, keepAlive, () => ({ until: now + minutes * 60_000, probes: 0 }))
+    return {
+      text: `Keeping the prompt cache warm for ${minutes} min: a small read of the conversation runs before each hour-long entry lapses. Your own turns renew it for free; /keepalive off stops it.`,
+    }
   })
 
   on('command.run', { command: 'shelf' }, async $ => {
@@ -248,6 +346,8 @@ export const register: Register = on => {
   on('turn.step', async function* ($, e, next) {
     const isMain = e.agentId === undefined
     if (isMain) {
+      const stepAt = await $.clock.now()
+      await update($, warmUntil, () => stepAt + CACHE_TTL_MS)
       modelsSeen.add(e.model)
       await update($, model, () => e.model)
       if (e.effort !== undefined) {
@@ -304,15 +404,25 @@ export const register: Register = on => {
     const started = turn
     turn = null
     const tokens = e.usage
+    const previous = (await read($, receipts)).at(-1)
+    const turnTokens = {
+      input: tokens?.input_tokens ?? 0,
+      cacheRead: tokens?.cache_read_input_tokens ?? 0,
+      cacheWrite: tokens?.cache_creation_input_tokens ?? 0,
+    }
+    const partial = {
+      model: tokens?.model ?? (await read($, model)) ?? 'unknown',
+      effort: await read($, effort),
+      gapMs: previous && started ? Math.max(0, started.startedAt - previous.at) : null,
+      cacheHit: cacheHit(turnTokens),
+    }
     const receipt: Receipt = {
       at: now,
       durationMs: started ? now - started.startedAt : 0,
-      model: tokens?.model ?? (await read($, model)) ?? 'unknown',
-      effort: await read($, effort),
-      input: tokens?.input_tokens ?? 0,
+      ...partial,
+      ...turnTokens,
       output: tokens?.output_tokens ?? 0,
-      cacheRead: tokens?.cache_read_input_tokens ?? 0,
-      cacheWrite: tokens?.cache_creation_input_tokens ?? 0,
+      cold: coldCause(partial, previous),
       costUsd: Math.max(0, (usage.cost?.usd ?? 0) - (started?.costAtStart ?? 0)),
       contextPercent: usage.context.percent ?? null,
       rate: started && started.streamMs > 250 && tokens ? tokens.output_tokens / (started.streamMs / 1000) : null,
@@ -321,13 +431,16 @@ export const register: Register = on => {
       await update($, receipts, list => [...list, receipt].slice(-100))
     }
     void refreshBranch($)
-    void refreshBreakdown($).then(async () => warn($, usage, (await read($, breakdown))?.autoCompactAt ?? null))
+    const refreshed = refreshBreakdown($).then(async () => warn($, usage, compactPercent(await read($, breakdown))))
 
     // The log writes after the turn so a slow disk never holds the prompt.
     $.clock.after(0, async () => {
       const session = await $.session.id()
       const dir = await $.session.cwd()
-      await appendTurn($, turnRow(session, dir, receipt, usage.cost?.usd ?? 0))
+      await refreshed
+      const split = await read($, breakdown)
+      const context = split ? Object.fromEntries(split.slices.map(s => [s.name, s.tokens])) : null
+      await appendTurn($, { ...turnRow(session, dir, receipt, usage.cost?.usd ?? 0), contextTokens: context })
       await writeSession($, {
         session,
         cwd: dir,
@@ -382,80 +495,54 @@ export const register: Register = on => {
     return next({ ...e, props: { ...e.props, suffix: `${e.props.suffix} ${Math.round(now.rate)} t/s` } })
   })
 
+
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
     const { Box, Text, Button } = $.ui.resolve(e)
     await read($, tick)
     const usage = await $.session.usage()
-    const width = Math.max(30, e.props.bodyColumns)
-    const pinned = await read($, card)
+    const width = Math.max(40, e.props.bodyColumns)
     const sums = await read($, totals)
     const history = await read($, receipts)
     const last = history.at(-1)
     const split = await read($, breakdown)
     const shelf = await read($, agents)
     const running = shelf.filter(row => row.status === 'running' || row.status === 'pending').length
+    const openShelf = () => void $.ui.open({ id: SHELF, title: 'shelf' })
 
     // Row 1: where, on which branch, with what model, effort and permissions.
     const permission = formatMode(await read($, mode))
     const modelText = formatModel(await read($, model))
     const effortText = (await read($, effort)) ?? '—'
-    const rightWidth = modelText.length + effortText.length + permission.text.length + 12
+    const rightWidth = modelText.length + effortText.length + permission.text.length + 10
     const gitName = (await read($, branch)) ?? '…'
     const leftRoom = Math.max(8, width - rightWidth - 2)
     const gitText = shortenMiddle(gitName, Math.max(6, Math.floor(leftRoom * 0.5)))
-    const where = fitCwd(splitCwd((await read($, cwd)) ?? '', (await read($, home)) ?? undefined), leftRoom - gitText.length - 6)
+    const where = fitCwd(splitCwd((await read($, cwd)) ?? '', (await read($, home)) ?? undefined), leftRoom - gitText.length - 2)
     const gitColor = gitName === 'detached' ? 'warning' : gitName === 'no repo' ? 'inactive' : 'remember'
 
-    // Row 2: context, tokens, speed, cost.
-    const meter = contextMeter(usage.context.percent, Math.max(0, Math.min(16, width - 60)))
-    const window = usage.context.window ? `/${formatCount(usage.context.window)}` : ''
-    const rate = await read($, speed)
-    const rateText = rate.rate === null ? '—' : `${rate.isLive ? '~' : ''}${Math.round(rate.rate)}`
+    // Row 2: the context bar, rate-limit gauges and cost; narrow widths drop from the right.
+    const percent = usage.context.percent
+    const barWidth = width >= 100 ? 24 : width >= 70 ? 16 : 10
+    const limits = width >= 70 ? usage.rateLimits : []
+    const costs = width >= 90 ? history.slice(-12).map(r => r.costUsd) : []
+    await read($, clockTick)
+    const clock = width >= 100 ? cacheClock(await read($, warmUntil), await $.clock.now()) : null
+    const alive = await read($, keepAlive)
     const hit = cacheHit(sums)
-    const said = await read($, summary)
-
-    // Cards: three lines each, the band's own height, so a hover paints over the band alone.
-    const cardWidth = Math.min(width, 76)
-    const compactAt = split?.autoCompactAt
-    const cards: Record<Exclude<Card, null>, string[]> = {
-      context: [
-        `context ${usage.context.percent ?? '?'}% of ${formatCount(usage.context.window)}` +
-          (split?.isAutoCompactEnabled === false ? ' · auto-compact off' : compactAt ? ` · auto-compacts at ${formatCount(compactAt)}` : ''),
-        split?.slices.length
-          ? split.slices.slice(0, 4).map(s => `${s.name.toLowerCase()} ${formatCount(s.tokens)}`).join(' · ')
-          : 'breakdown after the first turn',
-        `per turn ${sparkline(history.slice(-40).map(r => r.contextPercent ?? 0)) || '—'}`,
-      ],
-      tokens: [
-        `in ${formatCount(sums.input)} · out ${formatCount(sums.output)} · cache read ${formatCount(sums.cacheRead)} · write ${formatCount(sums.cacheWrite)}`,
-        `cache hit ${hit === null ? '—' : `${hit}%`}` +
-          (last ? ` · last turn in ${formatCount(last.input + last.cacheRead + last.cacheWrite)} out ${formatCount(last.output)}` : ''),
-        `out per turn ${sparkline(history.slice(-40).map(r => r.output)) || '—'}`,
-      ],
-      cost: [
-        `est. API cost ${formatMoney(usage.cost?.usd)}` + (last ? ` · last turn ${formatMoney(last.costUsd)}` : ''),
-        usage.rateLimits.length
-          ? usage.rateLimits.map(limit => `${limitName(limit)} ${Math.round(limit.percentUsed)}%${resets(limit)}`).join(' · ')
-          : 'no rate-limit reading yet',
-        `per turn ${sparkline(history.slice(-40).map(r => r.costUsd)) || '—'} · log ~/.claude/shellfish`,
-      ],
+    const compactAt = compactPercent(split)
+    const contextKey = keyEntries(split, compactAt)
+    const tips = {
+      context: `context ${percent === undefined ? '?' : Math.round(percent)}% of ${formatCount(usage.context.window)}`,
+      limits: usage.rateLimits.map(limit => `${limitName(limit)} ${Math.round(limit.percentUsed)}%${resets(limit)}`).join(' · '),
+      cost:
+        `est. API cost ${formatMoney(usage.cost?.usd)}` +
+        (last ? ` · last turn ${formatMoney(last.costUsd)}` : '') +
+        ` · in ${formatCount(sums.input)} out ${formatCount(sums.output)} · ${hit === null ? '—' : `${hit}%`} reused from cache`,
     }
-    const toggle = (which: Exclude<Card, null>) => () => update($, card, now => (now === which ? null : which))
-    const hover = (which: Exclude<Card, null>) => (
-      <Box
-        key={`card-${which}`}
-        position="absolute"
-        top={0}
-        left={0}
-        width={cardWidth}
-        flexDirection="column"
-        display="none"
-        hover={{ scope: which, display: 'flex' }}
-      >
-        {cards[which].map(line => (
-          <Text inverse>{pad(` ${line}`, cardWidth)}</Text>
-        ))}
+    const tip = (scope: keyof typeof tips) => (
+      <Box key={`tip-${scope}`} position="absolute" top={1} left={0} width={width} display="none" hover={{ scope, display: 'flex' }}>
+        <Text color="suggestion">{pad(tips[scope], width)}</Text>
       </Box>
     )
 
@@ -465,7 +552,7 @@ export const register: Register = on => {
           <Text wrap="truncate-end">
             <Text dimColor>{where.prefix}</Text>
             <Text color="suggestion" bold>{where.leaf}</Text>
-            <Text dimColor>{'  git '}</Text>
+            <Text>{'  '}</Text>
             <Text color={gitColor}>{gitText}</Text>
           </Text>
           <Box flexDirection="row">
@@ -482,122 +569,418 @@ export const register: Register = on => {
             <Button key="effort" plain action={ACTION_EFFORT} onPress={() => cycleEffort($)}>
               {effortText}
             </Button>
-            <Text dimColor>{'  '}</Text>
+            <Text dimColor>{' · '}</Text>
             <Text color={permission.color}>{permission.text}</Text>
           </Box>
         </Box>
         <Box flexDirection="row" justifyContent="space-between">
           <Box flexDirection="row">
             <Box key="context" hover={{ scope: 'context' }}>
-              <Button key="context-pin" plain onPress={toggle('context')}>
-                <Text dimColor>ctx </Text>
-                {meter ? (
-                  <Text>
-                    <Text color={meter.color}>{'█'.repeat(meter.bar)}</Text>
-                    <Text color="promptBorder">{'░'.repeat(meter.empty)}</Text>
-                    <Text color={meter.color}>{` ${meter.percent}%`}</Text>
-                  </Text>
+              <Button key="context-open" plain onPress={openShelf}>
+                {runs(contextCells(split, percent, barWidth)).map(run => (
+                  <Text color={run.color}>{run.text}</Text>
+                ))}
+                {percent === undefined ? (
+                  <Text color="inactive"> —</Text>
                 ) : (
-                  <Text color="inactive">—</Text>
+                  <Text color={percentColor(percent)}>{` ${Math.round(percent)}%`}</Text>
                 )}
-                <Text dimColor>{window}</Text>
               </Button>
             </Box>
-            <Text>{'   '}</Text>
-            <Box key="tokens" hover={{ scope: 'tokens' }}>
-              <Button key="tokens-pin" plain onPress={toggle('tokens')}>
-                <Text dimColor>out </Text>
-                {formatCount(sums.output)}
-                <Text dimColor> cache </Text>
-                {hit === null ? '—' : `${hit}%`}
+            {limits.length ? (
+              <Box key="limits" hover={{ scope: 'limits' }} marginLeft={3}>
+                <Button key="limits-open" plain onPress={openShelf}>
+                  {limits.map((limit, i) => (
+                    <Text>
+                      <Text dimColor>{`${i ? '  ' : ''}${limitName(limit)} `}</Text>
+                      <Text color={percentColor(limit.percentUsed)}>{gauge(limit.percentUsed)}</Text>
+                    </Text>
+                  ))}
+                </Button>
+              </Box>
+            ) : null}
+            <Box key="cost" hover={{ scope: 'cost' }} marginLeft={3}>
+              <Button key="cost-open" plain onPress={openShelf}>
+                {costs.length > 1 ? <Text color="claude">{`${sparkline(costs)} `}</Text> : null}
+                {formatMoney(usage.cost?.usd)}
+                {clock ? <Text color={clock.isWarm ? undefined : 'warning'} dimColor={clock.isWarm}>{`  cache ${clock.text}${alive ? ' ↻' : ''}`}</Text> : null}
               </Button>
             </Box>
-            <Text dimColor>{'   t/s '}</Text>
-            <Text dimColor={!rate.isLive}>{rateText}</Text>
           </Box>
-          <Box key="cost" hover={{ scope: 'cost' }}>
-            <Button key="cost-pin" plain onPress={toggle('cost')}>
-              <Text dimColor>est </Text>
-              {formatMoney(usage.cost?.usd)}
-            </Button>
-          </Box>
-        </Box>
-        <Box flexDirection="row" justifyContent="space-between">
-          <Text wrap="truncate-end">
-            <Text dimColor>{'» '}</Text>
-            {said ? <Text bold>{said.text}</Text> : <Text dimColor>summary after the first turn</Text>}
-          </Text>
-          <Button key="shelf" plain onPress={() => void $.ui.open({ id: SHELF, title: 'shelf' })}>
-            {running > 0 ? <Text color="claude">{`agents ${running}/${shelf.length} `}</Text> : null}
-            <Text dimColor>shelf ▸</Text>
+          <Button key="shelf" plain onPress={openShelf}>
+            {running > 0 ? (
+              <Text color="claude">{`● ${running} agent${running === 1 ? '' : 's'} ▸`}</Text>
+            ) : (
+              <Text dimColor>shelf ▸</Text>
+            )}
           </Button>
         </Box>
-        {pinned ? (
-          <Box flexDirection="column">
-            {cards[pinned].map(line => (
-              <Text dimColor wrap="truncate-end">{`  ${line}`}</Text>
-            ))}
+        {contextKey.length ? (
+          <Box key="tip-context" position="absolute" top={1} left={0} width={width} display="none" hover={{ scope: 'context', display: 'flex' }}>
+            <Text wrap="truncate-end">
+              {contextKey.map((entry, i) => (
+                <Text>
+                  <Text color={entry.color}>{`${i ? '   ' : ''}${entry.mark} `}</Text>
+                  <Text>{`${entry.name} ${entry.percent}`}</Text>
+                </Text>
+              ))}
+              <Text>{' '.repeat(width)}</Text>
+            </Text>
           </Box>
-        ) : null}
-        {hover('context')}
-        {hover('tokens')}
-        {hover('cost')}
+        ) : (
+          tip('context')
+        )}
+        {usage.rateLimits.length ? tip('limits') : null}
+        {tip('cost')}
       </Box>
     )
   })
 
-  // The shelf: subagents to switch into, and the session's turn history.
+  // The shelf: the session's title, its subagents, and where context, cost, cache and limits stand.
   on('ui.render', { component: 'Pane', requestId: SHELF }, async ($, e) => {
     const { Box, Text, Button } = $.ui.resolve(e)
+    await read($, tick)
     const now = await $.clock.now()
+    const usage = await $.session.usage()
+    const said = await read($, summary)
     const shelf = await read($, agents)
     const history = await read($, receipts)
+    const sums = await read($, totals)
+    const split = await read($, breakdown)
+    const modelName = await read($, model)
+    const effortText = (await read($, effort)) ?? '—'
     const viewing = e.props.view.agentId
-    const columns = Math.max(20, e.props.bodyColumns)
+    const columns = Math.max(24, e.props.bodyColumns)
+    const percent = usage.context.percent
+    const compactAt = compactPercent(split)
     const glyph: Record<string, string> = { running: '●', pending: '○', waiting: '◐', idle: '◌', completed: '✓', failed: '✗', killed: '✗' }
-    const color = (status: string) =>
+    const statusColor = (status: string) =>
       status === 'running' || status === 'pending' ? 'claude' : status === 'failed' || status === 'killed' ? 'error' : 'inactive'
+
+    // The readout under the title: the last turn, or the turn whose chart column is hovered.
+    const sessionCost = `${formatMoney(usage.cost?.usd)} session`
+    const turnLine = (r: Receipt) =>
+      `${formatModel(r.model)} · ${r.effort ?? '—'} · ${formatDuration(r.durationMs)} · ${formatCount(r.output)} out · ${formatMoney(r.costUsd)} · ${sessionCost}`
+    const last = history.at(-1)
+    const readout = last ? turnLine(last) : `${formatModel(modelName)} · ${effortText} · ${sessionCost}`
+
+    // Context: the bar, the compaction point under it, then one key row per category.
+    const used = split?.slices.reduce((a, s) => a + s.tokens, 0) ?? 0
+    const legend = keyEntries(split, compactAt, false)
+    legend.sort((a, b) => (a.name === 'free' ? 1 : b.name === 'free' ? -1 : (b.rawTokens ?? 0) - (a.rawTokens ?? 0)))
+    const windowText = split ? `${formatCount(used)}/${formatCount(split.maxTokens)}` : formatCount(usage.context.window)
+    const barWidth = Math.max(8, columns - windowText.length - 1)
+
+    // Turn charts: one column per turn, the newest at the right; hovering a column fills the readout.
+    const chartWidth = Math.max(4, columns - 5)
+    const shown = history.slice(-chartWidth)
+    const maxCost = Math.max(0, ...shown.map(r => r.costUsd))
+    const chart = (label: string, values: number[], max: number, colorFor: (i: number) => string) => (
+      <Box flexDirection="row">
+        <Text dimColor>{`${label.padEnd(4)} `}</Text>
+        {values.map((value, i) => {
+          const bar = column(value, max)
+          return (
+            <Box key={`${label}-${i}`} flexDirection="column" hover={{ scope: `turn-${i}` }}>
+              <Text color={colorFor(i)}>{bar.top}</Text>
+              <Text color={colorFor(i)}>{bar.bottom}</Text>
+            </Box>
+          )
+        })}
+      </Box>
+    )
+
+    // Cache: what this session's input cost relative to uncached, and why turns went cold.
+    const rates = cacheRates(aliasOf(modelName))
+    const hit = cacheHit(sums)
+    const effective = effectiveInputRate(sums, rates)
+    const inputAll = sums.input + sums.cacheRead + sums.cacheWrite
+    const share = (n: number) => (inputAll > 0 ? `${Math.round((n / inputAll) * 100)}%` : '—')
+    const inputSegments = segments(
+      [
+        { name: 'read', tokens: sums.cacheRead, color: 'success' },
+        { name: 'written', tokens: sums.cacheWrite, color: 'warning' },
+        { name: 'uncached', tokens: sums.input, color: 'error' },
+      ],
+      inputAll,
+      Math.max(8, columns - 2),
+    )
+    const cold = shown.filter(r => r.cold !== null)
+    const coldCounts = ['idle', 'model', 'effort', 'prefix'].map(cause => [cause, cold.filter(r => r.cold === cause).length] as const).filter(([, n]) => n > 0)
+    const coldNames: Record<string, string> = { idle: 'pause', model: 'model switch', effort: 'effort change', prefix: 'prompt changed' }
+    const readPercent = `${Math.round(rates.read * 100)}%`
+    await read($, clockTick)
+    const clock = cacheClock(await read($, warmUntil), now)
+    const alive = await read($, keepAlive)
+    const contextTokens = usage.context.tokens ?? 0
+    const prices = requestCost(contextTokens, aliasOf(modelName))
+    const warmLeft = Math.max(0, ((await read($, warmUntil)) ?? now) - now)
+    const warmth = {
+      left: warmLeft,
+      filled: Math.round((warmLeft / CACHE_TTL_MS) * 10),
+      color: percentColor(100 - (warmLeft / CACHE_TTL_MS) * 100),
+    }
+    const help: { head?: string; body: string[] }[] = [
+      { body: ['Each turn resends the whole conversation.'] },
+      { head: 'Reused', body: [`Text matching the last request, read at ${readPercent}.`] },
+      { head: 'Written', body: ['New text, stored for the next turn at 125%.'] },
+      { head: 'Lifetime', body: ['About an hour from the last request; each turn renews it.'] },
+      { head: 'Rewrite', body: ['A long pause, a model or effort switch,', 'or an edited prompt file (CLAUDE.md, MCP servers).'] },
+      { head: 'Chart', body: ['Tokens written per turn; yellow = a rewrite.'] },
+      { head: 'Keep warm', body: ['Re-reads the entry before it lapses.'] },
+    ]
+    const helpWidth = Math.max(1, columns - 4)
 
     return (
       <Box flexDirection="column">
-        <Text bold>Agents</Text>
-        {viewing ? (
-          <Button key="main" plain onPress={() => $.ui.view({})}>
-            <Text color="suggestion">← back to main conversation</Text>
-          </Button>
-        ) : null}
-        {shelf.length === 0 ? <Text dimColor>No subagents yet this session.</Text> : null}
-        {[...shelf].reverse().slice(0, 12).map(row => (
-          <Button key={`agent-${row.id}`} plain onPress={() => $.ui.view({ agentId: row.id })}>
-            <Text color={color(row.status)}>{`${glyph[row.status] ?? '·'} `}</Text>
-            <Text bold={row.id === viewing}>{shortenMiddle(row.type, 18)}</Text>
-            <Text dimColor>{` ${shortenMiddle(row.description, Math.max(8, columns - 32))} · ${formatDuration(now - row.firstSeen)}`}</Text>
-          </Button>
-        ))}
-        <Text> </Text>
-        <Text bold>Turns</Text>
-        {history.length === 0 ? (
-          <Text dimColor>No turns yet.</Text>
-        ) : (
-          <Box flexDirection="column">
-            <Text>
-              <Text dimColor>cost </Text>
-              {sparkline(history.slice(-(columns - 8)).map(r => r.costUsd))}
-            </Text>
-            <Text>
-              <Text dimColor>ctx  </Text>
-              {sparkline(history.slice(-(columns - 8)).map(r => r.contextPercent ?? 0))}
-            </Text>
-            {[...history].reverse().slice(0, 8).map(r => (
-              <Text dimColor wrap="truncate-end">
-                {`${formatModel(r.model)} · ${formatDuration(r.durationMs)} · ${formatCount(r.output)} out · ${formatMoney(r.costUsd)}`}
-              </Text>
+        <Text bold wrap="truncate-end">{said?.text ?? 'shellfish'}</Text>
+        <Box key="turn-readout" position="relative" height={1}>
+          <Text dimColor wrap="truncate-end">{readout}</Text>
+          {shown.map((r, i) => (
+            <Box key={`turn-tip-${i}`} position="absolute" top={0} left={0} width={columns} display="none" hover={{ scope: `turn-${i}`, display: 'flex' }}>
+              <Text color="suggestion">{pad(turnLine(r), columns)}</Text>
+            </Box>
+          ))}
+        </Box>
+
+        {shelf.length ? (
+          <Box flexDirection="column" marginTop={1}>
+            <Text bold>Agents</Text>
+            {viewing ? (
+              <Button key="main" plain onPress={() => $.ui.view({})}>
+                <Text color="suggestion">← main conversation</Text>
+              </Button>
+            ) : null}
+            {[...shelf].reverse().slice(0, 10).map(row => (
+              <Button key={`agent-${row.id}`} plain onPress={() => $.ui.view({ agentId: row.id })}>
+                <Text color={statusColor(row.status)}>{`${glyph[row.status] ?? '·'} `}</Text>
+                <Text bold={row.id === viewing}>{shortenMiddle(row.type, 14).padEnd(14)}</Text>
+                <Text dimColor>{` ${shortenMiddle(row.description, Math.max(8, columns - 24))} `}</Text>
+                <Text dimColor>{formatDuration(now - row.firstSeen)}</Text>
+              </Button>
             ))}
           </Box>
-        )}
-        <Text> </Text>
-        <Text dimColor>log ~/.claude/shellfish/usage.jsonl</Text>
+        ) : null}
+
+        <Box flexDirection="column" marginTop={1}>
+          <Text>
+            <Text bold>Context </Text>
+            {percent === undefined ? <Text color="inactive">—</Text> : <Text color={percentColor(percent)}>{`${Math.round(percent)}%`}</Text>}
+          </Text>
+          <Box flexDirection="row">
+            {runs(contextCells(split, percent, barWidth)).map(run => (
+              <Text color={run.color}>{run.text}</Text>
+            ))}
+            <Text dimColor>{` ${windowText}`}</Text>
+          </Box>
+          {compactAt && split ? (
+            <Text dimColor wrap="truncate-end">{underTick(split, barWidth, split.isAutoCompactEnabled === false ? 'auto-compact off' : `compacts at ${compactAt}%`)}</Text>
+          ) : null}
+          {legend.length ? (
+            <Box flexDirection="column" marginTop={1}>
+              {legend.map(entry => (
+                <Box flexDirection="row" width={Math.min(columns, 44)}>
+                  <Box flexGrow={1}>
+                    <Text wrap="truncate-end">
+                      <Text color={entry.color}>{`${entry.mark} `}</Text>
+                      <Text>{entry.name}</Text>
+                    </Text>
+                  </Box>
+                  <Text>{entry.percent.padStart(5)}</Text>
+                  <Text dimColor>{(entry.tokens ?? '').padStart(7)}</Text>
+                </Box>
+              ))}
+            </Box>
+          ) : (
+            <Text dimColor>Breakdown after the first turn.</Text>
+          )}
+        </Box>
+
+        <Box flexDirection="column" marginTop={1}>
+          <Box flexDirection="row" justifyContent="space-between">
+            <Text bold>Turns</Text>
+            <Text dimColor>{history.length ? `${history.length} so far` : ''}</Text>
+          </Box>
+          {shown.length ? (
+            <Box flexDirection="column">
+              {chart('cost', shown.map(r => r.costUsd), maxCost, () => 'claude')}
+              {chart('ctx', shown.map(r => r.contextPercent ?? 0), 100, () => 'suggestion')}
+            </Box>
+          ) : (
+            <Text dimColor>No turns yet.</Text>
+          )}
+        </Box>
+
+        {usage.rateLimits.length ? (
+          <Box flexDirection="column" marginTop={1}>
+            <Text bold>Limits</Text>
+            {usage.rateLimits.map((limit, i) => {
+              const filled = Math.round((Math.min(100, limit.percentUsed) / 100) * 10)
+              return (
+                <Box marginTop={i ? 1 : 0}>
+                  <Text>
+                    <Text dimColor>{`${limitName(limit).padEnd(4)} `}</Text>
+                    <Text color={percentColor(limit.percentUsed)}>{'█'.repeat(filled)}</Text>
+                    <Text color="inactive">{'░'.repeat(10 - filled)}</Text>
+                    <Text>{` ${Math.round(limit.percentUsed)}%`}</Text>
+                    <Text dimColor>{resets(limit)}</Text>
+                  </Text>
+                </Box>
+              )
+            })}
+          </Box>
+        ) : null}
+
+        <Box key="cache" flexDirection="column" marginTop={1}>
+          <Box key="cache-head" flexDirection="row" hover={{ scope: 'cache-help' }}>
+            <Text bold>Cache </Text>
+            {hit === null ? (
+              <Text color="inactive">—</Text>
+            ) : (
+              <Text color={percentColor(100 - hit)}>{`${hit}% reused`}</Text>
+            )}
+            <Text dimColor>{'  ?'}</Text>
+          </Box>
+          {clock ? (
+            <Box flexDirection="row">
+              <Text>
+                <Text color={warmth.color}>{'█'.repeat(warmth.filled)}</Text>
+                <Text color="inactive">{'░'.repeat(10 - warmth.filled)}</Text>
+                {alive ? (
+                  <Text color="success">{` ↻ keeping warm until ${wallClock(alive.until)} · ${alive.probes} renewal${alive.probes === 1 ? '' : 's'} · next in ${formatClock(Math.max(0, (await read($, warmUntil)) ?? 0) - now - KEEP_ALIVE_LEAD_MS)}`}</Text>
+                ) : clock.isWarm ? (
+                  <Text color={warmth.color}>{` warm ${formatClock(warmth.left)} left`}</Text>
+                ) : (
+                  <Text color="warning">{' cold'}</Text>
+                )}
+              </Text>
+            </Box>
+          ) : null}
+          {clock === null ? (
+            <Text dimColor>No request yet this session.</Text>
+          ) : clock.isWarm ? (
+            <Text dimColor wrap="truncate-end">{`Next turn reads ${formatCount(contextTokens)} from cache (~${formatMoney(prices.warm)}); cold it would cost ~${formatMoney(prices.cold)}.`}</Text>
+          ) : (
+            <Text color="warning" wrap="truncate-end">{`Next turn rewrites ${formatCount(contextTokens)} (~${formatMoney(prices.cold)}) unless kept warm.`}</Text>
+          )}
+          {clock ? (
+            <Box marginTop={1}>
+              <Button key="keep-alive" plain onPress={() => toggleKeepAlive($, KEEP_ALIVE_DEFAULT_MIN)}>
+                <Text inverse color={alive ? 'warning' : 'success'}>
+                  {alive ? '  ■ Press to stop keeping warm  ' : `  ▶ Press to keep warm for ${KEEP_ALIVE_DEFAULT_MIN} min  `}
+                </Text>
+              </Button>
+            </Box>
+          ) : null}
+          {inputAll > 0 ? (
+            <Box flexDirection="column" marginTop={1}>
+              <Box flexDirection="row">
+                {inputSegments.map(seg => (
+                  <Text color={seg.color}>{'█'.repeat(seg.cells)}</Text>
+                ))}
+              </Box>
+              <Text wrap="truncate-end">
+                <Text color="success">■ </Text>
+                <Text>{`reused ${share(sums.cacheRead)}`}</Text>
+                <Text color="warning">{'   ■ '}</Text>
+                <Text>{`written ${share(sums.cacheWrite)}`}</Text>
+                <Text color="error">{'   ■ '}</Text>
+                <Text>{`uncached ${share(sums.input)}`}</Text>
+                {effective !== null && effective < 1 ? <Text dimColor>{`   cost ${Math.round(effective * 100)}% of uncached`}</Text> : null}
+              </Text>
+              {shown.length ? (
+                <Box marginTop={1} flexDirection="column">
+                  {chart('wrote', shown.map(r => r.cacheWrite), Math.max(0, ...shown.map(r => r.cacheWrite)), i => (shown[i]?.cold ? 'warning' : 'text'))}
+                  <Text wrap="truncate-end">
+                    <Text dimColor>{'rewrites '}</Text>
+                    <Text color={cold.length ? 'warning' : undefined}>{String(cold.length)}</Text>
+                    {coldCounts.length ? <Text dimColor>{`  ${coldCounts.map(([cause, n]) => `${coldNames[cause]} ×${n}`).join(' · ')}`}</Text> : null}
+                  </Text>
+                </Box>
+              ) : null}
+            </Box>
+          ) : null}
+          <Box
+            key="cache-help-card"
+            position="absolute"
+            top={1}
+            left={0}
+            width={columns}
+            flexDirection="column"
+            display="none"
+            hover={{ scope: 'cache-help', display: 'flex' }}
+            borderStyle="round"
+            borderColor="suggestion"
+            paddingX={1}
+          >
+            {help.flatMap((item, i) => [
+              ...(i ? [<Text>{pad('', helpWidth)}</Text>] : []),
+              ...(item.head ? [<Text bold>{pad(item.head, helpWidth)}</Text>] : []),
+              ...item.body.map(line => <Text wrap="truncate-end">{pad(item.head ? `  ${line}` : line, helpWidth)}</Text>),
+            ])}
+          </Box>
+        </Box>
+
+        <Box marginTop={1}>
+          <Text dimColor>log ~/.claude/shellfish/usage.jsonl</Text>
+        </Box>
       </Box>
     )
   })
+}
+type Cell = { char: string; color: string }
+
+/**
+ * The context bar's cells: each category in its /context colour, then free space,
+ * with the auto-compact threshold as a tick. Before the first breakdown, a plain meter.
+ */
+function contextCells(split: Breakdown | null, percent: number | undefined, width: number): Cell[] {
+  const cells: Cell[] = []
+  if (split && split.maxTokens > 0) {
+    for (const seg of segments(split.slices, split.maxTokens, width)) {
+      for (let i = 0; i < seg.cells; i++) cells.push({ char: '█', color: seg.color })
+    }
+  } else if (percent !== undefined) {
+    const filled = Math.round((Math.max(0, Math.min(100, percent)) / 100) * width)
+    for (let i = 0; i < filled; i++) cells.push({ char: '█', color: percentColor(percent) })
+  }
+  while (cells.length < width) cells.push({ char: '░', color: 'inactive' })
+  const tick = split?.autoCompactAt && split.maxTokens > 0 ? Math.round((split.autoCompactAt / split.maxTokens) * width) : -1
+  if (tick >= 0 && tick < width && cells[tick]?.char === '░') cells[tick] = { char: '┃', color: 'subtle' }
+  return cells.slice(0, width)
+}
+
+/** A label whose last character sits under the bar's compaction tick, like a callout. */
+function underTick(split: Breakdown, barWidth: number, label: string): string {
+  const tick = split.autoCompactAt && split.maxTokens > 0 ? Math.round((split.autoCompactAt / split.maxTokens) * barWidth) : barWidth
+  return ' '.repeat(Math.max(0, Math.min(tick, barWidth - 1) - label.length + 1)) + label
+}
+
+/** Joins neighbouring cells of one colour, so a bar is a few Text runs, not one per cell. */
+function runs(cells: Cell[]): { text: string; color: string }[] {
+  const out: { text: string; color: string }[] = []
+  for (const cell of cells) {
+    const tail = out.at(-1)
+    if (tail && tail.color === cell.color) tail.text += cell.char
+    else out.push({ text: cell.char, color: cell.color })
+  }
+  return out
+}
+
+type KeyEntry = { mark: string; color: string; name: string; percent: string; tokens: string | null; rawTokens: number | null }
+
+/**
+ * The context bar's key: each category with its share of the window, then free space,
+ * then the compaction tick. Small swatches, so stacked rows never read as one bar.
+ */
+function keyEntries(split: Breakdown | null, compactAt: number | null, withCompaction = true): KeyEntry[] {
+  if (!split || split.maxTokens <= 0) return []
+  const share = (tokens: number) => `${Math.round((tokens / split.maxTokens) * 100)}%`
+  const used = split.slices.reduce((a, s) => a + s.tokens, 0)
+  const free = Math.max(0, split.maxTokens - used)
+  return [
+    ...split.slices.map(s => ({ mark: '■', color: s.color, name: s.name.toLowerCase(), percent: share(s.tokens), tokens: formatCount(s.tokens), rawTokens: s.tokens })),
+    { mark: '□', color: 'inactive', name: 'free', percent: share(free), tokens: formatCount(free), rawTokens: free },
+    ...(compactAt && withCompaction ? [{ mark: '┃', color: 'subtle', name: 'compacts at', percent: `${compactAt}%`, tokens: null, rawTokens: null }] : []),
+  ]
 }

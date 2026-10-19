@@ -2,7 +2,7 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { Engine, MockClock } from 'claude-code/testing'
 import type { On, ProcessRunResult, SessionUsage } from 'claude-code'
 
-import { aliasOf, cacheHit, contextMeter, cycle, EFFORTS, fitCwd, formatModel, formatMoney, MODELS, pad, sparkline, splitCwd } from '../hooks/format'
+import { aliasOf, cacheHit, cacheRates, coldCause, column, effectiveInputRate, contextMeter, cycle, EFFORTS, fitCwd, formatModel, formatMoney, gauge, MODELS, pad, segments, sparkline, splitCwd } from '../hooks/format'
 
 const BAND = {
   plugin: 'shellfish',
@@ -17,11 +17,11 @@ const BAND = {
   },
 } as const
 
-type World = { commands: string[]; appended: string[]; cost: { usd: number }; clock: MockClock }
+type World = { commands: string[]; appended: string[]; forks: number; cost: { usd: number }; clock: MockClock }
 
 function engine(on: On, percent: number): World {
   mock.store(on)
-  const world: World = { commands: [], appended: [], cost: { usd: 1.2345 }, clock: mock.clock(on, { now: 1_000_000 }) }
+  const world: World = { commands: [], appended: [], forks: 0, cost: { usd: 1.2345 }, clock: mock.clock(on, { now: 1_000_000 }) }
   mock.env(on, { HOME: '/Users/me' })
   on('command.register', ($, e) => ({ value: { command: e.name } }))
   on('session.start', ($, e) => ({ cwd: e.cwd }))
@@ -35,14 +35,37 @@ function engine(on: On, percent: number): World {
   on('session.messages', () => ({ value: [] }))
   on('agent.list', () => ({ value: [] }))
   on('fs.write', () => ({ value: undefined }))
+  on('ui.toast', () => ({ value: undefined }))
+  on('model.fork', () => {
+    world.forks += 1
+    return { value: { isAnswered: true, text: 'ok', usage: { input_tokens: 0, output_tokens: 1, cache_read_input_tokens: 5000, cache_creation_input_tokens: 0 } } as never }
+  })
   on('process.run', ($, e) => {
     if (e.argv[0] === 'sh') world.appended.push(e.init?.stdin ?? '')
     return { value: { exitCode: 0, stdout: 'fix/footer\n', stderr: '', isStdoutTruncated: false } as ProcessRunResult }
   })
-  on('session.usage', () => ({
+  on('session.usage', ($, e) => ({
     value: {
       startedAt: 0,
-      context: { tokens: percent * 2000, window: 200_000, percent },
+      context: {
+        tokens: percent * 2000,
+        window: 200_000,
+        percent,
+        ...(e?.breakdown
+          ? {
+              breakdown: {
+                categories: [
+                  { name: 'Messages', tokens: 60_000, color: 'claude', isDeferred: false, kind: 'used' },
+                  { name: 'System tools', tokens: 20_000, color: 'inactive', isDeferred: false, kind: 'used' },
+                  { name: 'Free space', tokens: 120_000, color: 'promptBorder', isDeferred: false, kind: 'free' },
+                ],
+                maxTokens: 200_000,
+                autoCompactThreshold: 166_000,
+                isAutoCompactEnabled: true,
+              },
+            }
+          : {}),
+      },
       rateLimits: [{ kind: 'five_hour', percentUsed: 12 }],
       cost: world.cost,
     } as SessionUsage,
@@ -115,14 +138,34 @@ test('pressing the model and effort labels cycles them for the session', async (
   await ui.unmount()
 })
 
-test('clicking a field pins its card under the band', async ($, on) => {
-  engine(on, 10)
+test('the context bar takes /context colours and marks the compaction point', async ($, on) => {
+  engine(on, 40)
   await start($)
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' } as never)
-  await ui.press({ key: 'cost-pin' })
-  expect(JSON.stringify(await ui.drawn())).toContain('5h 12%')
-  await ui.press({ key: 'cost-pin' })
+  const all = JSON.stringify(await ui.drawn())
+  expect(all).toContain('"claude"')
+  expect(all).toContain('┃')
+  expect(all).toContain('5h ')
+  expect(all).toContain('messages 30%')
   await ui.unmount()
+})
+
+test('the shelf titles itself with the summary and keys the context bar', async ($, on) => {
+  engine(on, 40)
+  await start($)
+  await $.command.run({ command: 'summary', args: 'Port the Pi footer' } as never)
+  const pane = await $.ui.mount({
+    plugin: 'shellfish',
+    surface: 'terminal',
+    component: 'Pane',
+    requestId: 'shellfish',
+    props: { title: 'shelf', isFocused: false, bodyColumns: 60, placement: 'dock', scroll: { offset: 0, bodyRows: 40, contentRows: 0 }, view: {} },
+  } as never)
+  const all = JSON.stringify(await pane.drawn())
+  for (const text of ['Port the Pi footer', 'messages', '30%', '60k', '■', 'compacts at 83%', 'Cache', 'sonnet 5.5 · —', 'compacts at', '83%', '80k/200k', 'Limits']) {
+    expect(all).toContain(text)
+  }
+  await pane.unmount()
 })
 
 test('a turn leaves a receipt on its closing line and a row in the log', async ($, on) => {
@@ -135,6 +178,27 @@ test('a turn leaves a receipt on its closing line and a row in the log', async (
   expect(row?.tokens.output).toBe(300)
   expect(row?.costUsd).toBe(0.25)
   expect(row?.session).toBe('session-1')
+  expect(row?.contextTokens?.Messages).toBe(60000)
+  expect(row?.cacheHit).toBe(90)
+  expect(row?.cold).toBe(null)
+
+  const pane = await $.ui.mount({
+    plugin: 'shellfish',
+    surface: 'terminal',
+    component: 'Pane',
+    requestId: 'shellfish',
+    props: { title: 'shelf', isFocused: false, bodyColumns: 60, placement: 'dock', scroll: { offset: 0, bodyRows: 40, contentRows: 0 }, view: {} },
+  } as never)
+  const shelf = JSON.stringify(await pane.drawn())
+  expect(shelf).toContain('90% reused')
+  expect(shelf).toContain('reused 90%')
+  expect(shelf).toContain('warm 60:00')
+  expect(shelf).toContain('Next turn reads')
+  expect(shelf).toContain('"rewrites "')
+  expect(shelf.indexOf('Limits')).toBeLessThan(shelf.indexOf('Cache '))
+  expect(shelf.indexOf('"messages"')).toBeLessThan(shelf.indexOf('"free"'))
+  expect(shelf).toContain('300 out · $0.250 · $1.484 session')
+  await pane.unmount()
 
   const line = await $.ui.mount({
     plugin: 'shellfish',
@@ -146,6 +210,40 @@ test('a turn leaves a receipt on its closing line and a row in the log', async (
   expect(text).toContain('300 out')
   expect(text).toContain('$0.250')
   await line.unmount()
+})
+
+test('/keepalive probes the cache before the entry lapses and renews the timer', async ($, on) => {
+  const world = engine(on, 30)
+  await start($)
+  await runTurn($, world)
+  await world.clock.settle()
+  const ran = await $.command.run({ command: 'keepalive', args: '180' } as never)
+  expect(JSON.stringify(ran)).toContain('180 min')
+
+  // Fifty-seven minutes in: still warm, no probe yet.
+  await world.clock.advance(57 * 60_000)
+  expect(world.forks).toBe(0)
+  // Past the two-minute lead: one probe, and the hour starts over.
+  await world.clock.advance(2 * 60_000)
+  expect(world.forks).toBe(1)
+
+  const pane = await $.ui.mount({
+    plugin: 'shellfish',
+    surface: 'terminal',
+    component: 'Pane',
+    requestId: 'shellfish',
+    props: { title: 'shelf', isFocused: false, bodyColumns: 60, placement: 'dock', scroll: { offset: 0, bodyRows: 40, contentRows: 0 }, view: {} },
+  } as never)
+  const shelf = JSON.stringify(await pane.drawn())
+  expect(shelf).toContain('keeping warm')
+  expect(shelf).toContain('1 renewal')
+  expect(shelf).toContain('next in 57:')
+  expect(shelf).toContain('Press to stop keeping warm')
+  await pane.unmount()
+
+  await $.command.run({ command: 'keepalive', args: 'off' } as never)
+  await world.clock.advance(120 * 60_000)
+  expect(world.forks).toBe(1)
 })
 
 test('helpers', () => {
@@ -164,4 +262,20 @@ test('helpers', () => {
   expect(sparkline([0, 5, 10])).toBe('▁▄█')
   expect(pad('abc', 5)).toBe('abc  ')
   expect(pad('abcdef', 4)).toBe('abc…')
+  expect(column(16, 16)).toEqual({ top: '█', bottom: '█' })
+  expect(column(4, 16)).toEqual({ top: ' ', bottom: '▄' })
+  expect(column(0, 16)).toEqual({ top: ' ', bottom: ' ' })
+  expect(gauge(100)).toBe('█')
+  expect(cacheRates('opus').read).toBe(0.05)
+  expect(effectiveInputRate({ input: 0, cacheRead: 100, cacheWrite: 0 }, cacheRates('sonnet'))).toBe(0.1)
+  expect(effectiveInputRate({ input: 0, cacheRead: 0, cacheWrite: 0 }, cacheRates(null))).toBe(null)
+  const prev = { model: 'claude-sonnet-5-5', effort: 'high' }
+  expect(coldCause({ cacheHit: 90, gapMs: 1000, ...prev }, prev)).toBe(null)
+  expect(coldCause({ cacheHit: 10, gapMs: 1000, ...prev }, undefined)).toBe(null)
+  expect(coldCause({ cacheHit: 10, gapMs: 61 * 60_000, ...prev }, prev)).toBe('idle')
+  expect(coldCause({ cacheHit: 10, gapMs: 1000, model: 'claude-opus-5-5', effort: 'high' }, prev)).toBe('model')
+  expect(coldCause({ cacheHit: 10, gapMs: 1000, model: prev.model, effort: 'low' }, prev)).toBe('effort')
+  expect(coldCause({ cacheHit: 10, gapMs: 1000, ...prev }, prev)).toBe('prefix')
+  const split = segments([{ name: 'a', tokens: 50, color: 'x' }, { name: 'b', tokens: 1, color: 'y' }], 100, 10)
+  expect(split.map(s => s.cells)).toEqual([5, 1])
 })
