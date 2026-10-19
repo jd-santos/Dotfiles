@@ -63,9 +63,10 @@ The `claude` stow package links `~/.claude/mods` (a local plugin marketplace) an
 
 ```bash
 cd ~/Dotfiles && stow claude
-claude plugin marketplace add ~/.claude/mods
-claude plugin install shellfish@dotfiles-mods
+merge-settings
 ```
+
+`merge-settings` merges `claude/.claude/settings.base.json` into `~/.claude/settings.json`: it registers the `dotfiles-mods` marketplace, enables `shellfish`, and turns off the commit and PR attribution lines. Base keys win; everything else in the file stays machine-local, because Claude Code writes that file itself.
 
 Claude Code reads the plugin straight from this folder. After editing it, run `/reload-plugins`.
 
