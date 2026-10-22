@@ -21,6 +21,7 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 
 ### Changed
 
+- Alias `cat` to `bat` only when `bat` is installed. On a machine without it, every `cat` failed with "command not found: bat", which broke scripts and agent sessions.
 - Slim `AGENTS.md` from 122 to about 40 lines, keeping only rules an agent would
   otherwise get wrong and merging the duplicated secrets guidance.
 - Point Pi feature guidance at the `pi` stow package and drop the stale repo-local
