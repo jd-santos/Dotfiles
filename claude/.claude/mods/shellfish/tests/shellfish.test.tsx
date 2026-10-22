@@ -304,6 +304,17 @@ test('the shelf button opens the shelf, then closes it', async ($, on) => {
   expect(JSON.stringify(await $.command.run({ command: 'shelf', args: '' } as never))).toContain('Shelf opened')
 })
 
+test('the context bar follows the live percent when the breakdown is stale', async ($, on) => {
+  // The breakdown says 40% used; the live percent says 5%, as right after a compaction.
+  engine(on, 5)
+  await start($)
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' } as never)
+  const all = JSON.stringify(await ui.drawn())
+  expect(all).toContain(' 5%')
+  expect(all).not.toContain('"color":"claude"},"children":["█')
+  await ui.unmount()
+})
+
 test('helpers', () => {
   expect(formatModel('claude-opus-5-5')).toBe('opus 5.5')
   expect(formatModel('claude-sonnet-5-5[1m]')).toBe('sonnet 5.5 1m')

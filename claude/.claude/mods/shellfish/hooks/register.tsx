@@ -55,6 +55,8 @@ const SHELF = 'shellfish'
 const SHELF_COLUMNS = 52
 // Live subagents get a row each under the band, up to this many; the rest are counted.
 const BAND_AGENT_ROWS = 3
+// A breakdown this many points off the live context percent is stale; the bar falls back to a plain meter.
+const STALE_SPLIT_POINTS = 15
 
 const AGENT_GLYPHS: Record<string, string> = { running: '●', pending: '○', waiting: '◐', idle: '◌', completed: '✓', failed: '✗', killed: '✗' }
 
@@ -357,6 +359,17 @@ export const register: Register = on => {
   on('ui.close', { id: SHELF }, async ($, e, next) => {
     const done = await next(e)
     await update($, tick, n => n + 1)
+
+    return done
+  })
+
+  // Compaction shrinks the conversation; the bar's categories must follow, not wait for the next turn.
+  on('session.compact', async ($, e, next) => {
+    const done = await next(e)
+    if (!('skip' in done)) {
+      await refreshBreakdown($)
+      await update($, tick, n => n + 1)
+    }
 
     return done
   })
@@ -1030,7 +1043,7 @@ type Cell = { char: string; color: string }
  */
 function contextCells(split: Breakdown | null, percent: number | undefined, width: number): Cell[] {
   const cells: Cell[] = []
-  if (split && split.maxTokens > 0) {
+  if (split && split.maxTokens > 0 && agrees(split, percent)) {
     for (const seg of segments(split.slices, split.maxTokens, width)) {
       for (let i = 0; i < seg.cells; i++) cells.push({ char: '█', color: seg.color })
     }
@@ -1042,6 +1055,16 @@ function contextCells(split: Breakdown | null, percent: number | undefined, widt
   const tick = split?.autoCompactAt && split.maxTokens > 0 ? Math.round((split.autoCompactAt / split.maxTokens) * width) : -1
   if (tick >= 0 && tick < width && cells[tick]?.char === '░') cells[tick] = { char: '┃', color: 'subtle' }
   return cells.slice(0, width)
+}
+
+/**
+ * Whether a breakdown still describes the live percent. After a compaction the percent drops at
+ * once while the categories wait for a refresh; until it lands, the plain meter tells the truth.
+ */
+function agrees(split: Breakdown, percent: number | undefined): boolean {
+  if (percent === undefined) return true
+  const used = split.slices.reduce((a, s) => a + s.tokens, 0)
+  return Math.abs((used / split.maxTokens) * 100 - percent) <= STALE_SPLIT_POINTS
 }
 
 /** A label whose last character sits under the bar's compaction tick, like a callout. */
