@@ -20,7 +20,7 @@ import {
   formatMode,
   formatModel,
   formatMoney,
-  gauge,
+  modeFromLabels,
   pad,
   paletteColor,
   percentColor,
@@ -51,6 +51,26 @@ const clockTick = atom({ plugin: 'shellfish', key: 'clockTick' } as const, 0)
 const keepAlive = atom({ plugin: 'shellfish', key: 'keepAlive' } as const, null as KeepAlive | null)
 
 const SHELF = 'shellfish'
+// The dock width the shelf asks for: a sidebar, not half the screen. The person's own drag wins.
+const SHELF_COLUMNS = 52
+// Live subagents get a row each under the band, up to this many; the rest are counted.
+const BAND_AGENT_ROWS = 3
+// A breakdown this many points off the live context percent is stale; the bar falls back to a plain meter.
+const STALE_SPLIT_POINTS = 15
+
+const AGENT_GLYPHS: Record<string, string> = { running: '●', pending: '○', waiting: '◐', idle: '◌', completed: '✓', failed: '✗', killed: '✗' }
+
+function agentGlyph(status: string): string {
+  return AGENT_GLYPHS[status] ?? '·'
+}
+
+function agentColor(status: string): string {
+  return isLiveAgent({ status }) ? 'claude' : status === 'failed' || status === 'killed' ? 'error' : 'inactive'
+}
+
+function isLiveAgent(row: { status: string }): boolean {
+  return row.status === 'running' || row.status === 'pending'
+}
 const SUMMARY_MODEL = 'haiku'
 const SUMMARY_EVERY = 5
 const WARN_PERCENT = 80
@@ -73,6 +93,22 @@ const warned = new Set<string>()
 const firstSeen = new Map<string, number>()
 const modelsSeen = new Set<string>()
 let isShelfOffered = false
+
+async function isShelfUp($: EngineInterface): Promise<boolean> {
+  return (await $.ui.panes()).some(pane => pane.id === SHELF && pane.isPlaced)
+}
+
+/** Opens the shelf, or closes it when it is already up: the band's button and /shelf are toggles. */
+async function toggleShelf($: EngineInterface): Promise<boolean> {
+  if (await isShelfUp($)) {
+    await $.ui.close({ id: SHELF })
+    await update($, tick, n => n + 1)
+    return false
+  }
+  await $.ui.open({ id: SHELF, title: 'shelf', columns: SHELF_COLUMNS })
+  await update($, tick, n => n + 1)
+  return true
+}
 
 async function refreshBranch($: EngineInterface) {
   const dir = await $.session.cwd()
@@ -119,11 +155,13 @@ async function pollAgents($: EngineInterface) {
     }
   })
   const before = await read($, agents)
-  if (JSON.stringify(before) !== JSON.stringify(rows)) await update($, agents, () => rows)
+  // While any agent runs, every poll redraws, so the elapsed times in the band and shelf tick.
+  const isLive = rows.some(row => row.status === 'running' || row.status === 'pending')
+  if (isLive || JSON.stringify(before) !== JSON.stringify(rows)) await update($, agents, () => rows)
   // The first subagent of a session offers the shelf once; a narrow terminal seats it later.
   if (!isShelfOffered && rows.some(row => row.status === 'running')) {
     isShelfOffered = true
-    void $.ui.open({ id: SHELF, title: 'shelf' })
+    void $.ui.open({ id: SHELF, title: 'shelf', columns: SHELF_COLUMNS })
   }
 }
 
@@ -315,10 +353,33 @@ export const register: Register = on => {
     }
   })
 
-  on('command.run', { command: 'shelf' }, async $ => {
-    await $.ui.open({ id: SHELF, title: 'shelf' })
+  on('command.run', { command: 'shelf' }, async $ => ({ text: (await toggleShelf($)) ? 'Shelf opened.' : 'Shelf closed.' }))
 
-    return { text: 'Shelf opened.' }
+  // A close by the person flips the band's shelf button back.
+  on('ui.close', { id: SHELF }, async ($, e, next) => {
+    const done = await next(e)
+    await update($, tick, n => n + 1)
+
+    return done
+  })
+
+  // Compaction shrinks the conversation; the bar's categories must follow, not wait for the next turn.
+  on('session.compact', async ($, e, next) => {
+    const done = await next(e)
+    if (!('skip' in done)) {
+      await refreshBreakdown($)
+      await update($, tick, n => n + 1)
+    }
+
+    return done
+  })
+
+  // Permission mode: Claude Code's own footer labels are live; the classic envelope is the fallback.
+  on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
+    const found = modeFromLabels(e.props.modes)
+    if (found !== null && found !== (await read($, mode))) await update($, mode, () => found)
+
+    return next(e)
   })
 
   // Permission mode rides on the classic hook envelope.
@@ -500,6 +561,7 @@ export const register: Register = on => {
     if (e.props.hasSurvey) return next(e)
     const { Box, Text, Button } = $.ui.resolve(e)
     await read($, tick)
+    const now = await $.clock.now()
     const usage = await $.session.usage()
     const width = Math.max(40, e.props.bodyColumns)
     const sums = await read($, totals)
@@ -507,37 +569,46 @@ export const register: Register = on => {
     const last = history.at(-1)
     const split = await read($, breakdown)
     const shelf = await read($, agents)
-    const running = shelf.filter(row => row.status === 'running' || row.status === 'pending').length
-    const openShelf = () => void $.ui.open({ id: SHELF, title: 'shelf' })
+    const live = shelf.filter(isLiveAgent)
+    const running = live.length
+    const shownAgents = live.slice(0, BAND_AGENT_ROWS)
+    const moreAgents = running - shownAgents.length
+    const openShelf = () => void $.ui.open({ id: SHELF, title: 'shelf', columns: SHELF_COLUMNS })
+    const shelfUp = await isShelfUp($)
+    const shelfMark = shelfUp ? '◂' : '▸'
 
-    // Row 1: where, on which branch, with what model, effort and permissions.
+    // Row 1: where, on which branch, what the session is about, then model, effort and permissions.
     const permission = formatMode(await read($, mode))
     const modelText = formatModel(await read($, model))
     const effortText = (await read($, effort)) ?? '—'
     const rightWidth = modelText.length + effortText.length + permission.text.length + 10
     const gitName = (await read($, branch)) ?? '…'
     const leftRoom = Math.max(8, width - rightWidth - 2)
-    const gitText = shortenMiddle(gitName, Math.max(6, Math.floor(leftRoom * 0.5)))
-    const where = fitCwd(splitCwd((await read($, cwd)) ?? '', (await read($, home)) ?? undefined), leftRoom - gitText.length - 2)
+    const gitText = shortenMiddle(gitName, Math.max(6, Math.floor(leftRoom * 0.4)))
+    const where = fitCwd(splitCwd((await read($, cwd)) ?? '', (await read($, home)) ?? undefined), Math.floor(leftRoom * 0.6) - gitText.length - 2)
     const gitColor = gitName === 'detached' ? 'warning' : gitName === 'no repo' ? 'inactive' : 'remember'
+    const said = await read($, summary)
+    const summaryRoom = leftRoom - where.prefix.length - where.leaf.length - gitText.length - 5
+    const summaryText = said && summaryRoom >= 12 ? pad(said.text, Math.min(said.text.length, summaryRoom)) : null
 
-    // Row 2: the context bar, rate-limit gauges and cost; narrow widths drop from the right.
+    // Row 2: context, rate limits, cost and cache as labelled figures; narrow widths drop from the right.
     const percent = usage.context.percent
-    const barWidth = width >= 100 ? 24 : width >= 70 ? 16 : 10
+    const barWidth = width >= 100 ? 20 : width >= 70 ? 14 : 10
     const limits = width >= 70 ? usage.rateLimits : []
     const costs = width >= 90 ? history.slice(-12).map(r => r.costUsd) : []
     await read($, clockTick)
-    const clock = width >= 100 ? cacheClock(await read($, warmUntil), await $.clock.now()) : null
+    const clock = width >= 100 ? cacheClock(await read($, warmUntil), now) : null
     const alive = await read($, keepAlive)
     const hit = cacheHit(sums)
     const compactAt = compactPercent(split)
     const contextKey = keyEntries(split, compactAt)
     const tips = {
       context: `context ${percent === undefined ? '?' : Math.round(percent)}% of ${formatCount(usage.context.window)}`,
-      limits: usage.rateLimits.map(limit => `${limitName(limit)} ${Math.round(limit.percentUsed)}%${resets(limit)}`).join(' · '),
+      limits: usage.rateLimits.map(limit => `${limitName(limit)} window ${Math.round(limit.percentUsed)}% used${resets(limit)}`).join(' · '),
       cost:
-        `est. API cost ${formatMoney(usage.cost?.usd)}` +
+        `est. API cost ${formatMoney(usage.cost?.usd)} this session` +
         (last ? ` · last turn ${formatMoney(last.costUsd)}` : '') +
+        (costs.length > 1 ? ` · chart: cost per turn, last ${costs.length} turns` : '') +
         ` · in ${formatCount(sums.input)} out ${formatCount(sums.output)} · ${hit === null ? '—' : `${hit}%`} reused from cache`,
     }
     const tip = (scope: keyof typeof tips) => (
@@ -545,6 +616,7 @@ export const register: Register = on => {
         <Text color="suggestion">{pad(tips[scope], width)}</Text>
       </Box>
     )
+    const divider = <Text dimColor>{'  │  '}</Text>
 
     return (
       <Box key="band" flexDirection="column" width={width}>
@@ -554,6 +626,8 @@ export const register: Register = on => {
             <Text color="suggestion" bold>{where.leaf}</Text>
             <Text>{'  '}</Text>
             <Text color={gitColor}>{gitText}</Text>
+            {summaryText ? <Text dimColor>{'  ·  '}</Text> : null}
+            {summaryText ? <Text italic>{summaryText}</Text> : null}
           </Text>
           <Box flexDirection="row">
             <Button key="model-previous" plain action={ACTION_MODEL_PREVIOUS} onPress={() => cycleModel($, -1)}>
@@ -577,6 +651,7 @@ export const register: Register = on => {
           <Box flexDirection="row">
             <Box key="context" hover={{ scope: 'context' }}>
               <Button key="context-open" plain onPress={openShelf}>
+                <Text dimColor>{'ctx '}</Text>
                 {runs(contextCells(split, percent, barWidth)).map(run => (
                   <Text color={run.color}>{run.text}</Text>
                 ))}
@@ -588,33 +663,56 @@ export const register: Register = on => {
               </Button>
             </Box>
             {limits.length ? (
-              <Box key="limits" hover={{ scope: 'limits' }} marginLeft={3}>
+              <Box key="limits" hover={{ scope: 'limits' }}>
+                {divider}
                 <Button key="limits-open" plain onPress={openShelf}>
                   {limits.map((limit, i) => (
                     <Text>
                       <Text dimColor>{`${i ? '  ' : ''}${limitName(limit)} `}</Text>
-                      <Text color={percentColor(limit.percentUsed)}>{gauge(limit.percentUsed)}</Text>
+                      <Text color={percentColor(limit.percentUsed)}>{`${Math.round(limit.percentUsed)}%`}</Text>
                     </Text>
                   ))}
                 </Button>
               </Box>
             ) : null}
-            <Box key="cost" hover={{ scope: 'cost' }} marginLeft={3}>
+            <Box key="cost" hover={{ scope: 'cost' }}>
+              {divider}
               <Button key="cost-open" plain onPress={openShelf}>
+                <Text dimColor>{'cost '}</Text>
                 {costs.length > 1 ? <Text color="claude">{`${sparkline(costs)} `}</Text> : null}
                 {formatMoney(usage.cost?.usd)}
-                {clock ? <Text color={clock.isWarm ? undefined : 'warning'} dimColor={clock.isWarm}>{`  cache ${clock.text}${alive ? ' ↻' : ''}`}</Text> : null}
               </Button>
             </Box>
+            {clock ? (
+              <Box key="cache" hover={{ scope: 'cost' }}>
+                {divider}
+                <Button key="cache-open" plain onPress={openShelf}>
+                  <Text dimColor>{'cache '}</Text>
+                  <Text color={clock.isWarm ? undefined : 'warning'}>{`${clock.text}${alive ? ' ↻' : ''}`}</Text>
+                </Button>
+              </Box>
+            ) : null}
           </Box>
-          <Button key="shelf" plain onPress={openShelf}>
+          <Button key="shelf" plain onPress={() => toggleShelf($).then(() => undefined)}>
             {running > 0 ? (
-              <Text color="claude">{`● ${running} agent${running === 1 ? '' : 's'} ▸`}</Text>
+              <Text color="claude">{`● ${running} agent${running === 1 ? '' : 's'} ${shelfMark}`}</Text>
             ) : (
-              <Text dimColor>shelf ▸</Text>
+              <Text dimColor>{`shelf ${shelfMark}`}</Text>
             )}
           </Button>
         </Box>
+        {shownAgents.map(row => (
+          <Button key={`band-agent-${row.id}`} plain onPress={() => $.ui.view({ agentId: row.id })}>
+            <Text color="claude">{`  ${agentGlyph(row.status)} `}</Text>
+            <Text>{shortenMiddle(row.type, 16)}</Text>
+            <Text dimColor>{`  ${shortenMiddle(row.description, Math.max(8, width - 34))}  ${formatDuration(now - row.firstSeen)}`}</Text>
+          </Button>
+        ))}
+        {moreAgents > 0 ? (
+          <Button key="band-agents-more" plain onPress={openShelf}>
+            <Text dimColor>{`    +${moreAgents} more in the shelf ▸`}</Text>
+          </Button>
+        ) : null}
         {contextKey.length ? (
           <Box key="tip-context" position="absolute" top={1} left={0} width={width} display="none" hover={{ scope: 'context', display: 'flex' }}>
             <Text wrap="truncate-end">
@@ -653,9 +751,7 @@ export const register: Register = on => {
     const columns = Math.max(24, e.props.bodyColumns)
     const percent = usage.context.percent
     const compactAt = compactPercent(split)
-    const glyph: Record<string, string> = { running: '●', pending: '○', waiting: '◐', idle: '◌', completed: '✓', failed: '✗', killed: '✗' }
-    const statusColor = (status: string) =>
-      status === 'running' || status === 'pending' ? 'claude' : status === 'failed' || status === 'killed' ? 'error' : 'inactive'
+    const running = shelf.filter(isLiveAgent).length
 
     // The readout under the title: the last turn, or the turn whose chart column is hovered.
     const sessionCost = `${formatMoney(usage.cost?.usd)} session`
@@ -743,24 +839,35 @@ export const register: Register = on => {
           ))}
         </Box>
 
-        {shelf.length ? (
-          <Box flexDirection="column" marginTop={1}>
-            <Text bold>Agents</Text>
-            {viewing ? (
-              <Button key="main" plain onPress={() => $.ui.view({})}>
-                <Text color="suggestion">← main conversation</Text>
-              </Button>
-            ) : null}
-            {[...shelf].reverse().slice(0, 10).map(row => (
+        <Box flexDirection="column" marginTop={1}>
+          <Text>
+            <Text bold color={running ? 'claude' : undefined}>{'Agents '}</Text>
+            {running ? (
+              <Text color="claude">{`● ${running} running`}</Text>
+            ) : shelf.length ? (
+              <Text dimColor>{`${shelf.length} finished`}</Text>
+            ) : (
+              <Text dimColor>none yet</Text>
+            )}
+          </Text>
+          {viewing ? (
+            <Button key="main" plain onPress={() => $.ui.view({})}>
+              <Text color="suggestion">← main conversation</Text>
+            </Button>
+          ) : null}
+          {shelf.length ? (
+            [...shelf].reverse().slice(0, 10).map(row => (
               <Button key={`agent-${row.id}`} plain onPress={() => $.ui.view({ agentId: row.id })}>
-                <Text color={statusColor(row.status)}>{`${glyph[row.status] ?? '·'} `}</Text>
+                <Text color={agentColor(row.status)}>{`${agentGlyph(row.status)} `}</Text>
                 <Text bold={row.id === viewing}>{shortenMiddle(row.type, 14).padEnd(14)}</Text>
                 <Text dimColor>{` ${shortenMiddle(row.description, Math.max(8, columns - 24))} `}</Text>
                 <Text dimColor>{formatDuration(now - row.firstSeen)}</Text>
               </Button>
-            ))}
-          </Box>
-        ) : null}
+            ))
+          ) : (
+            <Text dimColor>Subagents list here as they spawn; press one to read its transcript.</Text>
+          )}
+        </Box>
 
         <Box flexDirection="column" marginTop={1}>
           <Text>
@@ -936,7 +1043,7 @@ type Cell = { char: string; color: string }
  */
 function contextCells(split: Breakdown | null, percent: number | undefined, width: number): Cell[] {
   const cells: Cell[] = []
-  if (split && split.maxTokens > 0) {
+  if (split && split.maxTokens > 0 && agrees(split, percent)) {
     for (const seg of segments(split.slices, split.maxTokens, width)) {
       for (let i = 0; i < seg.cells; i++) cells.push({ char: '█', color: seg.color })
     }
@@ -948,6 +1055,16 @@ function contextCells(split: Breakdown | null, percent: number | undefined, widt
   const tick = split?.autoCompactAt && split.maxTokens > 0 ? Math.round((split.autoCompactAt / split.maxTokens) * width) : -1
   if (tick >= 0 && tick < width && cells[tick]?.char === '░') cells[tick] = { char: '┃', color: 'subtle' }
   return cells.slice(0, width)
+}
+
+/**
+ * Whether a breakdown still describes the live percent. After a compaction the percent drops at
+ * once while the categories wait for a refresh; until it lands, the plain meter tells the truth.
+ */
+function agrees(split: Breakdown, percent: number | undefined): boolean {
+  if (percent === undefined) return true
+  const used = split.slices.reduce((a, s) => a + s.tokens, 0)
+  return Math.abs((used / split.maxTokens) * 100 - percent) <= STALE_SPLIT_POINTS
 }
 
 /** A label whose last character sits under the bar's compaction tick, like a callout. */

@@ -3,24 +3,25 @@
 A Claude Code mod that puts session telemetry and per-session switches where Claude Code already draws: the band above the prompt, the spinner, each turn's closing line, and a docked pane (the "shelf").
 
 ```text
-Dotfiles  fix/footer                                   ‹ sonnet 5.5 › · high · auto
-████████████▓▓▓░░░░┃░░░░ 41%   5h ▆  7d ▂   ▁▂▂▅▃▇▂ $1.234          ● 2 agents ▸
+Dotfiles  fix/footer  ·  Redesign the shellfish band           ‹ sonnet 5.5 › · high · auto
+ctx ████████▓▓░░░░┃░░░░ 41%  │  5h 12%  7d 34%  │  cost ▁▂▂▅▃▇▂ $1.234  │  cache warm 58:12    ● 2 agents ▸
 ```
 
 ## Where things show
 
 | Place | Shows |
 | --- | --- |
-| Band, row 1 | Directory, Git branch, model, effort, permission mode |
-| Band, row 2 | The context bar, with each category in its own colour and a `┃` where auto-compact fires; rate-limit gauges whose height is the percent used; a per-turn cost sparkline, the session's estimated API cost and the cache timer (at 100 columns and wider); running subagents or `shelf ▸` |
-| Hover | A one-line readout over row 2. Context bar: each category's share of the window in its bar colour, free space, and the compaction point. Gauges: each window and when it resets. Cost: session and last-turn cost, tokens in and out, cache hit. |
-| Click | Any row 2 field opens the shelf |
-| Shelf pane | The session summary as its title, with the last turn's model, effort, time, output and cost under it (hover a chart column to swap in that turn). Then subagents (press one to view its transcript), the context bar with the compaction point and a key sorted by size (share and tokens per category, free space last), cost and context charts with one column per turn, rate-limit bars, and the cache section. It opens by itself when the first subagent runs. |
+| Band, row 1 | Directory, Git branch, the session summary (auto or `/summary`), model, effort, permission mode |
+| Band, row 2 | `ctx`: the context bar, each category in its own colour, a `┃` where auto-compact fires, and the percent used. `5h` and `7d`: percent of each rate-limit window used, coloured at 50% and 80%. `cost`: cost per turn for the last 12 turns as a sparkline, then the session's estimated API cost. `cache`: the prompt-cache timer (at 100 columns and wider). At the right, running subagents or `shelf ▸` |
+| Band, agent rows | One row per running subagent under row 2 (up to 3, then `+n more`): status glyph, agent type, task and elapsed time. Press a row to view that agent's transcript; it leaves when the agent finishes. |
+| Hover | A one-line readout over row 2. Context bar: each category's share of the window in its bar colour, free space, and the compaction point. Limits: each window and when it resets. Cost and cache: session and last-turn cost, what the sparkline covers, tokens in and out, cache hit. |
+| Click | Any row 2 field opens the shelf; `shelf ▸` at the right toggles it (`◂` while it is open) |
+| Shelf pane | The session summary as its title, with the last turn's model, effort, time, output and cost under it (hover a chart column to swap in that turn). Then the Agents section, always present, with a running count in its header (press an agent to view its transcript), the context bar with the compaction point and a key sorted by size (share and tokens per category, free space last), cost and context charts with one column per turn, rate-limit bars, and the cache section. It opens by itself when the first subagent runs. |
 | Spinner | Live tokens per second while a response streams |
 | Turn closing line | `Baked for 42s · 3.1k out · 61 t/s · $0.210 · ctx 31%` |
 | Toasts | Once each, when context or a rate-limit window reaches 80% |
 
-On narrow terminals the band drops the sparkline below 90 columns and the gauges below 70, and the context bar shortens. The shelf docks beside the transcript in fullscreen at 110 columns and wider; elsewhere it opens above the prompt.
+On narrow terminals the band drops the cache timer below 100 columns, the sparkline below 90 and the limits below 70, and the context bar shortens; the summary goes first when row 1 runs out of room. The shelf docks beside the transcript in fullscreen at 110 columns and wider, asking for a 52-column sidebar (drag it to resize; your width is kept); elsewhere, tmux included, Claude Code opens it above the prompt. Which side the dock sits on is Claude Code's choice, not the mod's.
 
 Hovering and clicking need a terminal that reports the mouse. Claude Code's fullscreen mode does.
 
@@ -42,7 +43,7 @@ On macOS the terminal must send Option as Alt. In Ghostty, set `macos-option-as-
 
 | Command | Use |
 | --- | --- |
-| `/shelf` | Open the shelf |
+| `/shelf` | Open the shelf, or close it when it is open |
 | `/summary [text\|clear]` | Show, set, or clear the session summary |
 | `/keepalive [minutes\|off]` | Keep the prompt cache warm through a break longer than an hour (default 180 minutes, max 720) |
 
@@ -101,4 +102,4 @@ claude plugin validate ~/.claude/mods/shellfish
 claude plugin test ~/.claude/mods/shellfish
 ```
 
-The permission-mode label comes from classic hook events, so it updates at the next prompt or tool call. Claude Code's own mode indicator is live.
+The permission-mode label reads Claude Code's own footer mode indicator, so it is live; classic hook events are the fallback. `?` means neither has reported yet.
