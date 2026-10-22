@@ -92,6 +92,22 @@ const firstSeen = new Map<string, number>()
 const modelsSeen = new Set<string>()
 let isShelfOffered = false
 
+async function isShelfUp($: EngineInterface): Promise<boolean> {
+  return (await $.ui.panes()).some(pane => pane.id === SHELF && pane.isPlaced)
+}
+
+/** Opens the shelf, or closes it when it is already up: the band's button and /shelf are toggles. */
+async function toggleShelf($: EngineInterface): Promise<boolean> {
+  if (await isShelfUp($)) {
+    await $.ui.close({ id: SHELF })
+    await update($, tick, n => n + 1)
+    return false
+  }
+  await $.ui.open({ id: SHELF, title: 'shelf', columns: SHELF_COLUMNS })
+  await update($, tick, n => n + 1)
+  return true
+}
+
 async function refreshBranch($: EngineInterface) {
   const dir = await $.session.cwd()
   await update($, cwd, () => dir)
@@ -335,10 +351,14 @@ export const register: Register = on => {
     }
   })
 
-  on('command.run', { command: 'shelf' }, async $ => {
-    await $.ui.open({ id: SHELF, title: 'shelf', columns: SHELF_COLUMNS })
+  on('command.run', { command: 'shelf' }, async $ => ({ text: (await toggleShelf($)) ? 'Shelf opened.' : 'Shelf closed.' }))
 
-    return { text: 'Shelf opened.' }
+  // A close by the person flips the band's shelf button back.
+  on('ui.close', { id: SHELF }, async ($, e, next) => {
+    const done = await next(e)
+    await update($, tick, n => n + 1)
+
+    return done
   })
 
   // Permission mode: Claude Code's own footer labels are live; the classic envelope is the fallback.
@@ -541,6 +561,8 @@ export const register: Register = on => {
     const shownAgents = live.slice(0, BAND_AGENT_ROWS)
     const moreAgents = running - shownAgents.length
     const openShelf = () => void $.ui.open({ id: SHELF, title: 'shelf', columns: SHELF_COLUMNS })
+    const shelfUp = await isShelfUp($)
+    const shelfMark = shelfUp ? '◂' : '▸'
 
     // Row 1: where, on which branch, what the session is about, then model, effort and permissions.
     const permission = formatMode(await read($, mode))
@@ -658,11 +680,11 @@ export const register: Register = on => {
               </Box>
             ) : null}
           </Box>
-          <Button key="shelf" plain onPress={openShelf}>
+          <Button key="shelf" plain onPress={() => toggleShelf($).then(() => undefined)}>
             {running > 0 ? (
-              <Text color="claude">{`● ${running} agent${running === 1 ? '' : 's'} ▸`}</Text>
+              <Text color="claude">{`● ${running} agent${running === 1 ? '' : 's'} ${shelfMark}`}</Text>
             ) : (
-              <Text dimColor>shelf ▸</Text>
+              <Text dimColor>{`shelf ${shelfMark}`}</Text>
             )}
           </Button>
         </Box>

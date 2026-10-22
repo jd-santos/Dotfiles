@@ -21,7 +21,7 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 
 ### Changed
 
-- Redesign the `shellfish` band: row 1 carries the session summary after the branch; row 2 labels each group (`ctx`, `cost`, `cache`), shows the 5-hour and 7-day rate limits as percentages instead of one-cell gauges, and separates groups with dim dividers. The shelf asks for a 52-column dock instead of half the screen. Running subagents get a row each under the band until they finish, and the shelf's Agents section is always present with a running count in its header. The permission-mode label now reads Claude Code's own footer mode indicator instead of a classic hook field that never arrived, so it no longer sits at `?`.
+- Redesign the `shellfish` band: row 1 carries the session summary after the branch; row 2 labels each group (`ctx`, `cost`, `cache`), shows the 5-hour and 7-day rate limits as percentages instead of one-cell gauges, and separates groups with dim dividers. The shelf asks for a 52-column dock instead of half the screen. Running subagents get a row each under the band until they finish, and the shelf's Agents section is always present with a running count in its header. The permission-mode label now reads Claude Code's own footer mode indicator instead of a classic hook field that never arrived, so it no longer sits at `?`. The band's `shelf` button and `/shelf` toggle the shelf instead of only opening it.
 - Slim `AGENTS.md` from 122 to about 40 lines, keeping only rules an agent would
   otherwise get wrong and merging the duplicated secrets guidance.
 - Point Pi feature guidance at the `pi` stow package and drop the stale repo-local

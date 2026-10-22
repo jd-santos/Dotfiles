@@ -17,11 +17,11 @@ const BAND = {
   },
 } as const
 
-type World = { commands: string[]; appended: string[]; forks: number; cost: { usd: number }; clock: MockClock; agents: object[] }
+type World = { commands: string[]; appended: string[]; forks: number; cost: { usd: number }; clock: MockClock; agents: object[]; panes: object[]; opens: number; closes: number }
 
 function engine(on: On, percent: number): World {
   mock.store(on)
-  const world: World = { commands: [], appended: [], forks: 0, cost: { usd: 1.2345 }, clock: mock.clock(on, { now: 1_000_000 }), agents: [] }
+  const world: World = { commands: [], appended: [], forks: 0, cost: { usd: 1.2345 }, clock: mock.clock(on, { now: 1_000_000 }), agents: [], panes: [], opens: 0, closes: 0 }
   mock.env(on, { HOME: '/Users/me' })
   on('command.register', ($, e) => ({ value: { command: e.name } }))
   on('session.start', ($, e) => ({ cwd: e.cwd }))
@@ -36,7 +36,17 @@ function engine(on: On, percent: number): World {
   on('agent.list', () => ({ value: world.agents as never }))
   on('fs.write', () => ({ value: undefined }))
   on('ui.toast', () => ({ value: undefined }))
-  on('ui.open', () => ({ value: { isPlaced: true } as never }))
+  on('ui.open', ($, e) => {
+    world.opens += 1
+    world.panes = [{ id: e.id, title: e.title ?? e.id, isShown: true, isFocused: false, isPlaced: true }]
+    return { value: { isPlaced: true } as never }
+  })
+  on('ui.close', () => {
+    world.closes += 1
+    world.panes = []
+    return { value: undefined }
+  })
+  on('ui.panes', () => ({ value: world.panes as never }))
   on('model.fork', () => {
     world.forks += 1
     return { value: { isAnswered: true, text: 'ok', usage: { input_tokens: 0, output_tokens: 1, cache_read_input_tokens: 5000, cache_creation_input_tokens: 0 } } as never }
@@ -263,7 +273,8 @@ test('a running subagent gets a row in the band and heads the shelf', async ($, 
   const drawn = JSON.stringify(await band.drawn())
   expect(drawn).toContain('Explore')
   expect(drawn).toContain('Find the footer code')
-  expect(drawn).toContain('1 agent ▸')
+  // The first subagent opens the shelf by itself, so the button already points back at it.
+  expect(drawn).toContain('1 agent ◂')
   await band.unmount()
   const pane = await $.ui.mount({
     plugin: 'shellfish',
@@ -276,6 +287,21 @@ test('a running subagent gets a row in the band and heads the shelf', async ($, 
   expect(shelf).toContain('1 running')
   expect(shelf.indexOf('Agents ')).toBeLessThan(shelf.indexOf('Context '))
   await pane.unmount()
+})
+
+test('the shelf button opens the shelf, then closes it', async ($, on) => {
+  const world = engine(on, 10)
+  await start($)
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' } as never)
+  expect(JSON.stringify(await ui.drawn())).toContain('shelf ▸')
+  await ui.press({ key: 'shelf' })
+  expect(world.opens).toBe(1)
+  expect(JSON.stringify(await ui.drawn())).toContain('shelf ◂')
+  await ui.press({ key: 'shelf' })
+  expect(world.closes).toBe(1)
+  expect(JSON.stringify(await ui.drawn())).toContain('shelf ▸')
+  await ui.unmount()
+  expect(JSON.stringify(await $.command.run({ command: 'shelf', args: '' } as never))).toContain('Shelf opened')
 })
 
 test('helpers', () => {

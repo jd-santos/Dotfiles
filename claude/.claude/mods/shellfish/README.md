@@ -15,7 +15,7 @@ ctx ████████▓▓░░░░┃░░░░ 41%  │  5h 12%  
 | Band, row 2 | `ctx`: the context bar, each category in its own colour, a `┃` where auto-compact fires, and the percent used. `5h` and `7d`: percent of each rate-limit window used, coloured at 50% and 80%. `cost`: cost per turn for the last 12 turns as a sparkline, then the session's estimated API cost. `cache`: the prompt-cache timer (at 100 columns and wider). At the right, running subagents or `shelf ▸` |
 | Band, agent rows | One row per running subagent under row 2 (up to 3, then `+n more`): status glyph, agent type, task and elapsed time. Press a row to view that agent's transcript; it leaves when the agent finishes. |
 | Hover | A one-line readout over row 2. Context bar: each category's share of the window in its bar colour, free space, and the compaction point. Limits: each window and when it resets. Cost and cache: session and last-turn cost, what the sparkline covers, tokens in and out, cache hit. |
-| Click | Any row 2 field opens the shelf |
+| Click | Any row 2 field opens the shelf; `shelf ▸` at the right toggles it (`◂` while it is open) |
 | Shelf pane | The session summary as its title, with the last turn's model, effort, time, output and cost under it (hover a chart column to swap in that turn). Then the Agents section, always present, with a running count in its header (press an agent to view its transcript), the context bar with the compaction point and a key sorted by size (share and tokens per category, free space last), cost and context charts with one column per turn, rate-limit bars, and the cache section. It opens by itself when the first subagent runs. |
 | Spinner | Live tokens per second while a response streams |
 | Turn closing line | `Baked for 42s · 3.1k out · 61 t/s · $0.210 · ctx 31%` |
@@ -43,7 +43,7 @@ On macOS the terminal must send Option as Alt. In Ghostty, set `macos-option-as-
 
 | Command | Use |
 | --- | --- |
-| `/shelf` | Open the shelf |
+| `/shelf` | Open the shelf, or close it when it is open |
 | `/summary [text\|clear]` | Show, set, or clear the session summary |
 | `/keepalive [minutes\|off]` | Keep the prompt cache warm through a break longer than an hour (default 180 minutes, max 720) |
 
