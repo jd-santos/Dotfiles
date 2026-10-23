@@ -8,7 +8,7 @@ The files are managed with GNU Stow. Shared defaults live here; account details 
 
 | Change | Why I use it |
 | --- | --- |
-| **A more useful prompt** | Directory, branch, permission mode, model, and thinking level stay next to the input. The footer shows context, cost, generation speed, and a short session summary. |
+| **A more useful prompt** | Directory, branch, permission mode, model, and thinking level stay next to the input. The footer shows context (with the auto-compact point marked), cost, and a short session summary. Each prompt gets a timestamped rule, each finished run a one-line receipt, and the spinner shows live generation speed. |
 | **Permission controls** | Routine inspection and edits inside the working directory don't interrupt me. Other operations get a confirmation prompt, with one-time or session-scoped approval. `/readonly` blocks changes. |
 | **Formatting after edits** | Prettier, Ruff, gofmt, or gdformat runs after Pi writes a supported file. |
 | **Code navigation and diagnostics** | Pi Lens adds symbol search, module outlines, AST search, and LSP checks so the agent can inspect code without reading whole files. |
@@ -18,14 +18,16 @@ The files are managed with GNU Stow. Shared defaults live here; account details 
 
 ## The prompt
 
-![Recreation of the Pi prompt: directory, Git branch, and permission mode above the input; model and thinking below it; context, cost, speed, and session summary in the footer.](docs/assets/prompt.svg)
+![Recreation of the Pi prompt: directory, Git branch, and permission mode above the input; model and thinking below it; context, cost, and session summary in the footer.](docs/assets/prompt.svg)
 
 *Recreation in Catppuccin Mocha, not a live screenshot. Paths, task text, and usage values are examples.*
 
 The top border answers **where am I working, on which branch, and with what permissions?** The bottom border answers **which model is running, and how much thinking is enabled?** The footer keeps session telemetry separate from both.
 
 - `/shell details` adds input and cache totals, rule counts, and completed usage scans. `/shell compact` hides that extra detail. The choice survives reload and resume.
-- Context turns yellow at 50% and red at 80%. An unavailable reading is labeled, not treated as zero.
+- Context turns yellow at 50% and red at 80%, and a `┃` marks the 80% point where automatic compaction runs. An unavailable reading is labeled, not treated as zero.
+- Both prompt borders take the accent colour while a run is in progress.
+- A rule labelled with the send time (`── 14:32 ────`) sits above each prompt, and each finished run ends with a dim receipt: `✓ 42s · 3.1k out · 61 t/s · $0.210 · ctx 31%`. Both are session entries the model never sees.
 - Model and thinking colors indicate rough expense tiers, not live prices.
 - Long paths shorten before the current directory; narrow telemetry wraps. Diagnostic and subagent widgets sit below the input without separating it from its borders.
 
@@ -65,7 +67,7 @@ These live in [`.pi/agent/extensions/`](.pi/agent/extensions/). The UI extension
 | `format-on-save.ts` | Format successful writes and edits; formatter failures don't stop the session |
 | `context-planner.ts` + `auto-compact.ts` | Prompt-time capacity guidance and model-aware, end-of-turn compaction |
 | `conversation-summary.ts` | Short footer summary, session name, and Herdr title; `/summary` can override it |
-| `tps-tracker.ts` | Live generation speed and an end-of-turn speed notification |
+| `tps-tracker.ts` | Live generation speed in the working spinner and an end-of-run receipt in the transcript |
 | `cost-tracker.ts` + `usage.ts` | `/costs` for this session; `/usage` for deduplicated Pi, child-agent, and Codex CLI usage plus Codex subscription allowance |
 | `lg.ts` | Scripted Git change summaries, without asking the model to count lines |
 | `herdr-jd.ts` | Display-only Pi metadata for Herdr's sidebar. The separate `herdr-agent-state.ts` integration is generated locally by `scripts/setup-herdr`. |

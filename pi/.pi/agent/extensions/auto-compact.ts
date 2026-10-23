@@ -4,8 +4,8 @@ import type {
 	ExtensionAPI,
 	ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
+import { COMPACT_AT_PERCENT } from "./lib/compaction.ts";
 
-const COMPACT_AT_PERCENT = 80;
 const RETRY_AFTER_ADDITIONAL_TOKENS = 5_000;
 
 export default function (pi: ExtensionAPI) {

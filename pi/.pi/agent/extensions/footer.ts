@@ -34,13 +34,6 @@ function getUsageTotals(ctx: any) {
 	return totals;
 }
 
-function speed(theme: ThemeLike, status?: string): string {
-	const text = plain(status);
-	const rate = text.match(/(~?[\d,.]+)\s*(?:tok|tokens|t)\/s/i)?.[1];
-	const active = text && !/^done:/i.test(text);
-	return field(theme, "t/s", (rate ?? (active ? "…" : "—")).padStart(5), active ? "text" : "dim");
-}
-
 function statusPriority(theme: ThemeLike, text: string): number {
 	const hasColor = (color: string) => {
 		const prefix = theme.fg(color, "probe").split("probe")[0];
@@ -52,7 +45,7 @@ function statusPriority(theme: ThemeLike, text: string): number {
 }
 
 export function pluginStatuses(statuses: ReadonlyMap<string, string>, theme: ThemeLike, details: boolean): string[] {
-	const known = new Set(["model-source", "tps", "permission-gate", "conv-summary", "pi-lens-lsp"]);
+	const known = new Set(["model-source", "permission-gate", "conv-summary", "pi-lens-lsp"]);
 	const result: Array<{ text: string; priority: number }> = [];
 	for (const [id, raw] of statuses) {
 		if (known.has(id) || !plain(raw)) continue;
@@ -143,7 +136,6 @@ export default function (pi: ExtensionAPI) {
 					lines.push(...packRows([
 						!fitsCost ? cost : undefined,
 						field(theme, "out", formatCount(totals.output).padStart(5)),
-						speed(theme, statuses.get("tps")),
 						...pluginStatuses(statuses, theme, details),
 					], width));
 					if (details) {

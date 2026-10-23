@@ -33,6 +33,7 @@ import {
 declare const process: { cwd(): string };
 
 const READ_PREVIEW_LINES = 5;
+const PROMPT_DIVIDER_ENTRY = "prompt-divider";
 
 type ThemeLike = {
 	bg(color: string, text: string): string;
@@ -327,6 +328,37 @@ class ReadPreviewComponent implements Component {
 	}
 }
 
+export function promptTimeLabel(at: number, now = Date.now()): string {
+	const date = new Date(at);
+	const time = date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+	if (date.toDateString() === new Date(now).toDateString()) return time;
+	return `${date.toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${time}`;
+}
+
+// A rule above each prompt, labelled with the time it was sent.
+class PromptDividerComponent implements Component {
+	constructor(
+		private theme: ThemeLike,
+		private label: string,
+	) {}
+
+	render(width: number): string[] {
+		if (width <= 0) return [];
+		const label = ` ${this.label} `;
+		const fill = Math.max(0, width - 2 - visibleWidth(label));
+		return [
+			truncateToWidth(
+				this.theme.fg("border", "──") + this.theme.fg("dim", label) +
+					this.theme.fg("border", "─".repeat(fill)),
+				width,
+				"",
+			),
+		];
+	}
+
+	invalidate(): void {}
+}
+
 function getShortcutHint(command: string): string | undefined {
 	const keybindingIds = COMMAND_KEYBINDINGS[command];
 	if (!keybindingIds) return undefined;
@@ -349,6 +381,8 @@ export default function (pi: ExtensionAPI) {
 	let activeTui: { requestRender(): void } | undefined;
 	let activeModelLabel = "";
 	let activeModelSource: ModelSource = "default";
+	// The prompt borders take the accent colour while a run is in progress.
+	let running = false;
 	let shellData: ShellData | undefined;
 	let unsubscribeShell: (() => void) | undefined;
 
@@ -407,6 +441,7 @@ export default function (pi: ExtensionAPI) {
 				width,
 				overflow,
 				this.getText().startsWith("!"),
+				running,
 			);
 		}
 
@@ -430,9 +465,23 @@ export default function (pi: ExtensionAPI) {
 				width,
 				overflow,
 				this.getText().startsWith("!"),
+				running,
 			);
 		}
 	}
+
+	pi.registerEntryRenderer<{ at: number }>(PROMPT_DIVIDER_ENTRY, (entry, _options, theme) =>
+		typeof entry.data?.at === "number"
+			? new PromptDividerComponent(theme, promptTimeLabel(entry.data.at))
+			: undefined,
+	);
+
+	// before_agent_start runs before Pi adds the prompt, so the rule lands above it.
+	pi.on("before_agent_start", (event, ctx) => {
+		if (ctx.hasUI && event.messageType === "user") {
+			pi.appendEntry(PROMPT_DIVIDER_ENTRY, { at: Date.now() });
+		}
+	});
 
 	pi.registerTool({
 		...readTool,
@@ -528,7 +577,19 @@ export default function (pi: ExtensionAPI) {
 
 	pi.on("thinking_level_select", () => activeTui?.requestRender());
 
+	pi.on("agent_start", () => {
+		running = true;
+		activeTui?.requestRender();
+	});
+
+	// agent_settled, not agent_end: retries and queued work keep the run going.
+	pi.on("agent_settled", () => {
+		running = false;
+		activeTui?.requestRender();
+	});
+
 	pi.on("session_shutdown", () => {
+		running = false;
 		unsubscribeShell?.();
 		unsubscribeShell = undefined;
 		shellData = undefined;
