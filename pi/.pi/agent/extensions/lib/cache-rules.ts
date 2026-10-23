@@ -13,8 +13,11 @@
  *   3. the static table below, for facts Pi encodes in code, not metadata.
  *   4. unknown.
  *
- * Only facts confirmed from Pi's source or metadata belong in the static
- * table. Everything else stays undefined, which renders as "unknown". See
+ * The static table holds facts confirmed from Pi's source, metadata, or a
+ * provider's own documentation. A row marked `provisional` applies a
+ * documented figure to a route the documentation does not cover, such as
+ * the Codex subscription; the UI marks its countdown as an estimate.
+ * Everything else stays undefined, which renders as "unknown". See
  * todo/work/pi-cache-rules/README.md for the research plan.
  */
 
@@ -44,11 +47,16 @@ export interface CacheRule {
 	source: string;
 	/** Date the row was checked, YYYY-MM-DD. */
 	verifiedAt?: string;
+	/** The lifetime is a documented figure applied to an undocumented route. */
+	provisional?: boolean;
 	notes?: string;
 }
 
 const PI_AI = "pi-runtime: @earendil-works/pi-ai 1.3.0";
 const VERIFIED = "2026-10-23";
+const OPENAI_CACHING = "https://developers.openai.com/api/docs/guides/prompt-caching";
+// GPT-5.6 and later: entries live at least 30 minutes by default; 1,024-token minimum.
+const GPT_56_PLUS = ["gpt-6*", "gpt-5.6*"];
 
 /**
  * Facts Pi encodes in code rather than in model metadata. Rows are tried in
@@ -81,6 +89,33 @@ export const CACHE_RULES: readonly CacheRule[] = [
 		notes:
 			"Pi sends no cache markers for non-Anthropic ids; any caching is the upstream provider's. Metadata has cacheRead prices but no lifetimes.",
 	},
+	...GPT_56_PLUS.map((modelPattern) => ({
+		provider: "openai-codex",
+		modelPattern,
+		mode: "automatic" as const,
+		ttlSeconds: 1800,
+		// Pi's Codex route sends no retention option, so long retention changes nothing.
+		extendedTtlSeconds: 1800,
+		minTokens: 1024,
+		provisional: true,
+		source: `${OPENAI_CACHING}; ${PI_AI} dist/api/openai-codex-responses.js`,
+		verifiedAt: VERIFIED,
+		notes:
+			"OpenAI documents a 30-minute minimum default lifetime for GPT-5.6 and later on the API. The ChatGPT Codex backend is undocumented, so the lifetime is provisional; Pi sends only prompt_cache_key.",
+	})),
+	...GPT_56_PLUS.map((modelPattern) => ({
+		provider: "openai",
+		modelPattern,
+		mode: "automatic" as const,
+		ttlSeconds: 1800,
+		// Pi's long retention asks for prompt_cache_options.ttl "30m" on these models.
+		extendedTtlSeconds: 1800,
+		minTokens: 1024,
+		source: `${OPENAI_CACHING}; ${PI_AI} dist/api/openai-responses.js getPromptCacheOptions`,
+		verifiedAt: VERIFIED,
+		notes:
+			'Default minimum lifetime is 30 minutes; a 12h ttl exists, but Pi never requests it. Writes bill at 1.25x input for 30 minutes.',
+	})),
 	{
 		provider: "openai-codex",
 		mode: "automatic",
@@ -158,6 +193,8 @@ export type CacheRuleField = (typeof FIELDS)[number];
 
 export interface ResolvedCacheRule extends Omit<CacheRule, "source" | "mode"> {
 	mode: CacheMode;
+	/** The lifetime came from a provisional static row. */
+	provisional?: boolean;
 	/** Where each defined field came from. */
 	sources: Partial<Record<CacheRuleField, string>>;
 	notes?: string;
@@ -206,6 +243,12 @@ export function cacheRuleFor(
 	if (staticRule?.modelPattern) resolved.modelPattern = staticRule.modelPattern;
 	if (staticRule?.verifiedAt) resolved.verifiedAt = staticRule.verifiedAt;
 	if (staticRule?.notes) resolved.notes = staticRule.notes;
+	if (
+		staticRule?.provisional &&
+		[resolved.sources.ttlSeconds, resolved.sources.extendedTtlSeconds].includes(staticRule.source)
+	) {
+		resolved.provisional = true;
+	}
 	const input = Number(options.model?.cost?.input);
 	if (input > 0) resolved.inputPrice = input;
 	if (options.model?.cost) resolved.cost = options.model.cost;

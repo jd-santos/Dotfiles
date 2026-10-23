@@ -281,6 +281,8 @@ export interface CacheClock {
 	remainingMs?: number;
 	idleMs?: number;
 	ttlSeconds?: number;
+	/** The lifetime is an estimate; see CacheRule.provisional. */
+	provisional?: boolean;
 }
 
 /** Warm/cold state of a model's cache entry at `now`. */
@@ -295,9 +297,10 @@ export function cacheClock(
 	const ttlSeconds = ttlSecondsFor(rule, retention);
 	if (ttlSeconds === undefined) return { state: "unknown", idleMs };
 	const remainingMs = ttlSeconds * 1000 - idleMs;
+	const provisional = rule.provisional === true;
 	return remainingMs > 0
-		? { state: "warm", remainingMs, idleMs, ttlSeconds }
-		: { state: "cold", idleMs, ttlSeconds };
+		? { state: "warm", remainingMs, idleMs, ttlSeconds, provisional }
+		: { state: "cold", idleMs, ttlSeconds, provisional };
 }
 
 export function formatDuration(ms: number): string {
@@ -326,8 +329,9 @@ function percent(value: number | undefined): string {
 
 /** Clock text and theme color, shared by the footer and shelf. */
 export function clockLabel(clock: CacheClock): { text: string; color: string } | undefined {
-	if (clock.state === "warm") return { text: `warm ${formatDuration(clock.remainingMs ?? 0)}`, color: "success" };
-	if (clock.state === "cold") return { text: "cold", color: "warning" };
+	const estimate = clock.provisional ? "~" : "";
+	if (clock.state === "warm") return { text: `warm ${estimate}${formatDuration(clock.remainingMs ?? 0)}`, color: "success" };
+	if (clock.state === "cold") return { text: clock.provisional ? "likely cold" : "cold", color: "warning" };
 	if (clock.state === "unknown") return { text: `idle ${formatIdle(clock.idleMs ?? 0)}`, color: "dim" };
 	return undefined;
 }
@@ -413,7 +417,9 @@ export function renderSection(width: number, theme: ThemeLike, input: RenderInpu
 		const nameWidth = Math.max(1, width - 2 - (clockText ? clockText.text.length + 1 : 0));
 		lines.push(fit(`${marker}${theme.fg("text", shortenMiddle(stats.key, nameWidth))}${right ? ` ${right}` : ""}`));
 		const ttl = ttlSecondsFor(rule, retention);
-		const ttlText = ttl === undefined ? "ttl unknown" : `ttl ${formatDuration(ttl * 1000)}`;
+		const ttlText = ttl === undefined
+			? "ttl unknown"
+			: `ttl ${rule.provisional ? "~" : ""}${formatDuration(ttl * 1000)}`;
 		const last = stats.lastRequestAt ? `last ${formatClockTime(stats.lastRequestAt)}` : "";
 		lines.push(
 			fit(

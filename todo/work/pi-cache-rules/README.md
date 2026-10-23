@@ -48,10 +48,21 @@ Use these before adding anything to the static table.
   and `anthropic/*` through OpenRouter. Record mode, short and extended
   lifetime, read and write multipliers, extended-write multiplier, and
   minimum cacheable tokens.
-- [ ] Check whether OpenAI's requested retention (`24h`, `30m`) is the real
+- [x] Check whether OpenAI's requested retention (`24h`, `30m`) is the real
   entry lifetime, and what the default lifetime is without it.
+  - Finding (2026-10-23, [OpenAI prompt caching guide](https://developers.openai.com/api/docs/guides/prompt-caching)):
+    GPT-5.6 and later keep entries at least 30 minutes by default, with a
+    12h `prompt_cache_options.ttl` Pi never requests, a 1,024-token minimum,
+    reads at 0.1x input (0.05x on GPT-6.1 Sol), and writes at 1.25x (2.5x
+    for 12h). Earlier models: about 5 to 10 minutes idle, up to an hour, or
+    up to 24h with `prompt_cache_retention: "24h"`.
+  - `cache-rules.ts` now gives `openai` and `openai-codex` GPT-5.6+ models a
+    30-minute lifetime. The Codex rows are marked `provisional` because the
+    guide covers the API, not the ChatGPT backend; the UI shows `~` and
+    `likely cold` for them.
 - [ ] Check whether the Codex subscription route caches and bills cache the
-  same as the API, and whether it honors any retention setting. Pi reports
+  same as the API, and whether it honors any retention setting. Confirming
+  its lifetime clears the `provisional` flag on the Codex rows. Pi reports
   API-equivalent cost for it.
 - [ ] Check what OpenRouter passes through for upstream caching: which
   upstreams cache automatically, whether `cache_control` reaches non-Anthropic

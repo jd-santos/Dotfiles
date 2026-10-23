@@ -112,8 +112,16 @@ test("rule lookup layers runtime metadata, extra layers, the static table, then 
 	assert.equal(layered.mode, "automatic");
 
 	// A throwing layer is skipped.
-	const safe = rules.cacheRuleFor("openai-codex", "gpt-6-luna", { layers: [() => { throw new Error("offline"); }] });
+	const safe = rules.cacheRuleFor("openai-codex", "gpt-5.1-codex", { layers: [() => { throw new Error("offline"); }] });
 	assert.equal(safe.ttlSeconds, undefined);
+
+	// GPT-5.6+ on Codex gets OpenAI's documented 30-minute minimum, marked provisional.
+	const sol = rules.cacheRuleFor("openai-codex", "gpt-6.1-sol");
+	assert.equal(sol.ttlSeconds, 1800);
+	assert.equal(sol.minTokens, 1024);
+	assert.equal(sol.provisional, true);
+	assert.equal(rules.cacheRuleFor("openai", "gpt-5.6-terra").provisional, undefined);
+	assert.equal(rules.cacheRuleFor("openai-codex", "gpt-5.1-codex").ttlSeconds, undefined);
 
 	// Pattern rows: anthropic/* on OpenRouter is explicit, other ids unknown.
 	assert.equal(rules.cacheRuleFor("openrouter", "anthropic/claude-sonnet-5").mode, "explicit");
@@ -173,10 +181,17 @@ test("warm and cold transitions follow the rule's TTL on an injected clock", () 
 	// Unknown TTL reports idle time, never a guessed countdown.
 	const codex = tracker.analyzeEntries([turn(T0, { input: 1000, cacheRead: 9000 }, luna)], { ruleFor });
 	const codexStats = codex.models.get("openai-codex/gpt-6-luna");
-	const unknown = tracker.cacheClock(codexStats, ruleFor("openai-codex", "gpt-6-luna"), "short", T0 + 192_000);
+	const unknown = tracker.cacheClock(codexStats, ruleFor("openai-codex", "gpt-5.1-codex"), "short", T0 + 192_000);
 	assert.equal(unknown.state, "unknown");
 	assert.equal(plain(tracker.formatStatus(theme, codex, codexStats.key, unknown)), "90% idle 3m");
 	assert.equal(plain(tracker.headline(theme, codex, codexStats.key, unknown)), "ttl unknown");
+
+	// A provisional lifetime counts down as an estimate.
+	const lunaRule = ruleFor("openai-codex", "gpt-6-luna");
+	const estimate = tracker.cacheClock(codexStats, lunaRule, "short", T0 + 90_000);
+	assert.equal(plain(tracker.formatStatus(theme, codex, codexStats.key, estimate)), "90% warm ~28:30");
+	const lapsed = tracker.cacheClock(codexStats, lunaRule, "long", T0 + 1_800_001);
+	assert.equal(plain(tracker.formatStatus(theme, codex, codexStats.key, lapsed)), "90% likely cold");
 
 	// Pi's cache warmer refreshes the entry and restarts the countdown.
 	const warmed = tracker.analyzeEntries(
@@ -281,7 +296,7 @@ test("the shelf section stays within width and lists every model", () => {
 			assert.match(text, /anthropic\/claude-sonnet-5/);
 			assert.match(text, /openai-codex\/gpt-6-luna/);
 			assert.match(text, /rewrite .* idle past ttl/);
-			assert.match(text, /ttl unknown/);
+			assert.match(text, /warm ~28:30.*\n.*ttl ~30:00/);
 			assert.match(text, /pi warmer not run · last decision stop/);
 		}
 	}
