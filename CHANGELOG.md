@@ -48,6 +48,7 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 
 ### Fixed
 
+- Use `openai-codex` for Pi's default and OpenAI subagent routes, remove OpenRouter OpenAI models from the shortlist, and add Codex Astra as a selectable model.
 - Pin `pi-subagents` to `0.78.0` for the upstream background-startup fix on Pi hosts that no longer ship `chord`.
 
 - Ignore Pi Lens runtime state in the Stow package while keeping its shared config tracked.

@@ -142,7 +142,7 @@ Run `merge-settings` after pulling changes, editing settings or MCP inputs, or u
 
 Restart Pi for changes to launch-time environment or package versions; `/reload` handles extension changes. Lens's diagnostics widget is hidden by the tracked `.pi-lens/config.json`; `/lens-widget-toggle` shows it for the current session without disabling Lens tools.
 
-The shared default is `openai/gpt-6.1-sol` with medium thinking. `Ctrl+P` cycles the configured shortlist; `/model` shows the full catalog. A resumed session can restore its old model: use `/new` or `pi --no-session` to start with the configured default. [Model list and wrapper behavior](docs/reference.md#settings)
+The shared default is `openai-codex/gpt-6.1-sol` with medium thinking. Astra (`openai-codex/gpt-6-astra`) is also in the shortlist. OpenAI models use Codex, not OpenRouter. `Ctrl+P` cycles the configured shortlist; `/model` shows the full catalog. A resumed session can restore its old model: use `/new` or `pi --no-session` to start with the configured default. [Model list and wrapper behavior](docs/reference.md#settings)
 
 The `~/bin/pi` wrapper resolves `op://` references for OpenRouter and Parallel keys through 1Password. Keep `~/bin` ahead of Homebrew on `PATH` so child launches use it too. On macOS inside Herdr, it enables 1Password desktop prompts when `OP_BIOMETRIC_UNLOCK_ENABLED` is unset; an explicit value takes precedence. Restart Pi to pick up changes. Local settings, generated config, auth, sessions, and helper scripts are ignored by Git. Keep private server URLs and account information out of tracked files. [MCP overrides and verification](docs/reference.md#mcp)
 

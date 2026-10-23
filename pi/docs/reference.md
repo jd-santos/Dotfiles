@@ -51,7 +51,7 @@ shared key on one machine, put it under `localOverrides` in the local file.
 Current shared settings include:
 
 - Theme: `catppuccin-mocha`
-- Default model: `openai/gpt-6.1-sol`
+- Default model: `openai-codex/gpt-6.1-sol`
 - Thinking level: `medium`
 - Thinking block: visible on output
 - Startup: quiet
@@ -77,14 +77,15 @@ package.
 `Ctrl+P` cycles the scoped model list. `/model` opens the full selector.
 `/scoped-models` toggles the scoped list interactively.
 
+OpenAI shortlist entries use the Codex subscription provider (`openai-codex`), not OpenRouter.
+
 Scoped model cycle:
 
-- `openai/gpt-6.1-sol`
-- `openai/gpt-5.6-terra`
-- `openai/gpt-6-luna`
-- `openrouter/openai/gpt-6-luna`
+- `openai-codex/gpt-6.1-sol`
+- `openai-codex/gpt-6-astra`
+- `openai-codex/gpt-5.6-terra`
+- `openai-codex/gpt-6-luna`
 - `openrouter/z-ai/glm-5.3-flash`
-- `openrouter/openai/gpt-6.1-sol`
 - `openrouter/qwen/qwen3.8-27b`
 - `openrouter/deepseek/deepseek-v4.1-flash`
 - `openrouter/moonshotai/kimi-k3`
@@ -199,16 +200,16 @@ below control cost and fan-out, not operating-system access.
 
 | Role | Model | Thinking | Intended use |
 | --- | --- | --- | --- |
-| Scout | `openai/gpt-6-luna` | Xhigh | Local code reconnaissance and compressed handoffs |
-| Researcher | `openai/gpt-6-luna` | Xhigh | Focused external research after its web tools are available |
-| Worker | `openai/gpt-6-luna` | Xhigh | Bounded implementation |
-| Reviewer | `openai/gpt-6-luna` | Xhigh | Fresh-context review |
-| Oracle | `openai/gpt-6.1-sol` | High | Difficult decisions and assumption checks |
-| Delegate | `openai/gpt-6.1-sol` | Medium | General delegated work |
+| Scout | `openai-codex/gpt-6-luna` | Xhigh | Local code reconnaissance and compressed handoffs |
+| Researcher | `openai-codex/gpt-6-luna` | Xhigh | Focused external research after its web tools are available |
+| Worker | `openai-codex/gpt-6-luna` | Xhigh | Bounded implementation |
+| Reviewer | `openai-codex/gpt-6-luna` | Xhigh | Fresh-context review |
+| Oracle | `openai-codex/gpt-6.1-sol` | High | Difficult decisions and assumption checks |
+| Delegate | `openai-codex/gpt-6.1-sol` | Medium | General delegated work |
 
 The strict model scope allows the retained
-`openai/gpt-5.6-terra` route, `openai/gpt-6-luna`,
-`openai/gpt-6.1-sol`, and `openrouter/deepseek/deepseek-v4.1-*`.
+`openai-codex/gpt-5.6-terra` route, `openai-codex/gpt-6-luna`,
+`openai-codex/gpt-6.1-sol`, and `openrouter/deepseek/deepseek-v4.1-*`.
 Out-of-scope inherited models,
 explicit overrides, and fallback models fail instead of silently running.
 

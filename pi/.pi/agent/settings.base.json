@@ -6,12 +6,11 @@
   ],
   "enableSkillCommands": true,
   "enabledModels": [
-    "openai/gpt-6.1-sol",
-    "openai/gpt-5.6-terra",
-    "openai/gpt-6-luna",
-    "openrouter/openai/gpt-6-luna",
+    "openai-codex/gpt-6.1-sol",
+    "openai-codex/gpt-6-astra",
+    "openai-codex/gpt-5.6-terra",
+    "openai-codex/gpt-6-luna",
     "openrouter/z-ai/glm-5.3-flash",
-    "openrouter/openai/gpt-6.1-sol",
     "openrouter/qwen/qwen3.8-27b",
     "openrouter/deepseek/deepseek-v4.1-flash",
     "openrouter/moonshotai/kimi-k3"
@@ -30,41 +29,41 @@
       "enforce": true,
       "strict": true,
       "allow": [
-        "openai/gpt-5.6-terra",
-        "openai/gpt-6-luna",
-        "openai/gpt-6.1-sol",
+        "openai-codex/gpt-5.6-terra",
+        "openai-codex/gpt-6-luna",
+        "openai-codex/gpt-6.1-sol",
         "openrouter/deepseek/deepseek-v4.1-*"
       ]
     },
     "agentOverrides": {
       "scout": {
-        "model": "openai/gpt-6-luna",
+        "model": "openai-codex/gpt-6-luna",
         "thinking": "xhigh"
       },
       "researcher": {
-        "model": "openai/gpt-6-luna",
+        "model": "openai-codex/gpt-6-luna",
         "thinking": "xhigh"
       },
       "worker": {
-        "model": "openai/gpt-6-luna",
+        "model": "openai-codex/gpt-6-luna",
         "thinking": "xhigh"
       },
       "reviewer": {
-        "model": "openai/gpt-6-luna",
+        "model": "openai-codex/gpt-6-luna",
         "thinking": "xhigh"
       },
       "oracle": {
-        "model": "openai/gpt-6.1-sol",
+        "model": "openai-codex/gpt-6.1-sol",
         "thinking": "high"
       },
       "delegate": {
-        "model": "openai/gpt-6.1-sol",
+        "model": "openai-codex/gpt-6.1-sol",
         "thinking": "medium"
       }
     }
   },
   "hideThinkingBlock": false,
   "lastChangelogVersion": "0.75.3",
-  "defaultProvider": "openai",
+  "defaultProvider": "openai-codex",
   "defaultModel": "gpt-6.1-sol"
 }
