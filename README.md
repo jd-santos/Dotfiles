@@ -1,6 +1,6 @@
 # My Dotfiles
 
-Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). Most top-level tool directories map to `$HOME` when stowed. Repo notes live in `docs/`, and repo-local Pi prompts live in `.pi/`.
+Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). Most top-level tool directories map to `$HOME` when stowed. Repo notes live in `docs/`, and the task workbench lives in `todo/`.
 
 ## Packages and repo-local files
 
@@ -106,6 +106,9 @@ Set in `claude/.claude/keybindings.json`. The effort and model keys are answered
 
 | Date       | Change                                                                         |
 | ---------- | ------------------------------------------------------------------------------ |
+| 2026-10-22 | Routed Pi's OpenAI models through Codex and added Codex Astra                  |
+| 2026-10-19 | Added the `claude` package: `shellfish` mod, keybindings, and shared settings  |
+| 2026-10-15 | Slimmed `AGENTS.md` and moved Pi guidance into the `pi` package                |
 | 2026-09-25 | Added portable Herdr manifest, `setup-herdr`, and `bootstrap` scripts           |
 | 2026-05-31 | Refreshed package docs, stow commands, tmux shortcuts, and cheatsheet source   |
 | 2026-05-07 | Added `ui-read-and-shortcuts` Pi extension (read preview, slash command hints) |
@@ -141,7 +144,7 @@ Initialize the Skills submodule before stowing packages:
 
 ```bash
 git submodule update --init --recursive
-stow agents bin cmux fzf ghostty git herdr lint nvim opencode pgcli pi starship tmux zed zsh
+stow agents bin claude cmux fzf ghostty git herdr lint nvim opencode pgcli pi starship tmux zed zsh
 ```
 
 To initialize, hydrate, and verify the agent skills in one command, run:
@@ -202,7 +205,7 @@ stow --simulate nvim
 The `stowp` function (included in `.zshrc`) previews changes and prompts before applying:
 
 ```bash
-stowp agents bin cmux fzf ghostty git herdr lint nvim opencode pgcli pi starship tmux zed zsh
+stowp agents bin claude cmux fzf ghostty git herdr lint nvim opencode pgcli pi starship tmux zed zsh
 stowp nvim zsh     # Preview specific packages, then confirm
 ```
 

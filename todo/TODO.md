@@ -36,6 +36,12 @@
 
 ## P4: Low
 
+- [ ] Keep personal `todo/` tracking from conflicting with work task systems [context: small]
+  - Problem: Pi's global `AGENTS.md` and `todo-manager` default to a local `todo/` workbench, while work repositories track tasks in GitLab issues. An agent in a work repo could create or update `todo/` files instead of using GitLab.
+  - [ ] Decide how a repository declares its task source, such as a line in each repo's `AGENTS.md`, so the global default only applies when nothing is declared
+  - [ ] Keep work-specific GitLab details out of this public repo; put them in work repositories or a private skill overlay
+  - [ ] Check that `todo-manager` and `repo-commit` closeout defer to a declared external tracker without creating local files
+
 - [ ] Verify Pi Sol/Luna context limits before changing compaction policy [context: small]
   - [x] Create `investigate/pi-context-window` and trace footer, advisory, and automatic compaction
   - [x] Confirm bundled and cached Codex metadata reports 272,000 tokens; OpenRouter reports 1,050,000 for `gpt-6-luna` and `gpt-6.1-sol`
