@@ -1,6 +1,7 @@
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { homedir } from "node:os";
 import { basename } from "node:path";
+import { COMPACT_AT_PERCENT } from "./compaction.ts";
 
 export const SHELL_DATA = "dotfiles:shell-data";
 export const SHELL_DATA_REQUEST = "dotfiles:shell-data-request";
@@ -153,9 +154,10 @@ export function border(
 	width: number,
 	overflow = "",
 	bash = false,
+	running = false,
 ): string {
 	if (width <= 0) return "";
-	const color = bash ? "bashMode" : "border";
+	const color = bash ? "bashMode" : running ? "accent" : "border";
 	const right = overflow ? ` ${overflow} ` : "";
 	const budget = Math.max(0, width - visibleWidth(right) - 4);
 	const content = truncateToWidth(label, budget, "…");
@@ -208,8 +210,15 @@ export function contextMeter(
 	const label = theme.fg("dim", "ctx ");
 	const barWidth = Math.min(20, Math.max(0, width - 10 - visibleWidth(suffix)));
 	const fill = Math.round((percent / 100) * barWidth);
-	const bar = theme.fg(color, "█".repeat(fill)) +
-		theme.fg("border", "░".repeat(barWidth - fill));
+	// `┃` marks where auto-compact.ts fires; it takes the place of one cell.
+	const marker = barWidth >= 5
+		? Math.min(barWidth - 1, Math.round((COMPACT_AT_PERCENT / 100) * barWidth))
+		: -1;
+	let bar = "";
+	for (let cell = 0; cell < barWidth; cell++) {
+		if (cell === marker) bar += theme.fg(cell < fill ? color : "muted", "┃");
+		else bar += cell < fill ? theme.fg(color, "█") : theme.fg("border", "░");
+	}
 	const line = `${label}${bar}${barWidth ? " " : ""}${theme.fg(color, percentText)}${suffix}`;
 	return truncateToWidth(line, width, "…");
 }

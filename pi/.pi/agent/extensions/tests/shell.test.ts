@@ -28,6 +28,7 @@ const file = (relative: string) =>
 const layout = await jiti.import(file("../lib/shell-layout.ts"));
 const footerModule = await jiti.import(file("../footer.ts"));
 const editorModule = await jiti.import(file("../ui-read-and-shortcuts.ts"));
+const tpsModule = await jiti.import(file("../tps-tracker.ts"));
 const gateModule = await jiti.import(file("../permission-gate.ts"));
 const { Theme } = await import(join(piDir, "dist/index.js"));
 const { KeybindingsManager } = await import(
@@ -55,6 +56,7 @@ function harness(order = [footerModule.default, editorModule.default]) {
 	const listeners = new Map<string, Set<(value: any) => void>>();
 	const handlers = new Map<string, Array<(event: any, ctx: any) => void>>();
 	const commands = new Map<string, any>();
+	const renderers = new Map<string, any>();
 	const statuses = new Map([["permission-gate", "ask"]]);
 	const entries: any[] = [];
 	const branches = new Set<() => void>();
@@ -82,6 +84,9 @@ function harness(order = [footerModule.default, editorModule.default]) {
 			commands.set(name, command);
 		},
 		registerTool() {},
+		registerEntryRenderer(customType: string, renderer: any) {
+			renderers.set(customType, renderer);
+		},
 		getThinkingLevel: () => "xhigh",
 		getSessionName: () => "Refine the shell layout",
 		appendEntry(customType: string, data: any) {
@@ -161,6 +166,7 @@ function harness(order = [footerModule.default, editorModule.default]) {
 		branches,
 		listeners,
 		commands,
+		renderers,
 		emit,
 		get footer() {
 			return footer;
@@ -407,4 +413,58 @@ test("all bundled palettes render the shell with valid color references", () => 
 		assert.ok(layout.contextMeter(theme, { percent: 50 }, 128000, 60));
 		assert.ok(layout.workspaceLabel(theme, "/workspace/Dotfiles", undefined, 60));
 	}
+});
+
+test("context meter marks the auto-compact point without changing its width", () => {
+	const theme = makeTheme();
+	for (const percent of [10, 79, 80, 95]) {
+		const line = layout.plain(layout.contextMeter(theme, { percent }, 128000, 60));
+		const bar = line.match(/ctx ([█░┃]+)/)?.[1] ?? "";
+		assert.equal([...bar].length, 20);
+		assert.equal([...bar].indexOf("┃"), 16);
+	}
+	assert.doesNotMatch(
+		layout.plain(layout.contextMeter(theme, { percent: 50 }, 128000, 13)),
+		/┃/,
+	);
+});
+
+test("prompt borders take the accent colour while a run is in progress", async () => {
+	const h = harness();
+	await h.emit("session_start");
+	const idle = h.editor.renderTopBorder(80, 0);
+	await h.emit("agent_start");
+	const running = h.editor.renderTopBorder(80, 0);
+	assert.notEqual(running, idle);
+	assert.ok(running.startsWith(h.theme.fg("accent", "─ ")));
+	await h.emit("agent_settled");
+	assert.equal(h.editor.renderTopBorder(80, 0), idle);
+	await h.emit("session_shutdown");
+});
+
+test("user prompts get a timestamped divider entry; custom runs do not", async () => {
+	const h = harness();
+	await h.emit("session_start");
+	await h.emit("before_agent_start", { messageType: "custom" });
+	assert.equal(h.entries.length, 0);
+	await h.emit("before_agent_start", { messageType: "user", prompt: "hi" });
+	const entry = h.entries.at(-1);
+	assert.equal(entry.customType, "prompt-divider");
+	const line = h.renderers.get("prompt-divider")(entry, { expanded: false }, h.theme).render(40)[0];
+	assert.equal(visibleWidth(line), 40);
+	assert.match(layout.plain(line), /^── \d\d:\d\d ─+$/);
+	const yesterday = Date.parse("2026-10-22T14:32:00");
+	assert.match(editorModule.promptTimeLabel(yesterday, Date.parse("2026-10-23T09:00:00")), /^Oct 22 14:32$/);
+	await h.emit("session_shutdown");
+});
+
+test("turn receipts summarise time, output, speed, cost, and context", () => {
+	assert.equal(
+		tpsModule.formatReceipt({ elapsedMs: 42_000, output: 3_100, tps: 61, cost: 0.21, contextPercent: 31.4 }),
+		"42s · 3.1k out · 61 t/s · $0.210 · ctx 31%",
+	);
+	assert.equal(
+		tpsModule.formatReceipt({ elapsedMs: 185_000, output: 0, tps: 0, cost: 0 }),
+		"3m 05s · 0 out",
+	);
 });

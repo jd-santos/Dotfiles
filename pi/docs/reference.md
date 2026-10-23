@@ -395,7 +395,9 @@ Untracked text files are counted as additions. Binary files show `binary` for ch
 
 Location: `.pi/agent/extensions/tps-tracker.ts`
 
-Publishes live tokens-per-second while the assistant streams. The footer shows it while generation is active. After the turn, the extension posts a notification with final output tokens and streaming time.
+Shows live tokens-per-second in Pi's working message while the assistant streams (`Working · 61 t/s`), and restores the default message between messages and when the run ends.
+
+When a run ends, the extension appends a `turn-receipt` custom entry that renders as one dim line in the transcript: wall time, output tokens, average streaming speed, the run's cost from provider usage, and context percent (`✓ 42s · 3.1k out · 61 t/s · $0.210 · ctx 31%`). Fields without data are left out. Custom entries are stored in the session and redrawn on resume, but never sent to the model.
 
 Live values use provider usage when available. Before final usage lands, the extension estimates output tokens from streamed characters.
 
@@ -572,11 +574,13 @@ Replaces Pi's default footer with one multiline layout.
 Compact display:
 
 1. Context meter and cost, with cost aligned to the right when space allows
-2. Output tokens, a stable speed field, and live plugin status
+2. Output tokens and live plugin status
 3. Conversation summary, bold in the normal text color, or the session name when no summary exists
 
 The context meter uses up to 20 cells, with yellow at 50% and red at 80% to match
-the planning advisory. Missing or non-finite context usage reads `unavailable`.
+the planning advisory. A `┃` replaces the cell at the automatic compaction point;
+the threshold lives in `lib/compaction.ts`, which `auto-compact.ts` also reads,
+so the two cannot drift. Bars shorter than 5 cells omit the marker. Missing or non-finite context usage reads `unavailable`.
 Labels stay dim; status values preserve extension colors. Errors and warnings
 sort before ordinary plugin status. The MCP status uses `↔` instead of the
 adapter's plug emoji for terminal legibility. Pi Lens's file-and-warning-count
@@ -591,9 +595,10 @@ healthy MCP connection status. The compact display omits completed scan counts
 and healthy MCP counts. Cached tool definitions are no longer read or presented
 as evidence of a live MCP connection.
 
-The speed value shows the current generation rate, or the last completed rate
-in dim text. The cost comes from the usage totals reported by providers. The
-existing final speed notification remains available. On narrow terminals, cost
+Generation speed lives in the working spinner and the end-of-run receipt (see
+[TPS tracker](#tps-tracker)) rather than the footer, so the footer does not
+change every frame while a response streams. The cost comes from the usage
+totals reported by providers. On narrow terminals, cost
 moves to the next row and telemetry wraps instead of silently dropping fields.
 Input and cache totals are cumulative session usage; they are not the current
 context occupancy.
@@ -645,7 +650,14 @@ Editor banner:
 - Tiny, mini, nano, small, Haiku, and parameter-count names from 1B through 32B are low; named tiers win before the size heuristic, and unknown models stay neutral
 - Thinking uses dim for `off` and `minimal`, then blue through red for `low`, `medium`, `high`, `xhigh`, and `max`
 - Bash input retains its mode-colored border
+- Both borders take the accent colour from `agent_start` until `agent_settled`, so retries and queued work keep the colour
 - Pi's top/bottom border hooks preserve autocomplete rows, cursor positioning, and hidden-line counts
+
+Prompt dividers:
+
+- When a run starts from a user prompt (`before_agent_start` with `messageType: "user"`), the extension appends a `prompt-divider` custom entry before Pi adds the prompt
+- It renders as a full-width rule labelled with the send time (`── 14:32 ────`), or the date and time for prompts from an earlier day
+- Runs started by extension messages get no divider; the entries are never sent to the model
 
 Restore hint:
 
@@ -677,7 +689,8 @@ node --test pi/.pi/agent/extensions/tests/shell.test.ts
 For a non-global installation, set `PI_TEST_PACKAGE_DIR` to the Pi package
 directory. The checks cover narrow and Unicode layouts, context thresholds, model and
 thinking expense tiers, plugin severity colors, branch and permission updates,
-autocomplete, scroll indicators, display persistence, and listener cleanup.
+autocomplete, scroll indicators, display persistence, listener cleanup, the
+compaction marker, the running border colour, prompt dividers, and turn receipts.
 Verified with Pi 0.85.1.
 
 ## Planning and task records
