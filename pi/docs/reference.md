@@ -733,6 +733,27 @@ Active only while the model's provider is `openai-codex`. It reads the Codex sub
 
 It fetches when a session starts or the model switches to Codex, then after a turn ends once the cached snapshot is five minutes old. Switching to another provider clears the status and removes the section.
 
+## Cache tracker
+
+Location: `.pi/agent/extensions/cache-tracker.ts`, rules in `.pi/agent/extensions/lib/cache-rules.ts`
+
+Tracks prompt-cache reuse per model from session usage and shows it in two places:
+
+- Footer status `cache 92% warm 3:12`: reuse for the current model, then a countdown to when its cache entry lapses. `cold` means the next turn rewrites the prompt at full price. `idle 3m` means the cache lifetime is unknown for this model, so it shows time since the last request instead of a guessed countdown.
+- A **Cache** section in the shelf: session reuse and rewrite count, input cost as a share of the same tokens uncached, a per-turn reuse bar, one block per model (reuse, turns, last request, lifetime, caching mode, cost, recent rewrites), and when Pi's own cache warmer last ran or decided.
+
+A rewrite is a turn that reads back less than 10% of the previous prompt after a turn that used the cache, ignoring misses of 1,024 tokens or fewer, the same noise floor Pi uses. The likely cause is checked in order: compaction, branch change, model switch, thinking-level change, a gap longer than the cache lifetime, otherwise unknown.
+
+Rules come from layers, first known value wins: Pi's model data (`promptCache` lifetimes, `cost` rates), then the static table in `cache-rules.ts` (only facts confirmed from Pi's source, each with a source and date), then unknown. Lifetimes follow Pi's retention: short by default, long when `PI_CACHE_RETENTION=long`. In Pi 1.3.0 only the direct `anthropic` provider has known lifetimes (5 minutes, 1 hour long); the rest show `idle` until [the cache rules research](../../todo/work/pi-cache-rules/README.md) fills them in.
+
+## Agents section
+
+Location: `.pi/agent/extensions/subagent-shelf.ts`
+
+Adds the Agents section to the shelf (order 10). The heading reads `● 2 running`, or `none` when idle. Each running subagent gets a row: glyph, agent, task (or model when the call named no plain task, as with workflow scripts), tokens at 60 columns and wider, and elapsed time. Up to six rows show, then `+n more`. A last line sums the agents that finished this session: `finished 3 · $0.412 · 18k tok`. A `≥` before the cost means some background child's usage could not be read yet.
+
+Data comes from the in-process RPC that `pi-subagents` documents for extensions (`subagents:rpc:v1`). Untargeted `status` supplies running children from memory and is polled once a second only while work runs. `cost` supplies the finished count and spend and is read at turn and completion boundaries. The task text comes from the `subagent` tool call's own arguments, matched by agent name, so two same-named agents that start out of order can show swapped tasks until `pi-subagents` fills its status `goal` field. The `agents` status shows `● 2` while agents run and clears when idle. Without `pi-subagents` loaded, the heading reads `unavailable`.
+
 ## UI read preview and slash shortcuts
 
 Location: `.pi/agent/extensions/ui-read-and-shortcuts.ts`

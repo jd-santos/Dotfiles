@@ -83,6 +83,8 @@ These live in [`.pi/agent/extensions/`](.pi/agent/extensions/). The UI extension
 | `ui-read-and-shortcuts.ts` + `footer.ts` | Prompt borders, five-line read previews, shortcut hints, telemetry, and terminal title. Shared layout helpers live in `lib/shell-layout.ts`. |
 | `shelf.ts` | The shelf drawer and its Last turn, Context, and Usage sections; the section contract is `lib/shelf.ts` |
 | `codex-limits.ts` | Codex allowance in the footer, the shelf's Limits section, and the 80% toast |
+| `cache-tracker.ts` | Prompt-cache reuse, warm/cold state, rewrites with their likely cause, and cost against uncached, per model, in the footer and the shelf's Cache section. Rules live in `lib/cache-rules.ts`. |
+| `subagent-shelf.ts` | The shelf's Agents section: running subagents with their task and elapsed time, then the session's finished count and cost |
 | `permission-gate.ts` | Tool approval, session rules, read-only/yolo modes, and permission notifications |
 | `format-on-save.ts` | Format successful writes and edits; formatter failures don't stop the session |
 | `context-planner.ts` + `auto-compact.ts` | Prompt-time capacity guidance and model-aware, end-of-turn compaction |

@@ -23,6 +23,8 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 - Add Claude Code keybindings: `Shift+Tab` cycles effort, `Option+m` cycles permission mode, and `Option+.` / `Option+,` cycle a model shortlist, all for the current session only.
 - Add the Pi shelf, a drawer below the editor toggled by `/shelf`, `Option+s`, or the footer's `shelf ▸` button, with Last turn, Context, Usage, and Codex Limits sections and a contract in `lib/shelf.ts` that other extensions use to add their own. Its open state survives reload and resume, and it takes at most 40% of the terminal's height.
 - Show Codex subscription allowance in the Pi footer (`5h 12%  7d 34%`, yellow at 50% and red at 80%) while an `openai-codex` model is active, refreshed at most every five minutes after a turn, with a one-time toast when a window reaches 80%.
+- Add a Pi cache tracker: the footer shows prompt-cache reuse and a warm/cold countdown (`cache 92% warm 3:12`), and the shelf's Cache section breaks down reuse, rewrites with their likely cause, input cost against uncached, and Pi's cache-warmer runs per model. Rules come from Pi's model data plus a small sourced table in `lib/cache-rules.ts`; unknown lifetimes show idle time instead of a guess.
+- Add an Agents section to the Pi shelf that lists running subagents with their task, tokens, and elapsed time, and sums finished agents' count and cost for the session.
 - Add a `herdr-jd` Pi bridge that publishes a conversation short title to the Herdr Agent sidebar, generated in the same summary model call.
 
 ### Changed
