@@ -30,7 +30,8 @@ import {
   sparkline,
   splitCwd,
 } from './format'
-import { appendTurn, turnRow, writeSession } from './log'
+import { turnRow } from './log'
+import type { SessionRecord } from './log'
 
 const cwd = atom({ plugin: 'shellfish', key: 'cwd' } as const, null as string | null)
 const home = atom({ plugin: 'shellfish', key: 'home' } as const, null as string | null)
@@ -121,6 +122,29 @@ async function refreshBranch($: EngineInterface) {
   let name: string | null = 'no repo'
   if (run.exitCode === 0) name = run.stdout.trim() || 'detached'
   await update($, branch, () => name)
+}
+
+async function logDir($: EngineInterface): Promise<string | null> {
+  const home = await $.env.get('HOME')
+
+  return home ? `${home}/.claude/shellfish` : null
+}
+
+async function appendTurn($: EngineInterface, row: object): Promise<void> {
+  const dir = await logDir($)
+  if (!dir) return
+  // $.fs has no append; sh does it, with the row on stdin so nothing is quoted into the command.
+  await $.process.run(
+    ['sh', '-c', 'mkdir -p "$1/sessions" && cat >> "$1/usage.jsonl"', 'shellfish', dir],
+    { stdin: `${JSON.stringify(row)}\n`, timeoutMs: 5000 },
+  )
+}
+
+async function writeSession($: EngineInterface, record: SessionRecord): Promise<void> {
+  const dir = await logDir($)
+  if (!dir) return
+  await $.process.run(['mkdir', '-p', `${dir}/sessions`], { timeoutMs: 5000 })
+  await $.fs.write(`${dir}/sessions/${record.session}.json`, `${JSON.stringify(record, null, 2)}\n`)
 }
 
 async function summarize($: EngineInterface) {
@@ -282,7 +306,7 @@ export const register: Register = on => {
       description: 'Show, set, or clear the shellfish session summary',
       argumentHint: '[text|clear]',
     })
-    await $.command.register({ name: 'shelf', description: 'Open or close the shellfish shelf: subagents and turn history' })
+    await $.command.register({ name: 'shelf', description: 'Open or close the shellfish shelf: agents, context, cost, limits and cache' })
     await $.command.register({
       name: 'keepalive',
       description: 'Keep the prompt cache warm while idle, for N minutes (default 180); "off" stops it',
@@ -365,7 +389,7 @@ export const register: Register = on => {
     await update($, tick, n => n + 1)
 
     return done
-  })
+  }).catch(($, e, next) => next(e))
 
   // Compaction shrinks the conversation; the bar's categories must follow, not wait for the next turn.
   on('session.compact', async ($, e, next) => {
@@ -376,7 +400,7 @@ export const register: Register = on => {
     }
 
     return done
-  })
+  }).catch(($, e, next) => next(e))
 
   // Each prompt's time, so its row in the transcript can open with a dated rule.
   on('prompt.submit', async ($, e, next) => {
