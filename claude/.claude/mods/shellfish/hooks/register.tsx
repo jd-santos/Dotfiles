@@ -30,7 +30,8 @@ import {
   sparkline,
   splitCwd,
 } from './format'
-import { appendTurn, turnRow, writeSession } from './log'
+import { turnRow } from './log'
+import type { SessionRecord } from './log'
 
 const cwd = atom({ plugin: 'shellfish', key: 'cwd' } as const, null as string | null)
 const home = atom({ plugin: 'shellfish', key: 'home' } as const, null as string | null)
@@ -121,6 +122,29 @@ async function refreshBranch($: EngineInterface) {
   let name: string | null = 'no repo'
   if (run.exitCode === 0) name = run.stdout.trim() || 'detached'
   await update($, branch, () => name)
+}
+
+async function logDir($: EngineInterface): Promise<string | null> {
+  const home = await $.env.get('HOME')
+
+  return home ? `${home}/.claude/shellfish` : null
+}
+
+async function appendTurn($: EngineInterface, row: object): Promise<void> {
+  const dir = await logDir($)
+  if (!dir) return
+  // $.fs has no append; sh does it, with the row on stdin so nothing is quoted into the command.
+  await $.process.run(
+    ['sh', '-c', 'mkdir -p "$1/sessions" && cat >> "$1/usage.jsonl"', 'shellfish', dir],
+    { stdin: `${JSON.stringify(row)}\n`, timeoutMs: 5000 },
+  )
+}
+
+async function writeSession($: EngineInterface, record: SessionRecord): Promise<void> {
+  const dir = await logDir($)
+  if (!dir) return
+  await $.process.run(['mkdir', '-p', `${dir}/sessions`], { timeoutMs: 5000 })
+  await $.fs.write(`${dir}/sessions/${record.session}.json`, `${JSON.stringify(record, null, 2)}\n`)
 }
 
 async function summarize($: EngineInterface) {

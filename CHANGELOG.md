@@ -51,6 +51,7 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 
 ### Fixed
 
+- Move the `shellfish` usage-log writers into its hooks module. Newer `claude plugin validate` builds refuse a module that passes `$` into a function imported from another file, so the mod failed validation for anyone on those builds.
 - Stop tracking `lastChangelogVersion` in Pi's settings base so `merge-settings` no longer downgrades the version Pi writes at runtime, and clear the stale machine-local Pi defaults that predate the Codex routing.
 - Use `openai-codex` for Pi's default and OpenAI subagent routes, remove OpenRouter OpenAI models from the shortlist, and add Codex Astra as a selectable model.
 - Pin `pi-subagents` to `0.78.0` for the upstream background-startup fix on Pi hosts that no longer ship `chord`.
