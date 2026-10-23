@@ -1076,6 +1076,14 @@ export const register: Register = on => {
         <Box flexDirection="column" marginTop={1}>
           <Text color="inactive">{'┄'.repeat(columns)}</Text>
           <Text dimColor wrap="truncate-end">log ~/.claude/shellfish/usage.jsonl</Text>
+          <Box marginTop={1}>
+            <Text wrap="truncate-end">
+              <Text>{'🐚 '}</Text>
+              <Text bold color="claude">shellfish</Text>
+              <Text>{' 🦐'}</Text>
+              <Text dimColor>{'  by JD Santos'}</Text>
+            </Text>
+          </Box>
         </Box>
       </Box>
     )
