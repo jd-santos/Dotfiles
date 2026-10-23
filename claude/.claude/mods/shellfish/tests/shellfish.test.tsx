@@ -180,7 +180,7 @@ test('the shelf titles itself with the summary and keys the context bar', async 
     props: { title: 'shelf', isFocused: false, bodyColumns: 60, placement: 'dock', scroll: { offset: 0, bodyRows: 40, contentRows: 0 }, view: {} },
   } as never)
   const all = JSON.stringify(await pane.drawn())
-  for (const text of ['Port the Pi footer', 'messages', '30%', '60k', '■', 'compacts at 83%', 'Cache', 'sonnet 5.5 · —', 'compacts at', '83%', '80k/200k', 'Limits', 'by JD Santos']) {
+  for (const text of ['Port the Pi footer', 'messages', '30%', '60k', '■', 'compacts at 83%', 'Cache', 'sonnet 5.5 · —', 'compacts at', '83%', '80k/200k', 'Limits', 'a Claude mod by JD Santos']) {
     expect(all).toContain(text)
   }
   await pane.unmount()
