@@ -16,6 +16,8 @@ The story lives in Git, not another completed-task list.
   [PR #32](https://github.com/jd-santos/Dotfiles/pull/32).
 - [Pi GPT-6 model migration](work/pi-gpt6-model-migration/README.md) shipped in
   [PR #31](https://github.com/jd-santos/Dotfiles/pull/31).
+- [Pi native MCP trial](work/pi-native-mcp-trial/README.md) shipped in
+  [PR #38](https://github.com/jd-santos/Dotfiles/pull/38).
 
 ## Migration note
 

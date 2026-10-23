@@ -1,6 +1,6 @@
 # Herdr JD bridge and agent titles
 
-Status: Ready for review. Original bridge merged in [PR #35](https://github.com/jd-santos/Dotfiles/pull/35); sidebar layout follow-up on `feat/herdr-sidebar-title-layout`.
+Status: Merged. The bridge shipped in [PR #35](https://github.com/jd-santos/Dotfiles/pull/35) and the sidebar layout follow-up in [PR #36](https://github.com/jd-santos/Dotfiles/pull/36). Only the live two-row layout check remains.
 
 ## Purpose
 
