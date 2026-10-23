@@ -306,7 +306,7 @@ export const register: Register = on => {
       description: 'Show, set, or clear the shellfish session summary',
       argumentHint: '[text|clear]',
     })
-    await $.command.register({ name: 'shelf', description: 'Open or close the shellfish shelf: subagents and turn history' })
+    await $.command.register({ name: 'shelf', description: 'Open or close the shellfish shelf: agents, context, cost, limits and cache' })
     await $.command.register({
       name: 'keepalive',
       description: 'Keep the prompt cache warm while idle, for N minutes (default 180); "off" stops it',

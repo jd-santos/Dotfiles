@@ -1,7 +1,7 @@
 {
   "name": "shellfish",
   "version": "0.4.0",
-  "description": "Workspace, telemetry, cost log, subagent shelf, and per-session effort and model cycling for Claude Code",
+  "description": "See what a Claude Code session costs and where its context goes: a band above the prompt, a shelf pane for agents, context, cost and cache, and a usage log",
   "author": { "name": "JD Santos" },
   "license": "MIT",
   "types": "./types/index.d.ts"
