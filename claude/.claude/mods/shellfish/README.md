@@ -82,7 +82,7 @@ These keys rely on a workaround. Claude Code has no built-in action for cycling 
 
 Prompt caching is where most of a session's input cost goes, which is why the shelf gives it a section. Each turn resends the whole conversation. The part that matches the previous request is read from cache at 10% of the input price (5% on Opus 5.5, 2.5% on Fable), and anything new is written to cache at 125%.
 
-Claude Code uses the API's one-hour cache, and the countdown counts that hour from the last request. Sessions in the usage log have shown 98% reuse after a 13-minute pause, which the five-minute cache couldn't do.
+The countdown assumes an entry lives about an hour from the last request, which is what Claude Code's own transcripts show. Since Claude Code 2.1.301 it writes five-minute entries, billed at 1.25× the input price, yet pauses of up to about 50 minutes still read 97 to 99% of the conversation back from cache, and pauses past an hour mostly miss. Earlier versions wrote one-hour entries, which the API bills at 2×. The mod can't tell which kind a turn wrote, so it prices every write at 1.25×; on a Claude Code version that writes one-hour entries, the shelf's rewrite costs come out low.
 
 | Figure | Meaning |
 | --- | --- |

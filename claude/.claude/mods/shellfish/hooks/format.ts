@@ -205,8 +205,8 @@ export function effectiveInputRate(t: { input: number; cacheRead: number; cacheW
   return (t.input + t.cacheWrite * rates.write + t.cacheRead * rates.read) / all
 }
 
-// Claude Code's entries have survived 13-minute pauses in this log with 98% reuse, so it uses
-// the API's one-hour cache, not the five-minute default.
+// How long an entry lasts in practice. Claude Code 2.1.301+ writes five-minute entries, yet its
+// transcripts show 97-99% reuse after pauses of up to ~50 minutes and misses past an hour.
 export const CACHE_TTL_MS = 60 * 60 * 1000
 
 /** List input price per million tokens for the shortlist models (API rates, 2026-10). */
