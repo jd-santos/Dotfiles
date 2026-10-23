@@ -84,7 +84,7 @@ Claude Code compacts the conversation by itself when it nears the window (the `a
 
 ## Install
 
-The `claude` stow package links `~/.claude/mods` (a local plugin marketplace) and `~/.claude/keybindings.json`:
+The `claude` stow package links `~/.claude/mods` (a local plugin marketplace), `~/.claude/keybindings.json`, `~/.claude/settings.base.json`, and `~/.claude/skills` (the shared skills from the `agents` package):
 
 ```bash
 cd ~/Dotfiles && stow claude
