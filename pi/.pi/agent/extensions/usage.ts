@@ -1,10 +1,14 @@
 // @ts-nocheck
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { spawn } from "node:child_process";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join, sep } from "node:path";
+import {
+	CODEX_ALLOWANCE_CACHE_MS,
+	allowanceBuckets,
+	loadCodexAllowance,
+} from "./lib/codex-allowance.ts";
 
 interface UsageRecord {
 	source: "Pi parent" | "Pi child" | "Codex CLI";
@@ -50,15 +54,9 @@ interface ChildParseResult {
 
 const WINDOWS = [1, 7, 30, 90];
 const MAX_WIDGET_LINES = 160;
-const CODEX_ALLOWANCE_CACHE_MS = 5 * 60 * 1000;
-const CODEX_ALLOWANCE_TIMEOUT_MS = 7_500;
 const PRICING_URL =
 	process.env.PI_USAGE_PRICING_URL ??
 	["https:/", "models.dev", "api.json"].join("/");
-let codexAllowanceCache:
-	| { fetchedAt: number; result: any; error?: undefined }
-	| { fetchedAt: number; result?: undefined; error: string }
-	| undefined;
 
 function asNumber(value: unknown): number {
 	return typeof value === "number" && Number.isFinite(value) ? value : 0;
@@ -510,113 +508,6 @@ function tableFor(title: string, rows: Aggregate[]): string[] {
 	return lines;
 }
 
-function fetchCodexAllowance(): Promise<any> {
-	return new Promise((resolve, reject) => {
-		const child = spawn("codex", ["app-server", "--stdio"], {
-			stdio: ["pipe", "pipe", "ignore"],
-		});
-		let settled = false;
-		let buffer = "";
-		const finish = (error?: Error, result?: any) => {
-			if (settled) return;
-			settled = true;
-			clearTimeout(timer);
-			child.kill();
-			if (error) reject(error);
-			else resolve(result);
-		};
-		const send = (message: any) => {
-			if (settled || !child.stdin.writable)
-				return finish(new Error("Codex app-server input is unavailable"));
-			try {
-				child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", ...message })}\n`);
-			} catch (error) {
-				finish(error instanceof Error ? error : new Error(String(error)));
-			}
-		};
-		const timer = setTimeout(
-			() => finish(new Error("Codex app-server timed out")),
-			CODEX_ALLOWANCE_TIMEOUT_MS,
-		);
-		child.on("error", (error) => finish(error));
-		child.stdin.on("error", (error) => finish(error));
-		child.on("exit", (code) => {
-			if (!settled)
-				finish(
-					new Error(`Codex app-server exited with status ${code ?? "unknown"}`),
-				);
-		});
-		child.stdout.setEncoding("utf8");
-		child.stdout.on("data", (chunk) => {
-			buffer += chunk;
-			const lines = buffer.split("\n");
-			buffer = lines.pop() ?? "";
-			for (const line of lines) {
-				let message;
-				try {
-					message = JSON.parse(line);
-				} catch {
-					continue;
-				}
-				if (message.id === 1) {
-					if (message.error)
-						return finish(
-							new Error(message.error.message ?? "Codex initialization failed"),
-						);
-					send({ method: "initialized", params: {} });
-					send({ id: 2, method: "account/rateLimits/read", params: {} });
-				} else if (message.id === 2) {
-					if (message.error)
-						return finish(
-							new Error(message.error.message ?? "Codex allowance lookup failed"),
-						);
-					return finish(undefined, message.result);
-				}
-			}
-		});
-		send({
-			id: 1,
-			method: "initialize",
-			params: {
-				clientInfo: {
-					name: "pi-usage-extension",
-					title: "Pi usage extension",
-					version: "1.0.0",
-				},
-				capabilities: { experimentalApi: true },
-			},
-		});
-	});
-}
-
-async function loadCodexAllowance() {
-	if (
-		codexAllowanceCache &&
-		Date.now() - codexAllowanceCache.fetchedAt < CODEX_ALLOWANCE_CACHE_MS
-	)
-		return codexAllowanceCache;
-	try {
-		codexAllowanceCache = {
-			fetchedAt: Date.now(),
-			result: await fetchCodexAllowance(),
-		};
-	} catch (error) {
-		codexAllowanceCache = {
-			fetchedAt: Date.now(),
-			error: error instanceof Error ? error.message : String(error),
-		};
-	}
-	return codexAllowanceCache;
-}
-
-function durationLabel(minutes: unknown, fallback: string): string {
-	const value = asNumber(minutes);
-	if (value >= 10_000 && value <= 10_500) return "Weekly";
-	if (value >= 280 && value <= 320) return "5-hour";
-	if (value >= 1_400 && value <= 1_500) return "Daily";
-	return value ? `${Math.round(value / 60)}h window` : fallback;
-}
-
 function resetLabel(value: unknown): string {
 	const seconds = asNumber(value);
 	if (!seconds) return "unknown";
@@ -631,11 +522,6 @@ function allowanceLines(snapshot: any): string[] {
 			`Unavailable: ${snapshot.error}.`,
 			"",
 		];
-	const result = snapshot.result ?? {};
-	const buckets =
-		result.rateLimitsByLimitId && Object.keys(result.rateLimitsByLimitId).length
-			? Object.entries(result.rateLimitsByLimitId)
-			: [[result.rateLimits?.limitId ?? "Codex", result.rateLimits]];
 	const lines = [
 		"### Codex subscription allowance",
 		"",
@@ -643,18 +529,12 @@ function allowanceLines(snapshot: any): string[] {
 		"| --- | --- | ---: | ---: | --- |",
 	];
 	let plan: string | undefined;
-	for (const [id, bucket] of buckets) {
-		if (!bucket) continue;
-		plan ??= bucket.planType ? String(bucket.planType) : undefined;
-		const label = bucket.limitName ?? id;
-		for (const [role, window] of [
-			["Primary", bucket.primary],
-			["Secondary", bucket.secondary],
-		]) {
-			if (!window) continue;
-			const used = Math.max(0, Math.min(100, asNumber(window.usedPercent)));
+	for (const bucket of allowanceBuckets(snapshot)) {
+		plan ??= bucket.plan;
+		for (const window of bucket.windows) {
+			const used = window.usedPercent;
 			lines.push(
-				`| ${label} | ${durationLabel(window.windowDurationMins, role)} | ${used.toFixed(0)}% | ${(100 - used).toFixed(0)}% | ${resetLabel(window.resetsAt)} |`,
+				`| ${bucket.label} | ${window.label} | ${used.toFixed(0)}% | ${(100 - used).toFixed(0)}% | ${resetLabel(window.resetsAt)} |`,
 			);
 		}
 	}
