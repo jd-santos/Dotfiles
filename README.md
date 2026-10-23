@@ -102,6 +102,14 @@ Set in `claude/.claude/keybindings.json`. The effort and model keys are answered
 | `Option+.`       | Next model: sonnet, haiku, fable, opus              |
 | `Option+,`       | Previous model                                      |
 
+### Pi
+
+Registered by `pi/.pi/agent/extensions/shelf.ts`. On macOS the terminal must send Option as Alt.
+
+| Shortcut   | Description                                           |
+| ---------- | ----------------------------------------------------- |
+| `Option+s` | Open or close the shelf below the editor (`/shelf`)   |
+
 ## Changes
 
 | Date       | Change                                                                         |

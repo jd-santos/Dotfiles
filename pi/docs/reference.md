@@ -415,14 +415,6 @@ node --test pi/.pi/agent/extensions/tests/btw*.test.mjs
 
 Serialization tests use synthetic credentials and stop before network dispatch. They verify request construction, not real cache hits. When the globally installed `pi-lens` package provides TypeScript, the suite also typechecks the three source modules against the installed Pi SDK, without adding dependencies or type stubs to this repository. Live cache reuse, subscription quota effects, and concurrent overlay behavior still need a user-approved smoke test. Run `/reload` to load the extension, then try `/btw --last` while a main request is working, inspect the approval screen, and test cancellation before approving a paid request.
 
-## Cost tracker
-
-Location: `.pi/agent/extensions/cost-tracker.ts`
-
-`/costs` shows token totals, estimated cost, and tool-call counts for the current session.
-
-Pi exposes usage at the assistant-message level, not per tool call. The extension counts tool calls separately so the report can show both actual message spend and tool usage volume.
-
 ## Git summary
 
 Location: `.pi/agent/extensions/lg.ts`
@@ -478,7 +470,7 @@ Read paths:
 - `~/.codex/sessions/**/*.jsonl`
 - `~/.codex/archived_sessions/**/*.jsonl`
 
-The Codex subscription section starts the installed `codex app-server`, completes its local JSON-RPC handshake, and calls `account/rateLimits/read`. Codex owns authentication, so the extension does not read the Codex authentication file. Successful snapshots are cached for five minutes. Missing Codex, login failures, timeouts, and protocol changes make only that section unavailable.
+The Codex subscription section starts the installed `codex app-server`, completes its local JSON-RPC handshake, and calls `account/rateLimits/read`. Codex owns authentication, so the extension does not read the Codex authentication file. Snapshots are cached for five minutes. The lookup lives in `lib/codex-allowance.ts`, shared with [Codex limits](#codex-limits), so concurrent callers share one app-server launch; Pi may load each extension with its own module copy, in which case each keeps its own five-minute cache. Missing Codex, login failures, timeouts, and protocol changes make only that section unavailable.
 
 Unknown pricing rates are shown as `$0` and listed in the report notes. The extension reads local usage metadata and displays aggregates only.
 
@@ -615,21 +607,33 @@ node --test pi/.pi/agent/extensions/tests/context-planner.test.mjs
 
 Location: `.pi/agent/extensions/footer.ts`
 
-Replaces Pi's default footer with one multiline layout.
+Replaces Pi's default footer with a fixed-height layout. Fields drop as the terminal narrows instead of wrapping, so the footer never changes height with width.
 
-Compact display:
+Rows:
 
-1. Context meter and cost, with cost aligned to the right when space allows
-2. Output tokens and live plugin status
-3. Conversation summary, bold in the normal text color, or the session name when no summary exists
+1. Telemetry: the context meter, then `limits`, `cache`, output tokens, and cost; running `agents` and the `shelf ▸` button sit at the right edge
+2. The conversation summary at the left (bold, or the session name when no summary exists) and plugin statuses at the right
+3. With `/shell details` only: input tokens, cache reads/writes, and permission rule counts
+
+The context meter always shows. It shrinks from 37 to 22 columns before any field drops, then fields drop in this order: cache, output tokens, limits, agents, cost, and last the shelf button. Drops are strict: once a field misses, every lower-priority field goes too, so a narrow field never outlives a wider, more important one. The ranks are `TELEMETRY_RANKS` in `footer.ts`.
+
+Three statuses are placed on row 1 instead of the plugin list:
+
+| Status key | Publisher | Placement |
+| --- | --- | --- |
+| `limits` | `codex-limits.ts` | After the meter, verbatim (`5h 12%  7d 34%`) |
+| `cache` | `cache-tracker.ts` | After limits, with a dim `cache ` label |
+| `agents` | `subagent-shelf.ts` | At the right, before the shelf button, with a dim `agents ` label |
+
+The label is skipped when the status text already starts with its key. Status colours are kept, so a `cold` cache stays yellow.
+
+Other extensions' statuses (`ctx.ui.setStatus()`) share row 2 with the summary, sorted errors first, then warnings, then the rest. They take the room they need while the summary keeps a stub of up to 16 columns; statuses that still do not fit collapse into a dim `+n`. The MCP status uses `↔` instead of the adapter's plug emoji for terminal legibility.
 
 The context meter uses up to 20 cells, with yellow at 50% and red at 80% to match
 the planning advisory. A `┃` replaces the cell at the automatic compaction point;
 the threshold lives in `lib/compaction.ts`, which `auto-compact.ts` also reads,
 so the two cannot drift. Bars shorter than 5 cells omit the marker. Missing or non-finite context usage reads `unavailable`.
-Labels stay dim; status values preserve extension colors. Errors and warnings
-sort before ordinary plugin status. The MCP status uses `↔` instead of the
-adapter's plug emoji for terminal legibility. Pi Lens's file-and-warning-count
+Labels stay dim; status values preserve extension colors. Pi Lens's file-and-warning-count
 widget is hidden by default in `~/.pi-lens/config.json`; its tools remain
 available, and `/lens-widget-toggle` can show the widget for the current session.
 
@@ -638,18 +642,17 @@ available, and `/lens-widget-toggle` can show the widget for the current session
 custom session entry and restored on reload or resume. Details add input tokens,
 cache reads/writes, permission rule counts, completed usage scan counts, and
 healthy MCP connection status. The compact display omits completed scan counts
-and healthy MCP counts. Cached tool definitions are no longer read or presented
+and healthy MCP counts. Cached tool definitions are not read or presented
 as evidence of a live MCP connection.
+
+In fullscreen mode, clicking `shelf ▸` toggles the [shelf](#shelf), and clicking anywhere else on row 1 opens it. The button appears once the shelf extension reports its state, so the footer works without it.
 
 Generation speed lives in the working spinner and the end-of-run receipt (see
 [TPS tracker](#tps-tracker)) rather than the footer, so the footer does not
 change every frame while a response streams. The cost comes from the usage
-totals reported by providers. On narrow terminals, cost
-moves to the next row and telemetry wraps instead of silently dropping fields.
-Input and cache totals are cumulative session usage; they are not the current
+totals reported by providers, read from the active branch through
+`lib/session-usage.ts`. Input and cache totals are cumulative session usage; they are not the current
 context occupancy.
-
-The footer reads statuses published by other extensions with `ctx.ui.setStatus()`. Other extensions keep their own logic; `footer.ts` owns display order and spacing.
 
 The footer shares Pi's read-only branch/status provider with the custom editor
 through a named extension event. It uses Pi's branch watcher to refresh both the
@@ -657,12 +660,78 @@ prompt and the terminal title (`Pi · directory · branch`). Event listeners are
 removed when the footer is disposed. Shared rendering helpers live in
 `.pi/agent/extensions/lib/shell-layout.ts`.
 
-Pi places below-editor widgets, including Lens, between the editor and footer.
-The tracked global Pi Lens config hides this widget by default without
+Pi places below-editor widgets, including the shelf and Lens, between the editor and footer.
+The tracked global Pi Lens config hides the Lens widget by default without
 uninstalling the package or disabling its tools. `/lens-widget-toggle` can show
 it for the current session. The directory and branch are part of the editor's
 own top border, so widgets cannot separate them from the prompt or its model
 border.
+
+## Shelf
+
+Location: `.pi/agent/extensions/shelf.ts`; section contract in `.pi/agent/extensions/lib/shelf.ts`
+
+A drawer below the editor, closed by default. It is a `belowEditor` widget that exists only while open.
+
+| Control | Effect |
+| --- | --- |
+| `/shelf` | Toggle |
+| `/shelf open`, `/shelf close` | Open or close |
+| `Option+s` (`alt+s`) | Toggle. Not a Pi default, and tmux here does not bind `M-s`. |
+| Footer `shelf ▸` / `shelf ▾` | Toggle (fullscreen mouse) |
+| `/costs` | Open. Kept for the retired cost tracker, whose figures now live in the Usage section. |
+
+The open state is stored as a `shelf-display` custom session entry (`{ open }`) and restored on reload or resume. The drawer takes at most 40% of the terminal's rows, and never fewer than 4. When the sections need more, every heading stays and body lines are shared out one at a time in section order; a cut section ends with `… +n more`. When there are more sections than rows, the last row reads `… +n more sections`.
+
+Each section is drawn as a ruled heading with its headline figure at the right (`Agents ──── ● 2 running`), then its body indented two columns. The headline drops before the title is truncated. A section that throws shows `section failed: …` instead of breaking the drawer.
+
+Sections, by order:
+
+| Order | Id | Title | From | Headline | Body |
+| ---: | --- | --- | --- | --- | --- |
+| 10 | `agents` | Agents | `subagent-shelf.ts` | Running count | Running and finished subagents |
+| 20 | `last-turn` | Last turn | `shelf.ts` | Wall time | Model, output, speed, cost, context at the end, from the latest `turn-receipt` entry |
+| 30 | `context` | Context | `shelf.ts` | Percent used | Meter, tokens used, window, the 80% compaction point in tokens, and room left before it |
+| 40 | `cache` | Cache | `cache-tracker.ts` | Cache state | Prompt-cache figures |
+| 50 | `usage` | Usage | `shelf.ts` | Session cost | Input, output, cache read and write, cost; tool calls by tool |
+| 60 | `limits` | Limits | `codex-limits.ts` | Most-used window | Codex allowance bars and reset times |
+
+Tool counts come from the model's tool calls on the active branch, so they survive reload and follow `/tree`. Nested calls that a tool makes itself, such as a codemode script's, are not counted.
+
+### Adding a section
+
+```ts
+import { refreshShelf, registerShelfSection } from "./lib/shelf.ts";
+
+pi.on("session_start", () => {
+	unregister = registerShelfSection(pi, {
+		id: "example",
+		title: "Example",
+		order: 45,
+		headline: (theme) => theme.fg("success", "ok"),
+		render: (width, theme) => [theme.fg("dim", "one line per row")],
+	});
+});
+// When the section's data changes:
+refreshShelf(pi);
+pi.on("session_shutdown", () => unregister?.());
+```
+
+Every body line must fit in `width`; the drawer truncates defensively. Registering the same `id` again replaces the section. Sections can register before or after the drawer loads: the drawer asks for them again (`SHELF_SECTION_REQUEST`) when a session starts. `refreshShelf` only requests a render, and the drawer has no renderer while closed, so frequent refreshes cost nothing when it is shut.
+
+Controls outside the drawer use `SHELF_STATE`, `SHELF_STATE_REQUEST`, and `toggleShelf(pi, open?)` from the same module.
+
+## Codex limits
+
+Location: `.pi/agent/extensions/codex-limits.ts`
+
+Active only while the model's provider is `openai-codex`. It reads the Codex subscription allowance through `lib/codex-allowance.ts` (see [Usage analytics](#usage-analytics) for how the app-server lookup works) and:
+
+- publishes the primary bucket's windows as the `limits` status, `5h 12%  7d 34%`, plain under 50%, yellow from 50%, red from 80%. A failed lookup reads `limits unavailable`.
+- adds the Limits shelf section: one bar per window with its reset time (`resets 15:40 (in 2h 14m)`), every bucket when the account reports several, the plan, and how long ago it checked.
+- shows one warning toast when a window reaches 80%, once per window per reset time. The record is in memory, so `/reload` can repeat a toast.
+
+It fetches when a session starts or the model switches to Codex, then after a turn ends once the cached snapshot is five minutes old. Switching to another provider clears the status and removes the section.
 
 ## UI read preview and slash shortcuts
 
