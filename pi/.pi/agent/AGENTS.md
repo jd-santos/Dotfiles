@@ -132,13 +132,13 @@ Normal tool permissions, secret protection, review requirements, and Git deliver
 
 The `permission-gate` extension controls tool access:
 
-- **Default**: write/edit prompt for confirmation. Safe bash commands (ls, cat, git status, etc.) auto-allow. Sensitive file access always blocked.
+- **Default**: writes and edits inside the working directory auto-allow. Changes outside it and bash commands not on the inspection allowlist prompt for confirmation. Sensitive file access is always blocked.
 - **`/readonly`**: blocks all writes and restricts bash to the read-only allowlist.
-- **`/yolo`**: toggles skip-all-prompts mode. All write/edit/bash auto-allow. Sensitive files still blocked.
+- **`/yolo`**: toggles auto-approval for ordinary operations. Sensitive files stay blocked, and destructive, permission-changing, protected-path, and remote-execution operations still need one-time confirmation.
 - **`/rules`**: shows active session permission rules (allow/deny rules set during the session).
 - **`/reset-rules`**: clears all session rules and resets to default mode.
 
-**Session rules**: after each prompt, a TUI selector asks whether to continue the pattern for the rest of the session: by tool type, directory, command pattern, or full yolo.
+**Session rules**: at a prompt, choosing "Always allow" opens a scope picker: the exact operation, yolo, all writes and edits, tool-specific scopes, then directories. Rules reset between sessions.
 
 ## Auto-Formatting
 

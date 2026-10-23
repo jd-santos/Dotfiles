@@ -127,7 +127,7 @@ General utility aliases.
 | `ducks` | List top 10 largest files/directories in current dir |
 | `path` | Display all directories in your PATH |
 | `szsh` | Reload `.zshrc` configuration |
-| `dsync` | Run `merge-settings` to rebuild generated Pi and Zed settings |
+| `dsync` | Run `merge-settings` to rebuild generated Pi, Zed, and Claude Code settings |
 | `gsub` | Initialize and update Git submodules recursively; run from a repository root |
 
 ---
@@ -147,7 +147,7 @@ reference.
 **Notes:**
 
 - Keeps the real OpenRouter and Parallel keys out of git and out of the parent shell
-- `PARALLEL_API_KEY` authenticates the Parallel Task MCP server configured in `~/.config/mcp/mcp.json`
+- `PARALLEL_API_KEY` authenticates the Parallel Task MCP server configured in `~/.pi/agent/mcp.json`, which `merge-settings` generates
 - The executable wrapper also covers child processes and non-interactive launches
 - Falls back to the installed Pi command if `op` is unavailable or locked
 

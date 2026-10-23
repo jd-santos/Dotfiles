@@ -2,7 +2,7 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { Engine, MockClock } from 'claude-code/testing'
 import type { On, ProcessRunResult, SessionUsage } from 'claude-code'
 
-import { aliasOf, cacheHit, cacheRates, coldCause, column, effectiveInputRate, contextMeter, cycle, EFFORTS, fitCwd, formatModel, formatMoney, gauge, MODELS, pad, segments, sparkline, splitCwd } from '../hooks/format'
+import { aliasOf, cacheHit, cacheRates, coldCause, column, effectiveInputRate, contextMeter, cycle, EFFORTS, fitCwd, formatModel, formatMoney, gauge, modeFromLabels, MODELS, pad, segments, sparkline, splitCwd } from '../hooks/format'
 
 const BAND = {
   plugin: 'shellfish',
@@ -17,11 +17,11 @@ const BAND = {
   },
 } as const
 
-type World = { commands: string[]; appended: string[]; forks: number; cost: { usd: number }; clock: MockClock }
+type World = { commands: string[]; appended: string[]; forks: number; cost: { usd: number }; clock: MockClock; agents: object[]; panes: object[]; opens: number; closes: number }
 
 function engine(on: On, percent: number): World {
   mock.store(on)
-  const world: World = { commands: [], appended: [], forks: 0, cost: { usd: 1.2345 }, clock: mock.clock(on, { now: 1_000_000 }) }
+  const world: World = { commands: [], appended: [], forks: 0, cost: { usd: 1.2345 }, clock: mock.clock(on, { now: 1_000_000 }), agents: [], panes: [], opens: 0, closes: 0 }
   mock.env(on, { HOME: '/Users/me' })
   on('command.register', ($, e) => ({ value: { command: e.name } }))
   on('session.start', ($, e) => ({ cwd: e.cwd }))
@@ -33,9 +33,20 @@ function engine(on: On, percent: number): World {
   on('session.model', () => ({ value: 'claude-sonnet-5-5' }))
   on('session.turns', () => ({ value: 1 }))
   on('session.messages', () => ({ value: [] }))
-  on('agent.list', () => ({ value: [] }))
+  on('agent.list', () => ({ value: world.agents as never }))
   on('fs.write', () => ({ value: undefined }))
   on('ui.toast', () => ({ value: undefined }))
+  on('ui.open', ($, e) => {
+    world.opens += 1
+    world.panes = [{ id: e.id, title: e.title ?? e.id, isShown: true, isFocused: false, isPlaced: true }]
+    return { value: { isPlaced: true } as never }
+  })
+  on('ui.close', () => {
+    world.closes += 1
+    world.panes = []
+    return { value: undefined }
+  })
+  on('ui.panes', () => ({ value: world.panes as never }))
   on('model.fork', () => {
     world.forks += 1
     return { value: { isAnswered: true, text: 'ok', usage: { input_tokens: 0, output_tokens: 1, cache_read_input_tokens: 5000, cache_creation_input_tokens: 0 } } as never }
@@ -146,6 +157,10 @@ test('the context bar takes /context colours and marks the compaction point', as
   expect(all).toContain('"claude"')
   expect(all).toContain('┃')
   expect(all).toContain('5h ')
+  expect(all).toContain('12%')
+  expect(all).toContain('"ctx "')
+  expect(all).toContain('"cost "')
+  expect(all).not.toContain('▁')
   expect(all).toContain('messages 30%')
   await ui.unmount()
 })
@@ -154,6 +169,9 @@ test('the shelf titles itself with the summary and keys the context bar', async 
   engine(on, 40)
   await start($)
   await $.command.run({ command: 'summary', args: 'Port the Pi footer' } as never)
+  const band = await $.ui.mount({ ...BAND, surface: 'terminal' } as never)
+  expect(JSON.stringify(await band.drawn())).toContain('Port the Pi footer')
+  await band.unmount()
   const pane = await $.ui.mount({
     plugin: 'shellfish',
     surface: 'terminal',
@@ -246,6 +264,57 @@ test('/keepalive probes the cache before the entry lapses and renews the timer',
   expect(world.forks).toBe(1)
 })
 
+test('a running subagent gets a row in the band and heads the shelf', async ($, on) => {
+  const world = engine(on, 10)
+  await start($)
+  world.agents = [{ id: 'a1', type: 'general-purpose', name: 'Explore', description: 'Find the footer code', status: 'running' }]
+  await world.clock.advance(2_000)
+  const band = await $.ui.mount({ ...BAND, surface: 'terminal' } as never)
+  const drawn = JSON.stringify(await band.drawn())
+  expect(drawn).toContain('Explore')
+  expect(drawn).toContain('Find the footer code')
+  // The first subagent opens the shelf by itself, so the button already points back at it.
+  expect(drawn).toContain('1 agent ◂')
+  await band.unmount()
+  const pane = await $.ui.mount({
+    plugin: 'shellfish',
+    surface: 'terminal',
+    component: 'Pane',
+    requestId: 'shellfish',
+    props: { title: 'shelf', isFocused: false, bodyColumns: 60, placement: 'dock', scroll: { offset: 0, bodyRows: 40, contentRows: 0 }, view: {} },
+  } as never)
+  const shelf = JSON.stringify(await pane.drawn())
+  expect(shelf).toContain('1 running')
+  expect(shelf.indexOf('Agents ')).toBeLessThan(shelf.indexOf('Context '))
+  await pane.unmount()
+})
+
+test('the shelf button opens the shelf, then closes it', async ($, on) => {
+  const world = engine(on, 10)
+  await start($)
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' } as never)
+  expect(JSON.stringify(await ui.drawn())).toContain('shelf ▸')
+  await ui.press({ key: 'shelf' })
+  expect(world.opens).toBe(1)
+  expect(JSON.stringify(await ui.drawn())).toContain('shelf ◂')
+  await ui.press({ key: 'shelf' })
+  expect(world.closes).toBe(1)
+  expect(JSON.stringify(await ui.drawn())).toContain('shelf ▸')
+  await ui.unmount()
+  expect(JSON.stringify(await $.command.run({ command: 'shelf', args: '' } as never))).toContain('Shelf opened')
+})
+
+test('the context bar follows the live percent when the breakdown is stale', async ($, on) => {
+  // The breakdown says 40% used; the live percent says 5%, as right after a compaction.
+  engine(on, 5)
+  await start($)
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' } as never)
+  const all = JSON.stringify(await ui.drawn())
+  expect(all).toContain(' 5%')
+  expect(all).not.toContain('"color":"claude"},"children":["█')
+  await ui.unmount()
+})
+
 test('helpers', () => {
   expect(formatModel('claude-opus-5-5')).toBe('opus 5.5')
   expect(formatModel('claude-sonnet-5-5[1m]')).toBe('sonnet 5.5 1m')
@@ -266,6 +335,10 @@ test('helpers', () => {
   expect(column(4, 16)).toEqual({ top: ' ', bottom: '▄' })
   expect(column(0, 16)).toEqual({ top: ' ', bottom: ' ' })
   expect(gauge(100)).toBe('█')
+  expect(modeFromLabels([])).toBe('default')
+  expect(modeFromLabels(['⏵⏵ accept edits on'])).toBe('acceptEdits')
+  expect(modeFromLabels(['⏸ plan mode on'])).toBe('plan')
+  expect(modeFromLabels(['auto mode on'])).toBe('auto')
   expect(cacheRates('opus').read).toBe(0.05)
   expect(effectiveInputRate({ input: 0, cacheRead: 100, cacheWrite: 0 }, cacheRates('sonnet'))).toBe(0.1)
   expect(effectiveInputRate({ input: 0, cacheRead: 0, cacheWrite: 0 }, cacheRates(null))).toBe(null)

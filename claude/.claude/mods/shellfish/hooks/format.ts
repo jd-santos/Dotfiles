@@ -65,6 +65,18 @@ export function formatMode(mode: string | null): ModeLabel {
   }
 }
 
+/** The permission mode behind the footer's own mode labels (`SessionMode`); `default` when it shows none. */
+export function modeFromLabels(labels: readonly string[]): string | null {
+  if (labels.length === 0) return 'default'
+  const text = labels.join(' ').toLowerCase()
+  if (text.includes('plan')) return 'plan'
+  if (text.includes('accept')) return 'acceptEdits'
+  if (text.includes('bypass')) return 'bypassPermissions'
+  if (/don.?t ask/.test(text)) return 'dontAsk'
+  if (text.includes('auto')) return 'auto'
+  return null
+}
+
 export type Meter = { bar: number; empty: number; percent: number; color: 'success' | 'warning' | 'error' }
 
 /** Pi's context meter: yellow at 50%, red at 80%, up to 20 cells. */
