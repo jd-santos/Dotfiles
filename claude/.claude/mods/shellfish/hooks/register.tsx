@@ -1080,7 +1080,7 @@ export const register: Register = on => {
             <Text wrap="truncate-end">
               <Text>{'🐚 '}</Text>
               <Text bold color="claude">shellfish</Text>
-              <Text>{' 🦐'}</Text>
+              <Text>{' 🐟'}</Text>
               <Text dimColor>{'  by JD Santos'}</Text>
             </Text>
           </Box>
