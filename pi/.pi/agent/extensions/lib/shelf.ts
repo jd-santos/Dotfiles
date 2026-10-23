@@ -60,3 +60,20 @@ export function registerShelfSection(pi: { events: EventBus }, section: ShelfSec
 export function refreshShelf(pi: { events: EventBus }): void {
 	pi.events.emit(SHELF_REFRESH, undefined);
 }
+
+// Drawer state, for controls outside the drawer such as the footer's
+// `shelf ▸` button. Additive: section contributors do not need these.
+
+/** Emitted by the drawer with ShelfState whenever it opens, closes, or is asked. */
+export const SHELF_STATE = "dotfiles:shelf-state";
+export const SHELF_STATE_REQUEST = "dotfiles:shelf-state-request";
+/** Ask the drawer to open (`open: true`), close (`false`), or toggle (omitted). */
+export const SHELF_TOGGLE = "dotfiles:shelf-toggle";
+
+export interface ShelfState {
+	open: boolean;
+}
+
+export function toggleShelf(pi: { events: EventBus }, open?: boolean): void {
+	pi.events.emit(SHELF_TOGGLE, { open });
+}
