@@ -20,7 +20,7 @@ This is the spillover doc for Pi details that are worth keeping but too dense fo
 | `.pi/agent/extensions/subagent/config.json` | `~/.pi/agent/extensions/subagent/config.json` | Runtime policy for the pinned `pi-subagents` package |
 | `.pi/agent/skills/parallel-task-research/SKILL.md` | `~/.pi/agent/skills/parallel-task-research/SKILL.md` | Pi-specific Parallel Task research workflow |
 | `.pi/agent/prompts/ship.md` | `~/.pi/agent/prompts/ship.md` | `/ship` wrapper for the shared `ship` skill |
-| `.pi/agent/themes/*.json` | `~/.pi/agent/themes/*.json` | Catppuccin and Dracula themes |
+| `.pi/agent/themes/*.json` | `~/.pi/agent/themes/*.json` | Catppuccin, Dracula, and `quiet-ink` themes |
 | `README.md` | Not stowed | Human-facing overview |
 | `docs/assets/*.svg` | Not stowed | Editable prompt and permission-flow recreations with example data |
 | `docs/reference.md` | Not stowed | Dense reference notes |
