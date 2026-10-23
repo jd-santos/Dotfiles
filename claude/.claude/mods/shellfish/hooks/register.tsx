@@ -389,7 +389,7 @@ export const register: Register = on => {
     await update($, tick, n => n + 1)
 
     return done
-  })
+  }).catch(($, e, next) => next(e))
 
   // Compaction shrinks the conversation; the bar's categories must follow, not wait for the next turn.
   on('session.compact', async ($, e, next) => {
@@ -400,7 +400,7 @@ export const register: Register = on => {
     }
 
     return done
-  })
+  }).catch(($, e, next) => next(e))
 
   // Each prompt's time, so its row in the transcript can open with a dated rule.
   on('prompt.submit', async ($, e, next) => {
