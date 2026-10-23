@@ -111,11 +111,12 @@ else
 fi
 
 alias less='less -FSRXc' # Preferred 'less' implementation
-alias cat='bat' # Preferred 'cat' implementation
 
 # Man Page Configuration
 export MANWIDTH=80 # Limit man page width for better readability
+# bat is optional: alias cat only when it is installed, so a machine without it keeps a working cat.
 if command -v bat &>/dev/null; then
+  alias cat='bat' # Preferred 'cat' implementation
   export MANPAGER="sh -c 'col -bx | bat -l man -p'" # Use bat for syntax-highlighted man pages
 fi
 manhtml() { man -t "$1" | open -f -a Preview ; } # manhtml: Open man page as PDF in Preview (macOS)

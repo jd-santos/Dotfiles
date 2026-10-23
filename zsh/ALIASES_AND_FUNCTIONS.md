@@ -28,7 +28,7 @@ Enhanced versions of common commands with useful flags.
 | `mkdir` | `mkdir -pv` | Create directories (parents as needed) with verbose output |
 | `ls` | `ls -FGlAhp` | Enhanced ls with colors, long format, and hidden files |
 | `less` | `less -FSRXc` | Less pager with useful defaults |
-| `cat` | `bat` | Modern cat replacement with syntax highlighting |
+| `cat` | `bat` | Modern cat replacement with syntax highlighting; only set when `bat` is installed |
 | `manhtml()` | `man -t <page> \| open -f -a Preview` | Open a man page as a PDF in Preview on macOS |
 
 ---
