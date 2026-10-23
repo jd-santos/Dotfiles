@@ -256,7 +256,7 @@ test('/keepalive probes the cache before the entry lapses and renews the timer',
   expect(shelf).toContain('keeping warm')
   expect(shelf).toContain('1 renewal')
   expect(shelf).toContain('next in 57:')
-  expect(shelf).toContain('Press to stop keeping warm')
+  expect(shelf).toContain('Stop keeping warm')
   await pane.unmount()
 
   await $.command.run({ command: 'keepalive', args: 'off' } as never)
@@ -351,4 +351,34 @@ test('helpers', () => {
   expect(coldCause({ cacheHit: 10, gapMs: 1000, ...prev }, prev)).toBe('prefix')
   const split = segments([{ name: 'a', tokens: 50, color: 'x' }, { name: 'b', tokens: 1, color: 'y' }], 100, 10)
   expect(split.map(s => s.cells)).toEqual([5, 1])
+})
+
+test('a rule with the session title tops the band, and a dated rule opens each prompt', async ($, on) => {
+  engine(on, 40)
+  on('prompt.submit', ($, e) => ({ text: e.text }))
+  on('ui.render', { component: 'UserMessage' }, ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>{`> ${e.props.text}`}</Text>
+  })
+  await start($)
+  await $.command.run({ command: 'summary', args: 'Port the Pi footer' } as never)
+  const band = await $.ui.mount({ ...BAND, surface: 'terminal' } as never)
+  const drawn = JSON.stringify(await band.drawn())
+  expect(drawn).toContain(' Port the Pi footer ')
+  expect(drawn).toContain('───')
+  expect(drawn).toContain('" on "')
+  await band.unmount()
+
+  await $.prompt.submit({ text: 'Fix the footer' } as never)
+  const row = await $.ui.mount({
+    plugin: 'shellfish',
+    surface: 'terminal',
+    component: 'UserMessage',
+    requestId: 'm1',
+    props: { text: 'Fix the footer', origin: { kind: 'composer' }, isExpanded: false },
+  } as never)
+  const message = JSON.stringify(await row.drawn())
+  expect(message).toMatch(/ \d\d:\d\d /)
+  expect(message).toContain('──')
+  await row.unmount()
 })

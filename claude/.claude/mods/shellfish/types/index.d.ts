@@ -30,6 +30,9 @@ export type KeepAlive = { until: number; probes: number }
 export type ContextSlice = { name: string; tokens: number; color: string }
 export type Breakdown = { slices: ContextSlice[]; maxTokens: number; autoCompactAt: number | null; isAutoCompactEnabled: boolean }
 
+/** A prompt the person sent and when, so its transcript row can carry a timestamped divider. */
+export type PromptMark = { text: string; at: number }
+
 export type AgentRow = { id: string; type: string; description: string; status: string; firstSeen: number }
 
 declare module 'claude-code' {
@@ -54,6 +57,8 @@ declare module 'claude-code' {
       clockTick: number
       /** Keep-alive: re-read the cache entry before it lapses, until `until`; null when off. */
       keepAlive: KeepAlive | null
+      /** The person's recent prompts, newest last, for the dividers above them in the transcript. */
+      prompts: PromptMark[]
     }
   }
 }
