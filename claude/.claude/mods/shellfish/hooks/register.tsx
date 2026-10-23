@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, SessionRateLimit, SessionUsage } from 'claude-code'
 
-import type { AgentRow, Breakdown, KeepAlive, Receipt, Speed, Summary, Totals } from '../types'
+import type { AgentRow, Breakdown, KeepAlive, PromptMark, Receipt, Speed, Summary, Totals } from '../types'
 import {
   EFFORTS,
   MODELS,
@@ -49,6 +49,7 @@ const tick = atom({ plugin: 'shellfish', key: 'tick' } as const, 0)
 const warmUntil = atom({ plugin: 'shellfish', key: 'warmUntil' } as const, null as number | null)
 const clockTick = atom({ plugin: 'shellfish', key: 'clockTick' } as const, 0)
 const keepAlive = atom({ plugin: 'shellfish', key: 'keepAlive' } as const, null as KeepAlive | null)
+const prompts = atom({ plugin: 'shellfish', key: 'prompts' } as const, [] as PromptMark[])
 
 const SHELF = 'shellfish'
 // The dock width the shelf asks for: a sidebar, not half the screen. The person's own drag wins.
@@ -57,6 +58,9 @@ const SHELF_COLUMNS = 52
 const BAND_AGENT_ROWS = 3
 // A breakdown this many points off the live context percent is stale; the bar falls back to a plain meter.
 const STALE_SPLIT_POINTS = 15
+
+// Prompts remembered for their transcript dividers; older rows draw an unlabelled rule.
+const PROMPT_MARKS = 200
 
 const AGENT_GLYPHS: Record<string, string> = { running: '●', pending: '○', waiting: '◐', idle: '◌', completed: '✓', failed: '✗', killed: '✗' }
 
@@ -374,6 +378,39 @@ export const register: Register = on => {
     return done
   })
 
+  // Each prompt's time, so its row in the transcript can open with a dated rule.
+  on('prompt.submit', async ($, e, next) => {
+    const text = e.text
+    if (!e.isMeta && text.trim()) {
+      const at = await $.clock.now()
+      await update($, prompts, list => [...list, { text, at }].slice(-PROMPT_MARKS))
+    }
+
+    return next(e)
+  }).catch(($, e, next) => next(e))
+
+  // A rule above each prompt the person typed, so a new exchange reads as a new section.
+  on('ui.render', { component: 'UserMessage', props: { origin: { kind: 'composer' } } }, async ($, e, next) => {
+    const row = await next(e)
+    const { Box, Text } = $.ui.resolve(e)
+    const mark = [...(await read($, prompts))].reverse().find(p => p.text === e.props.text)
+    const label = mark ? ` ${wallClock(mark.at)} ` : ''
+
+    // Longer than any terminal; the one-row Box clips it, so the rule ends at the transcript's edge.
+    return (
+      <Box flexDirection="column">
+        <Box height={1} overflow="hidden">
+          <Text>
+            <Text color="inactive">{'──'}</Text>
+            <Text dimColor>{label}</Text>
+            <Text color="inactive">{'─'.repeat(400)}</Text>
+          </Text>
+        </Box>
+        {row}
+      </Box>
+    )
+  })
+
   // Permission mode: Claude Code's own footer labels are live; the classic envelope is the fallback.
   on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
     const found = modeFromLabels(e.props.modes)
@@ -585,11 +622,13 @@ export const register: Register = on => {
     const gitName = (await read($, branch)) ?? '…'
     const leftRoom = Math.max(8, width - rightWidth - 2)
     const gitText = shortenMiddle(gitName, Math.max(6, Math.floor(leftRoom * 0.4)))
-    const where = fitCwd(splitCwd((await read($, cwd)) ?? '', (await read($, home)) ?? undefined), Math.floor(leftRoom * 0.6) - gitText.length - 2)
+    const where = fitCwd(splitCwd((await read($, cwd)) ?? '', (await read($, home)) ?? undefined), leftRoom - gitText.length - 4)
     const gitColor = gitName === 'detached' ? 'warning' : gitName === 'no repo' ? 'inactive' : 'remember'
+
+    // The rule over the band: the session's title set into it, the line lit while a turn runs.
     const said = await read($, summary)
-    const summaryRoom = leftRoom - where.prefix.length - where.leaf.length - gitText.length - 5
-    const summaryText = said && summaryRoom >= 12 ? pad(said.text, Math.min(said.text.length, summaryRoom)) : null
+    const titleText = said && width >= 30 ? ` ${shortenMiddle(said.text, width - 8)} ` : ''
+    const ruleColor = e.props.isWorking ? 'claude' : 'inactive'
 
     // Row 2: context, rate limits, cost and cache as labelled figures; narrow widths drop from the right.
     const percent = usage.context.percent
@@ -612,7 +651,7 @@ export const register: Register = on => {
         ` · in ${formatCount(sums.input)} out ${formatCount(sums.output)} · ${hit === null ? '—' : `${hit}%`} reused from cache`,
     }
     const tip = (scope: keyof typeof tips) => (
-      <Box key={`tip-${scope}`} position="absolute" top={1} left={0} width={width} display="none" hover={{ scope, display: 'flex' }}>
+      <Box key={`tip-${scope}`} position="absolute" top={2} left={0} width={width} display="none" hover={{ scope, display: 'flex' }}>
         <Text color="suggestion">{pad(tips[scope], width)}</Text>
       </Box>
     )
@@ -620,14 +659,17 @@ export const register: Register = on => {
 
     return (
       <Box key="band" flexDirection="column" width={width}>
+        <Text>
+          <Text color={ruleColor}>{'──'}</Text>
+          {titleText ? <Text italic>{titleText}</Text> : null}
+          <Text color={ruleColor}>{'─'.repeat(Math.max(0, width - 2 - titleText.length))}</Text>
+        </Text>
         <Box flexDirection="row" justifyContent="space-between">
           <Text wrap="truncate-end">
             <Text dimColor>{where.prefix}</Text>
             <Text color="suggestion" bold>{where.leaf}</Text>
-            <Text>{'  '}</Text>
+            <Text dimColor>{' on '}</Text>
             <Text color={gitColor}>{gitText}</Text>
-            {summaryText ? <Text dimColor>{'  ·  '}</Text> : null}
-            {summaryText ? <Text italic>{summaryText}</Text> : null}
           </Text>
           <Box flexDirection="row">
             <Button key="model-previous" plain action={ACTION_MODEL_PREVIOUS} onPress={() => cycleModel($, -1)}>
@@ -714,7 +756,7 @@ export const register: Register = on => {
           </Button>
         ) : null}
         {contextKey.length ? (
-          <Box key="tip-context" position="absolute" top={1} left={0} width={width} display="none" hover={{ scope: 'context', display: 'flex' }}>
+          <Box key="tip-context" position="absolute" top={2} left={0} width={width} display="none" hover={{ scope: 'context', display: 'flex' }}>
             <Text wrap="truncate-end">
               {contextKey.map((entry, i) => (
                 <Text>
@@ -827,9 +869,29 @@ export const register: Register = on => {
     ]
     const helpWidth = Math.max(1, columns - 4)
 
+    // A section's heading: its name, a rule across, and its headline figure at the right.
+    type Aside = { text: string; color?: string; dim?: boolean }
+    const heading = (title: string, aside: Aside[] = []) => {
+      const asideLength = aside.reduce((n, part) => n + part.text.length, 0)
+      const fill = Math.max(2, columns - title.length - asideLength - (asideLength ? 2 : 1))
+      return (
+        <Text wrap="truncate-end">
+          <Text bold>{`${title} `}</Text>
+          <Text color="inactive">{'─'.repeat(fill)}</Text>
+          {asideLength ? <Text>{' '}</Text> : null}
+          {aside.map(part => (
+            <Text color={part.color} dimColor={part.dim}>{part.text}</Text>
+          ))}
+        </Text>
+      )
+    }
+    const agentsAside: Aside[] = running
+      ? [{ text: `● ${running} running`, color: 'claude' }]
+      : [{ text: shelf.length ? `${shelf.length} finished` : 'none yet', dim: true }]
+
     return (
       <Box flexDirection="column">
-        <Text bold wrap="truncate-end">{said?.text ?? 'shellfish'}</Text>
+        <Text bold color="claude" wrap="truncate-end">{said?.text ?? 'shellfish'}</Text>
         <Box key="turn-readout" position="relative" height={1}>
           <Text dimColor wrap="truncate-end">{readout}</Text>
           {shown.map((r, i) => (
@@ -840,16 +902,7 @@ export const register: Register = on => {
         </Box>
 
         <Box flexDirection="column" marginTop={1}>
-          <Text>
-            <Text bold color={running ? 'claude' : undefined}>{'Agents '}</Text>
-            {running ? (
-              <Text color="claude">{`● ${running} running`}</Text>
-            ) : shelf.length ? (
-              <Text dimColor>{`${shelf.length} finished`}</Text>
-            ) : (
-              <Text dimColor>none yet</Text>
-            )}
-          </Text>
+          {heading('Agents', agentsAside)}
           {viewing ? (
             <Button key="main" plain onPress={() => $.ui.view({})}>
               <Text color="suggestion">← main conversation</Text>
@@ -870,10 +923,7 @@ export const register: Register = on => {
         </Box>
 
         <Box flexDirection="column" marginTop={1}>
-          <Text>
-            <Text bold>Context </Text>
-            {percent === undefined ? <Text color="inactive">—</Text> : <Text color={percentColor(percent)}>{`${Math.round(percent)}%`}</Text>}
-          </Text>
+          {heading('Context', [percent === undefined ? { text: '—', color: 'inactive' } : { text: `${Math.round(percent)}%`, color: percentColor(percent) }])}
           <Box flexDirection="row">
             {runs(contextCells(split, percent, barWidth)).map(run => (
               <Text color={run.color}>{run.text}</Text>
@@ -904,10 +954,7 @@ export const register: Register = on => {
         </Box>
 
         <Box flexDirection="column" marginTop={1}>
-          <Box flexDirection="row" justifyContent="space-between">
-            <Text bold>Turns</Text>
-            <Text dimColor>{history.length ? `${history.length} so far` : ''}</Text>
-          </Box>
+          {heading('Turns', history.length ? [{ text: `${history.length} so far`, dim: true }] : [])}
           {shown.length ? (
             <Box flexDirection="column">
               {chart('cost', shown.map(r => r.costUsd), maxCost, () => 'claude')}
@@ -920,7 +967,7 @@ export const register: Register = on => {
 
         {usage.rateLimits.length ? (
           <Box flexDirection="column" marginTop={1}>
-            <Text bold>Limits</Text>
+            {heading('Limits')}
             {usage.rateLimits.map((limit, i) => {
               const filled = Math.round((Math.min(100, limit.percentUsed) / 100) * 10)
               return (
@@ -940,13 +987,10 @@ export const register: Register = on => {
 
         <Box key="cache" flexDirection="column" marginTop={1}>
           <Box key="cache-head" flexDirection="row" hover={{ scope: 'cache-help' }}>
-            <Text bold>Cache </Text>
-            {hit === null ? (
-              <Text color="inactive">—</Text>
-            ) : (
-              <Text color={percentColor(100 - hit)}>{`${hit}% reused`}</Text>
-            )}
-            <Text dimColor>{'  ?'}</Text>
+            {heading('Cache', [
+              hit === null ? { text: '—', color: 'inactive' } : { text: `${hit}% reused`, color: percentColor(100 - hit) },
+              { text: ' ?', dim: true },
+            ])}
           </Box>
           {clock ? (
             <Box flexDirection="row">
@@ -972,11 +1016,12 @@ export const register: Register = on => {
           )}
           {clock ? (
             <Box marginTop={1}>
-              <Button key="keep-alive" plain onPress={() => toggleKeepAlive($, KEEP_ALIVE_DEFAULT_MIN)}>
-                <Text inverse color={alive ? 'warning' : 'success'}>
-                  {alive ? '  ■ Press to stop keeping warm  ' : `  ▶ Press to keep warm for ${KEEP_ALIVE_DEFAULT_MIN} min  `}
-                </Text>
-              </Button>
+              <Button
+                key="keep-alive"
+                variant={alive ? 'secondary' : 'primary'}
+                label={alive ? '■ Stop keeping warm' : `▶ Keep warm for ${KEEP_ALIVE_DEFAULT_MIN} min`}
+                onPress={() => toggleKeepAlive($, KEEP_ALIVE_DEFAULT_MIN)}
+              />
             </Box>
           ) : null}
           {inputAll > 0 ? (
@@ -1028,8 +1073,17 @@ export const register: Register = on => {
           </Box>
         </Box>
 
-        <Box marginTop={1}>
-          <Text dimColor>log ~/.claude/shellfish/usage.jsonl</Text>
+        <Box flexDirection="column" marginTop={1}>
+          <Text color="inactive">{'┄'.repeat(columns)}</Text>
+          <Text dimColor wrap="truncate-end">log ~/.claude/shellfish/usage.jsonl</Text>
+          <Box marginTop={1}>
+            <Text wrap="truncate-end">
+              <Text>{'🐚 '}</Text>
+              <Text bold color="claude">shellfish</Text>
+              <Text>{' 🐟'}</Text>
+              <Text dimColor>{'  by JD Santos'}</Text>
+            </Text>
+          </Box>
         </Box>
       </Box>
     )
