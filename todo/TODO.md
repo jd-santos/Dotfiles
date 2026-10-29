@@ -36,6 +36,8 @@
 
 ## P4: Low
 
+- [ ] [Pi side questions with `/btw`](work/pi-btw/README.md) [context: medium]
+
 - [ ] Keep personal `todo/` tracking from conflicting with work task systems [context: small]
   - Problem: Pi's global `AGENTS.md` and `todo-manager` default to a local `todo/` workbench, while work repositories track tasks in GitLab issues. An agent in a work repo could create or update `todo/` files instead of using GitLab.
   - [ ] Decide how a repository declares its task source, such as a line in each repo's `AGENTS.md`, so the global default only applies when nothing is declared

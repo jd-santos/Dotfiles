@@ -70,6 +70,7 @@ These live in [`.pi/agent/extensions/`](.pi/agent/extensions/). The UI extension
 | `tps-tracker.ts` | Live generation speed in the working spinner and an end-of-run receipt in the transcript |
 | `cost-tracker.ts` + `usage.ts` | `/costs` for this session; `/usage` for deduplicated Pi, child-agent, and Codex CLI usage plus Codex subscription allowance |
 | `lg.ts` | Scripted Git change summaries, without asking the model to count lines |
+| `btw.ts` | Side questions in an isolated overlay, with full context or `--last [N]`, request approval, and visible usage |
 | `herdr-jd.ts` | Display-only Pi metadata for Herdr's sidebar. The separate `herdr-agent-state.ts` integration is generated locally by `scripts/setup-herdr`. |
 | `promptfoo-export.ts` | Export the active conversation branch as a promptfoo evaluation starter |
 
@@ -111,6 +112,7 @@ The permission commands are listed above. These are the other everyday entry poi
 | `/model`, `Ctrl+P`, `/scoped-models` | Full model picker, cycle the shortlist, or change the shortlist |
 | `/shell [compact\|details]` | Toggle or select footer detail |
 | `/summary [text\|clear]` | Show, set, or clear the session summary |
+| `/btw [--last [N]] question` | Ask a side question without steering the main agent; bare `--last` selects one exchange |
 | `/lg [--staged\|--all]` | Unstaged + untracked changes by default; optionally staged or all changes against `HEAD` |
 | `/costs`, `/usage` | Current-session totals or cross-session usage report |
 | `/subagents-fleet` | Inspect, steer, or stop child runs |
@@ -118,6 +120,8 @@ The permission commands are listed above. These are the other everyday entry poi
 | `/promptfoo-export [name]` | Export an evaluation starter |
 | `/ship [instructions]` | Review and deliver ready work |
 | `/reload` | Reload extensions, prompts, skills, and MCP configuration |
+
+`/btw` uses the current model in a separate request and requires approval before inference. The main agent keeps working; Esc cancels only the side request. Full-context cache reuse is best effort, not a promised discount. API calls have conservative estimate budgets; Codex subscription quota impact remains unknown and is explicitly disclosed. [Scope, cost safeguards, and limitations](docs/reference.md#side-questions)
 
 ## Install and configure
 

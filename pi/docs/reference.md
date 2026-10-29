@@ -369,6 +369,52 @@ Runs after successful `write` or `edit` tool calls. Unsupported extensions are s
 
 Formatters must be on `$PATH`.
 
+## Side questions
+
+`btw.ts` registers `/btw` as an interactive-only extension command. It runs a separate request on the selected model, without submitting a parent prompt, steering, waiting for the main run, executing tools, or changing session settings. The answer lives in a dismissible overlay, not the main model history.
+
+```text
+/btw Why did we choose this approach?
+/btw --last Why did we choose this approach?
+/btw --last 3 What changed between these attempts?
+```
+
+- No flag means full **current effective context**, including existing compaction, not every abandoned branch or the pre-compaction transcript.
+- Bare `--last`, `--last 1`, and `--last -1` all select the latest user exchange. Positive `N` selects up to the last N available exchanges. Each exchange starts with a real user request and includes its finalized assistant and tool messages. Injected instructions do not count as requests.
+- Limited-history mode retains system instructions and tool declarations, but excludes older conversation and summaries. It never silently expands to full history. Use `--last -- 42 is what?` when a question starts with a number.
+- A request made while the main agent works is labeled **partial exchange**. The snapshot includes finalized messages only and omits unmatched tool-call/result blocks. It stays fixed while the approval screen is open.
+- Scroll to the end of the approval disclosures (or press End), then Enter approves the request. Approval stays disabled until the end has been displayed. Esc or Ctrl+C cancels/dismisses only the side request. Arrow keys, PgUp/PgDn, Home/End, or j/k scroll. Only one BTW overlay can be open at once. There is no side-agent tool loop, compaction option, or automatic retry.
+
+### Cost approval and accounting
+
+Every call requires approval before inference. Cost and cancellation disclosures come before a bounded question preview. The screen shows scope, model, serialized request size, cache-prefix compatibility, and pricing limitations. It does not infer a cache hit from the conversation ID or latency.
+
+For API requests, the extension estimates uncached catalog cost using serialized request bytes as a deliberately pessimistic text-token proxy, the highest listed pricing tier, cache-write allowance, and 2,048 output tokens. The default limits are **$1 per request** and **$5 reserved per session**. Override them at launch with `--btw-max-cost 2 --btw-session-budget 10`. Unknown or zero catalog pricing blocks API dispatch. These are estimate gates, not provider-enforced billing caps: multimodal accounting, routing, service tiers, and catalog changes can differ from estimates.
+
+Reservations remain spent even on cancellation or failure because dispatch may have incurred a charge. Metadata-only `btw-request` entries preserve them across reload/resume; `btw-usage` entries record returned usage when available. Neither entry includes the question, answer, tool arguments, or transcript. These custom entries are excluded from model context. Existing `/costs` and `/usage` totals do not yet aggregate these side-request records; the overlay is the usage receipt.
+
+Codex and routes explicitly marked as subscriptions by Pi are different: **quota impact is unknown, dollar budgets do not apply, and API prices are not presented as subscription charges**. OAuth login alone is not a subscription: OpenRouter OAuth remains API-billed and passes through the same budget gates as an API key. Pi's Codex adapter does not expose a supported output-token cap, so the approval screen says so. Other supported APIs receive a 2,048-token output limit. A two-minute post-approval timeout cancels the side request, but does not guarantee a token or quota ceiling. Closing a request after dispatch does not undo its charges.
+
+The completed answer shows input, cache-read, cache-write, and output counts when the provider reports usage. API dollars are labeled a **catalog estimate**, not an actual billing receipt. Missing or incomplete native input/output usage remains **unknown**. The extension never presents normalized default zeros as evidence of a free request.
+
+### Cache reuse and compatibility
+
+The extension observes main-request context and appends finalized branch messages for its immutable side snapshot. It retains tool declarations, uses `toolChoice: none`, preserves observed cache/routing and reasoning controls, and compares serialized prefixes locally. It never executes returned tool calls. SSE transport keeps the side request off the main agent's cached WebSocket connection; no parent response ID or server conversation is continued.
+
+Matching prefixes improve the chance of reuse on [OpenAI](https://developers.openai.com/api/docs/guides/prompt-caching) and [OpenRouter](https://openrouter.ai/docs/features/prompt-caching), but expiration, routing, provider fallback, model changes, or cache breakpoints can still cause a miss. No supported backend offers an enforceable cache-hit-only switch. `--last` usually changes the prefix, so its smaller request must be evaluated independently of full-history cache discounts. Anthropic's adapter can move cache annotations or merge adjacent user messages; these cases are reported as unverified rather than advertised as preserved cache hits.
+
+Supported adapter families are OpenAI Responses, Codex Responses, Chat Completions (including OpenRouter), and Anthropic Messages. Other APIs and non-interactive modes are rejected. After reload or session navigation, the extension uses canonical branch context when possible; if no prompt/tool snapshot exists, it asks for one main conversation request first. Session shutdown/replacement or tree navigation closes the overlay and cancels only its request.
+
+### Validation
+
+Run the offline regression and installed-adapter serialization checks:
+
+```bash
+node --test pi/.pi/agent/extensions/tests/btw*.test.mjs
+```
+
+Serialization tests use synthetic credentials and stop before network dispatch. They verify request construction, not real cache hits. When the globally installed `pi-lens` package provides TypeScript, the suite also typechecks the three source modules against the installed Pi SDK, without adding dependencies or type stubs to this repository. Live cache reuse, subscription quota effects, and concurrent overlay behavior still need a user-approved smoke test. Run `/reload` to load the extension, then try `/btw --last` while a main request is working, inspect the approval screen, and test cancellation before approving a paid request.
+
 ## Cost tracker
 
 Location: `.pi/agent/extensions/cost-tracker.ts`
