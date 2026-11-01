@@ -68,7 +68,7 @@ At a prompt, I can allow once, allow for a chosen session scope, deny, inspect t
 | `/rules` | Show session rules |
 | `/reset-rules` | Clear rules and return to default mode |
 
-Sensitive bash reads stay blocked. Destructive, permission-changing, protected-system-path, and remote-execution operations still need one-time confirmation, even in yolo mode. Permission prompts can also trigger a desktop notification where supported.
+Sensitive bash reads stay blocked. Destructive, permission-changing, protected-system-path, and remote-execution operations still need one-time confirmation, even in yolo mode. An executable's absolute location alone doesn't trigger a protected-path prompt; dangerous command names and protected absolute arguments are still checked. The built-in Git policy recognizes `git` and `/usr/bin/git`. Permission prompts can also trigger a desktop notification where supported.
 
 This is a consent layer, **not a sandbox**. Extensions and child Pi processes run with my user permissions. The shell scanner isn't a complete parser. [Rules, command handling, and notification support](docs/reference.md#permission-gate)
 
@@ -173,7 +173,7 @@ Restart Pi for changes to launch-time environment or package versions; `/reload`
 
 The shared default is `openai-codex/gpt-6.1-sol` with medium thinking. Astra (`openai-codex/gpt-6-astra`) is also in the shortlist. OpenAI models use Codex, not OpenRouter. `Ctrl+P` cycles the configured shortlist; `/model` shows the full catalog. A resumed session can restore its old model: use `/new` or `pi --no-session` to start with the configured default. [Model list and wrapper behavior](docs/reference.md#settings)
 
-The `~/bin/pi` wrapper resolves `op://` references for OpenRouter and Parallel keys through 1Password. Keep `~/bin` ahead of Homebrew on `PATH` so child launches use it too. On macOS inside Herdr, it enables 1Password desktop prompts when `OP_BIOMETRIC_UNLOCK_ENABLED` is unset; an explicit value takes precedence. Restart Pi to pick up changes. Local settings, generated config, auth, sessions, and helper scripts are ignored by Git. Keep private server URLs and account information out of tracked files. [MCP overrides and verification](docs/reference.md#mcp)
+The `~/bin/pi` wrapper resolves `op://` references for OpenRouter and Parallel keys through 1Password. Keep `~/bin` ahead of Homebrew on `PATH` so child launches use it too. On macOS inside Herdr, it enables 1Password desktop prompts when `OP_BIOMETRIC_UNLOCK_ENABLED` is unset; an explicit value takes precedence. Restart Pi to pick up changes. Local settings, generated config, auth, sessions, run history (`run-history.jsonl`), and helper scripts are ignored by Git. Keep private server URLs and account information out of tracked files. [MCP overrides and verification](docs/reference.md#mcp)
 
 ## Keeping this page current
 

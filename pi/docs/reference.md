@@ -29,6 +29,7 @@ Not tracked:
 
 - `auth.json`
 - `sessions/`
+- `run-history.jsonl`
 - `bin/`
 - `settings.json`
 - `settings.local.json`
@@ -263,7 +264,7 @@ Prompt flow:
 3. If always allowed, ask for a session scope. The first options are the exact operation, yolo, and all write/edit operations. Tool-specific options follow, with directory options last.
 4. If denied, ask whether the denial should apply once or become a session rule.
 
-Writes to protected system paths, destructive or permission-changing shell commands, and remote-execution commands always require an interactive one-time confirmation. They are not covered by yolo or session rules. Sensitive bash reads remain blocked.
+Writes to protected system paths, destructive or permission-changing shell commands, and remote-execution commands always require an interactive one-time confirmation. They are not covered by yolo or session rules. An executable's absolute location alone does not trigger a protected-path prompt. Known dangerous command names are still checked, and protected absolute paths in command arguments still require confirmation. The built-in Git policy recognizes `git` and `/usr/bin/git`. Sensitive bash reads remain blocked.
 
 The prompt sets the below-editor pointer widget and sends an OSC 777 desktop notification in interactive Ghostty or cmux sessions outside tmux. tmux passthrough is not enabled in this configuration, so Pi uses a contextual fallback: the cmux CLI inside a cmux surface or macOS Notification Center through `osascript` on macOS. Other unsupported platforms have no fallback. Notification failures are ignored.
 
@@ -317,7 +318,7 @@ For write and edit tools:
 For bash:
 
 1. Known sensitive file read patterns block.
-2. Destructive, permission-changing, privileged, remote-execution, and protected-system-path commands require an interactive one-time confirmation.
+2. Destructive, permission-changing, privileged, and remote-execution commands, plus protected absolute paths in command arguments, require an interactive one-time confirmation.
 3. Simple commands auto-allow when every part of the command chain passes a static inspection policy.
 4. Read-only mode blocks anything not already covered by a static inspection policy.
 5. Broad session scopes, such as the current directory or bash tool type, allow.

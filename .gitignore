@@ -69,6 +69,7 @@ pi/.pi/agent/mcp.json
 pi/.pi/agent/mcp.local.json
 pi/.pi/agent/.mcp-managed
 pi/.pi/agent/sessions/
+pi/.pi/agent/run-history.jsonl
 pi/.pi/agent/bin/
 pi/.pi/agent/mcp-cache.json
 pi/.pi/agent/models-store.json

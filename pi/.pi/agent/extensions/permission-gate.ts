@@ -24,7 +24,7 @@
 /// <reference path="../types.d.ts" />
 
 import { homedir } from "node:os";
-import { isAbsolute, resolve } from "node:path";
+import { basename, isAbsolute, resolve } from "node:path";
 import type {
 	ExtensionAPI,
 	ExtensionContext,
@@ -368,13 +368,26 @@ function splitShellWords(command: string): string[] {
 	return words;
 }
 
-function extractCommandPattern(part: string): string | undefined {
-	const words = splitShellWords(part);
+function commandWordIndex(words: string[]): number | undefined {
 	let index = 0;
 	while (index < words.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(words[index])) {
 		index++;
 	}
-	return words[index];
+	return index < words.length ? index : undefined;
+}
+
+function extractCommandPattern(part: string): string | undefined {
+	const words = splitShellWords(part);
+	const index = commandWordIndex(words);
+	return index === undefined ? undefined : words[index];
+}
+
+function commandName(command: string): string {
+	return basename(command);
+}
+
+function isGitExecutable(command: string): boolean {
+	return command === "git" || command === "/usr/bin/git";
 }
 
 function extractCommandPatterns(parts: string[]): string[] {
@@ -387,8 +400,9 @@ function extractCommandPatterns(parts: string[]): string[] {
 }
 
 function hasPromptOnlyArguments(part: string): boolean {
-	const command = extractCommandPattern(part);
-	if (!command) return true;
+	const commandPattern = extractCommandPattern(part);
+	if (!commandPattern) return true;
+	const command = commandName(commandPattern);
 	if (
 		PROMPT_ONLY_COMMANDS.has(command) ||
 		/^python\d+(?:\.\d+)*$/.test(command)
@@ -440,7 +454,7 @@ function hasPromptOnlyArguments(part: string): boolean {
 }
 
 function gitSubcommandIndex(words: string[]): number | undefined {
-	if (words[0] !== "git") return undefined;
+	if (!words[0] || !isGitExecutable(words[0])) return undefined;
 	const optionsWithValues = new Set([
 		"-C",
 		"-c",
@@ -542,7 +556,8 @@ export function isReadOnlyGitCommandPart(part: string): boolean {
 }
 
 function isAllGitCommandPart(part: string): boolean {
-	return splitShellWords(part)[0] === "git";
+	const command = splitShellWords(part)[0];
+	return Boolean(command && isGitExecutable(command));
 }
 
 export function canInferCommandSafety(analysis: BashCommandAnalysis): boolean {
@@ -561,13 +576,25 @@ export function isSafeCommandPart(part: string): boolean {
 	return SAFE_INSPECTION_PATTERNS.some((pattern) => pattern.test(part));
 }
 
+function absolutePathArgument(word: string): string | undefined {
+	if (word.startsWith("/")) return word;
+
+	const equalsIndex = word.indexOf("=");
+	if (equalsIndex >= 0 && word[equalsIndex + 1] === "/") {
+		return word.slice(equalsIndex + 1);
+	}
+
+	return word.match(/^-[A-Za-z]+(\/.*)$/)?.[1];
+}
+
 export function highDangerBashReason(
 	parts: string[],
 	cwd: string,
 ): string | undefined {
-	const commandTokens = parts
-		.map(extractCommandPattern)
-		.filter((command): command is string => Boolean(command));
+	const commandTokens = parts.flatMap((part) => {
+		const command = extractCommandPattern(part);
+		return command ? [commandName(command)] : [];
+	});
 	if (
 		commandTokens.some((command) => ["curl", "wget"].includes(command)) &&
 		commandTokens.some((command) =>
@@ -580,16 +607,25 @@ export function highDangerBashReason(
 	}
 
 	for (const part of parts) {
-		const command = extractCommandPattern(part);
+		const words = splitShellWords(part);
+		const commandIndex = commandWordIndex(words);
+		const rawCommand = commandIndex === undefined ? undefined : words[commandIndex];
+		const command = rawCommand ? commandName(rawCommand) : undefined;
 		if (command && HIGH_DANGER_COMMANDS.has(command)) {
 			return `${command} can delete files, change permissions, or alter the system`;
 		}
 		if (command && REMOTE_EXECUTION_COMMANDS.has(command)) {
 			return `${command} can execute or transfer data on another machine`;
 		}
-		const protectedPath = splitShellWords(part).find(
-			(word) => word.startsWith("/") && isProtectedPath(word, cwd),
-		);
+		// Leading environment assignments and the executable are not file targets.
+		// Dangerous names are handled above; check protected absolute arguments.
+		const protectedPath = words
+			.map((word, index) =>
+				commandIndex !== undefined && index <= commandIndex
+					? undefined
+					: absolutePathArgument(word),
+			)
+			.find((path) => path !== undefined && isProtectedPath(path, cwd));
 		if (protectedPath) {
 			return `${protectedPath} is a protected system path`;
 		}
@@ -607,7 +643,10 @@ export function bashRuleMatchesPart(
 ): boolean {
 	if (rule.type === "bash") {
 		const command = extractCommandPattern(part);
-		return command ? rule.commands.includes(command) : false;
+		return command
+			? rule.commands.includes(command) ||
+				rule.commands.includes("git") && isGitExecutable(command)
+			: false;
 	}
 	if (rule.type === "bashPolicy") {
 		return rule.policy === "git-read"
