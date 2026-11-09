@@ -52,6 +52,9 @@ if command -v pyenv &>/dev/null; then
   fi
 fi
 
+# Rust (rustup)
+[[ -f "$HOME/.cargo/env" ]] && source "$HOME/.cargo/env"
+
 # Dotnet
 export PATH="$PATH:/usr/local/share/dotnet"
 export PATH="$PATH:$HOME/.dotnet/tools"

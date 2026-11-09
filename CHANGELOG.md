@@ -6,6 +6,8 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 
 ### Added
 
+- Add Cargo and other rustup tools to `PATH` in zsh when `~/.cargo/env` exists.
+
 - Add Pi's `/btw` side-question overlay with full context or `--last [N]`, per-request approval, estimated API budgets, and visible usage without adding side questions or answers to the main model history.
 
 - Add a Stow-managed Herdr config with a tmux-like backtick prefix and Dracula theme.
