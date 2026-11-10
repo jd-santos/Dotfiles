@@ -226,3 +226,96 @@ export function contextMeter(
 export function terminalTitle(cwd: string, branch: string | null): string {
 	return `Pi · ${plain(basename(cwd) || cwd)}${branch ? ` · ${plain(branch)}` : ""}`;
 }
+
+// Fixed-height rows: fields drop by rank instead of wrapping onto a new line.
+
+export type RankedField = {
+	text?: string;
+	/** Lower ranks are kept longer as the row narrows. */
+	rank: number;
+	side?: "left" | "right";
+};
+
+/**
+ * The highest-ranked fields that fit in `budget`, in their original order.
+ * Strict: once a field misses, every lower-ranked field drops too, so a narrow
+ * low-priority field never outlives a wider important one.
+ */
+export function keepByRank<T extends { text?: string; rank: number }>(
+	fields: T[],
+	budget: number,
+	gap = 2,
+): T[] {
+	const kept = new Set<T>();
+	let used = 0;
+	const candidates = fields.filter((field) => field.text && visibleWidth(field.text) > 0);
+	for (const field of [...candidates].sort((a, b) => a.rank - b.rank)) {
+		const width = visibleWidth(field.text!) + (kept.size ? gap : 0);
+		if (used + width > budget) break;
+		kept.add(field);
+		used += width;
+	}
+	return candidates.filter((field) => kept.has(field));
+}
+
+/**
+ * One row with a shrinking meter at the left, then fields, with `side: "right"`
+ * fields pushed to the right edge. Fields that do not fit are dropped by rank.
+ */
+export function rankedRow(
+	width: number,
+	meter: { render(width: number): string; min: number; max: number },
+	fields: RankedField[],
+	gap = 2,
+): { line: string; kept: RankedField[] } {
+	if (width <= 0) return { line: "", kept: [] };
+	const meterMin = Math.min(meter.min, width);
+	const kept = keepByRank(fields, width - meterMin - gap, gap);
+	const fieldWidth = kept.reduce((sum, field) => sum + visibleWidth(field.text!) + gap, 0);
+	const meterText = truncateToWidth(
+		meter.render(Math.max(meterMin, Math.min(meter.max, width - fieldWidth))),
+		width,
+		"…",
+	);
+	const join = (side: RankedField[]) => side.map((field) => field.text).join(" ".repeat(gap));
+	const left = kept.filter((field) => field.side !== "right");
+	const right = kept.filter((field) => field.side === "right");
+	const leftText = meterText + (left.length ? " ".repeat(gap) + join(left) : "");
+	const rightText = join(right);
+	const pad = Math.max(
+		right.length ? gap : 0,
+		width - visibleWidth(leftText) - visibleWidth(rightText),
+	);
+	return { line: truncateToWidth(leftText + " ".repeat(pad) + rightText, width, ""), kept };
+}
+
+/**
+ * The summary at the left and statuses at the right, on one row. Statuses come
+ * in priority order; those that do not fit collapse into a `+n` count, and the
+ * summary keeps at least a short stub while statuses are present.
+ */
+export function summaryRow(
+	theme: ThemeLike,
+	summary: string,
+	statuses: string[],
+	width: number,
+	gap = 2,
+): string {
+	if (width <= 0) return "";
+	const stub = summary ? Math.min(visibleWidth(summary), 16) + gap : 0;
+	const budget = Math.max(0, width - stub);
+	const ranked = statuses.map((text, rank) => ({ text: truncateToWidth(text, budget, "…"), rank }));
+	let kept = keepByRank(ranked, budget, gap);
+	let more = "";
+	if (kept.length < ranked.length) {
+		const count = (n: number) => theme.fg("dim", `+${n}`);
+		kept = keepByRank(ranked, budget - visibleWidth(count(ranked.length)) - gap, gap);
+		more = count(ranked.length - kept.length);
+	}
+	const right = [...kept.map((field) => field.text), more].filter(Boolean).join(" ".repeat(gap));
+	if (!summary) return truncateToWidth(right, width, "");
+	const room = width - (right ? visibleWidth(right) + gap : 0);
+	const left = truncateToWidth(summary, Math.max(0, room), "…");
+	const pad = Math.max(0, width - visibleWidth(left) - visibleWidth(right));
+	return truncateToWidth(left + " ".repeat(pad) + right, width, "");
+}

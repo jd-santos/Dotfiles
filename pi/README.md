@@ -8,7 +8,7 @@ The files are managed with GNU Stow. Shared defaults live here; account details 
 
 | Change | Why I use it |
 | --- | --- |
-| **A more useful prompt** | Directory, branch, permission mode, model, and thinking level stay next to the input. The footer shows context (with the auto-compact point marked), cost, and a short session summary. Each prompt gets a timestamped rule, each finished run a one-line receipt, and the spinner shows live generation speed. |
+| **A more useful prompt** | Directory, branch, permission mode, model, and thinking level stay next to the input. The footer shows context (with the auto-compact point marked), cost, Codex allowance, and a short session summary, and opens the shelf: a drawer of session detail below the editor. Each prompt gets a timestamped rule, each finished run a one-line receipt, and the spinner shows live generation speed. |
 | **Permission controls** | Routine inspection and edits inside the working directory don't interrupt me. Other operations get a confirmation prompt, with one-time or session-scoped approval. `/readonly` blocks changes. |
 | **Formatting after edits** | Prettier, Ruff, gofmt, or gdformat runs after Pi writes a supported file. |
 | **Code navigation and diagnostics** | Pi Lens adds symbol search, module outlines, AST search, and LSP checks so the agent can inspect code without reading whole files. |
@@ -18,7 +18,7 @@ The files are managed with GNU Stow. Shared defaults live here; account details 
 
 ## The prompt
 
-![Recreation of the Pi prompt: directory, Git branch, and permission mode above the input; model and thinking below it; context, cost, and session summary in the footer.](docs/assets/prompt.svg)
+![Recreation of the Pi prompt: directory, Git branch, and permission mode above the input; model and thinking below it; context, Codex allowance, output, cost, and the shelf button on the first footer row, and the session summary under them.](docs/assets/prompt.svg)
 
 *Recreation in Catppuccin Mocha, not a live screenshot. Paths, task text, and usage values are examples.*
 
@@ -29,7 +29,25 @@ The top border answers **where am I working, on which branch, and with what perm
 - Both prompt borders take the accent colour while a run is in progress.
 - A rule labelled with the send time (`── 14:32 ────`) sits above each prompt, and each finished run ends with a dim receipt: `✓ 42s · 3.1k out · 61 t/s · $0.210 · ctx 31%`. Both are session entries the model never sees.
 - Model and thinking colors indicate rough expense tiers, not live prices.
-- Long paths shorten before the current directory; narrow telemetry wraps. Diagnostic and subagent widgets sit below the input without separating it from its borders.
+- The footer holds two rows (three with `/shell details`). On narrow terminals its fields drop instead of wrapping: the cache timer first, then output tokens, Codex limits, running agents, cost, and the shelf button. Long paths shorten before the current directory. Diagnostic and subagent widgets sit below the input without separating it from its borders.
+- On `openai-codex` models the footer shows Codex allowance as `5h 12%  7d 34%`, yellow at 50% and red at 80%, refreshed at most every five minutes after a turn. A toast appears once when a window reaches 80%.
+
+## The shelf
+
+`shelf ▸` at the right of the footer opens a drawer below the editor; `/shelf` and `Option+s` do the same, and the footer button reads `shelf ▾` while it is open. Clicking anywhere else on the footer's first row also opens it. The drawer stays open or closed across reload and resume, and takes at most 40% of the terminal's height.
+
+Each section starts with a ruled heading and its headline figure at the right (`Context ──────── 38%`):
+
+| Section | Shows |
+| --- | --- |
+| Agents | Running subagents, then finished ones with cost |
+| Last turn | Model, time, output, speed, cost, and context at the end of the last run |
+| Context | The context meter, tokens used, window, and how much room is left before automatic compaction |
+| Cache | Prompt-cache reuse and the warm/cold countdown |
+| Usage | Session input, output, cache read and write, cost, and model-issued tool calls by tool |
+| Limits | Codex allowance bars with reset times (on `openai-codex` models) |
+
+Any extension can add a section through `lib/shelf.ts`. [Shelf reference](docs/reference.md#shelf)
 
 Catppuccin Mocha is the default. Latte, Frappé, Macchiato, Dracula, and the quieter `quiet-ink` palette are available through `/settings`. [Shell details](docs/reference.md#footer) · [Read previews and command hints](docs/reference.md#ui-read-preview-and-slash-shortcuts)
 
@@ -63,12 +81,16 @@ These live in [`.pi/agent/extensions/`](.pi/agent/extensions/). The UI extension
 | Component | Job |
 | --- | --- |
 | `ui-read-and-shortcuts.ts` + `footer.ts` | Prompt borders, five-line read previews, shortcut hints, telemetry, and terminal title. Shared layout helpers live in `lib/shell-layout.ts`. |
+| `shelf.ts` | The shelf drawer and its Last turn, Context, and Usage sections; the section contract is `lib/shelf.ts` |
+| `codex-limits.ts` | Codex allowance in the footer, the shelf's Limits section, and the 80% toast |
+| `cache-tracker.ts` | Prompt-cache reuse, warm/cold state, rewrites with their likely cause, and cost against uncached, per model, in the footer and the shelf's Cache section. Rules live in `lib/cache-rules.ts`. |
+| `subagent-shelf.ts` | The shelf's Agents section: running subagents with their task and elapsed time, then the session's finished count and cost |
 | `permission-gate.ts` | Tool approval, session rules, read-only/yolo modes, and permission notifications |
 | `format-on-save.ts` | Format successful writes and edits; formatter failures don't stop the session |
 | `context-planner.ts` + `auto-compact.ts` | Prompt-time capacity guidance and model-aware, end-of-turn compaction |
 | `conversation-summary.ts` | Short footer summary, session name, and Herdr title; `/summary` can override it |
 | `tps-tracker.ts` | Live generation speed in the working spinner and an end-of-run receipt in the transcript |
-| `cost-tracker.ts` + `usage.ts` | `/costs` for this session; `/usage` for deduplicated Pi, child-agent, and Codex CLI usage plus Codex subscription allowance |
+| `usage.ts` | `/usage` for deduplicated Pi, child-agent, and Codex CLI usage plus Codex subscription allowance. The allowance lookup is shared with `codex-limits.ts` through `lib/codex-allowance.ts`. |
 | `lg.ts` | Scripted Git change summaries, without asking the model to count lines |
 | `btw.ts` | Side questions in an isolated overlay, with full context or `--last [N]`, request approval, and visible usage |
 | `herdr-jd.ts` | Display-only Pi metadata for Herdr's sidebar. The separate `herdr-agent-state.ts` integration is generated locally by `scripts/setup-herdr`. |
@@ -114,7 +136,8 @@ The permission commands are listed above. These are the other everyday entry poi
 | `/summary [text\|clear]` | Show, set, or clear the session summary |
 | `/btw [--last [N]] question` | Ask a side question without steering the main agent; bare `--last` selects one exchange |
 | `/lg [--staged\|--all]` | Unstaged + untracked changes by default; optionally staged or all changes against `HEAD` |
-| `/costs`, `/usage` | Current-session totals or cross-session usage report |
+| `/shelf [open\|close]`, `Option+s` | Open or close the shelf; `/costs` also opens it |
+| `/usage` | Cross-session usage report |
 | `/subagents-fleet` | Inspect, steer, or stop child runs |
 | `/subagents-doctor`, `/subagents-models [agent]` | Check the runtime or role-to-model mapping |
 | `/promptfoo-export [name]` | Export an evaluation starter |

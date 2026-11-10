@@ -33,6 +33,7 @@
   - [x] Update Pi docs with the new commands and behavior
   - [ ] Smoke test in Pi with `/reload`, `/lg`, `/lg --staged`, `/lg --all`, and `/usage`
 - [ ] [Herdr JD bridge and agent titles](work/herdr-jd-bridge/README.md)
+- [ ] [Research and populate Pi cache rules by provider](work/pi-cache-rules/README.md) [context: medium]
 
 ## P4: Low
 

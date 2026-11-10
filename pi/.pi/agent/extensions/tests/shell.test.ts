@@ -375,15 +375,16 @@ test("autocomplete rows, cursor marker, and scroll indicators survive shell styl
 	await h.emit("session_shutdown");
 });
 
-test("footer keeps summary emphasis, wraps narrow layouts, and restores details on reload", async () => {
+test("footer keeps summary emphasis, holds its height, and restores details on reload", async () => {
 	const h = harness();
 	await h.emit("session_start");
 	h.statuses.set("conv-summary", "A useful session summary");
 	h.statuses.set("tps", "42 tok/s (123 tok / 2.9s)");
-	for (const width of [20, 40, 60, 80, 120]) {
+	for (const width of [1, 20, 40, 60, 80, 120]) {
 		const lines = h.footer.render(width);
+		assert.equal(lines.length, 2);
 		assert.ok(lines.every((line: string) => visibleWidth(line) <= width));
-		assert.ok(lines.some((line: string) => layout.plain(line).includes("cost")));
+		if (width >= 40) assert.ok(lines.some((line: string) => layout.plain(line).includes("cost")));
 	}
 	assert.ok(
 		h.footer.render(80).at(-1).includes(h.theme.bold("A useful session summary")),

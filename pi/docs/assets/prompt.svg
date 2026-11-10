@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="350" viewBox="0 0 1100 350" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="316" viewBox="0 0 1100 316" role="img" aria-labelledby="title desc">
   <title id="title">Pi prompt and compact footer recreation</title>
-  <desc id="desc">Catppuccin Mocha terminal with example project path and branch, ask permission mode, prompt input, GPT-6.1 Sol with medium thinking, a 32 percent context meter with the auto-compact point marked at 80 percent, example cost and output, and a bold session summary. This is a recreation with dummy data, not a screenshot.</desc>
-  <rect width="1100" height="350" rx="12" fill="#1e1e2e"/>
+  <desc id="desc">Catppuccin Mocha terminal with example project path and branch, ask permission mode, prompt input, GPT-6.1 Sol with medium thinking, a two-row footer: a 32 percent context meter with the auto-compact point marked at 80 percent, Codex allowance at 12 percent of the 5-hour and 34 percent of the 7-day window, example output and cost, and a shelf button at the right; then a bold session summary. This is a recreation with dummy data, not a screenshot.</desc>
+  <rect width="1100" height="316" rx="12" fill="#1e1e2e"/>
   <g font-family="'SFMono-Regular', Consolas, 'Liberation Mono', monospace" font-size="18" fill="#cdd6f4">
     <text x="30" y="36" font-size="13" fill="#7f849c">PROMPT + COMPACT FOOTER · RECREATION / EXAMPLE DATA</text>
     <path d="M30 72H105" stroke="#585b70"/>
@@ -21,9 +21,11 @@
     <rect x="254" y="196" width="11" height="16" fill="#1e1e2e"/>
     <rect x="258" y="193" width="3" height="22" fill="#a6adc8"/>
     <text x="312" y="211"><tspan fill="#89dceb">32%</tspan><tspan fill="#7f849c"> / 272k</tspan></text>
-    <text x="885" y="211"><tspan fill="#7f849c">cost </tspan>$0.184</text>
-    <text x="30" y="245"><tspan fill="#7f849c">out </tspan>2.4k</text>
-    <text x="30" y="279"><tspan fill="#7f849c">» </tspan><tspan font-weight="bold">README cleanup</tspan></text>
-    <text x="30" y="322" font-size="13" fill="#7f849c">Below-editor widgets appear between the model border and footer when active.</text>
+    <text x="450" y="211"><tspan fill="#7f849c">5h </tspan>12%<tspan fill="#7f849c">  7d </tspan>34%</text>
+    <text x="630" y="211"><tspan fill="#7f849c">out </tspan>2.4k</text>
+    <text x="760" y="211"><tspan fill="#7f849c">cost </tspan>$0.184</text>
+    <text x="990" y="211"><tspan fill="#a6adc8">shelf </tspan><tspan fill="#cba6f7">▸</tspan></text>
+    <text x="30" y="245"><tspan fill="#7f849c">» </tspan><tspan font-weight="bold">README cleanup</tspan></text>
+    <text x="30" y="288" font-size="13" fill="#7f849c">The shelf and other below-editor widgets appear between the model border and footer when open.</text>
   </g>
 </svg>
