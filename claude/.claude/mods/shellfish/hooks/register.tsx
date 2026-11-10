@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Register, SessionRateLimit, SessionUsage } from 'claude-code'
+import type { ElementTable, EngineInterface, Register, SessionRateLimit, SessionUsage } from 'claude-code'
 
 import type { AgentRow, Breakdown, KeepAlive, PromptMark, Receipt, Speed, Summary, Totals } from '../types'
 import {
@@ -10,7 +10,6 @@ import {
   cacheHit,
   cacheRates,
   coldCause,
-  column,
   cycle,
   effectiveInputRate,
   fitCwd,
@@ -57,6 +56,8 @@ const SHELF = 'shellfish'
 const SHELF_COLUMNS = 52
 // Live subagents get a row each under the band, up to this many; the rest are counted.
 const BAND_AGENT_ROWS = 3
+// Turns listed in the shelf's Turns table, newest first.
+const TURN_ROWS = 5
 // A breakdown this many points off the live context percent is stale; the bar falls back to a plain meter.
 const STALE_SPLIT_POINTS = 15
 
@@ -620,7 +621,9 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
-    const { Box, Text, Button } = $.ui.resolve(e)
+    const ui = $.ui.resolve(e)
+    const { Box, Text, Button } = ui
+    const cells = isCellSurface(e)
     await read($, tick)
     const now = await $.clock.now()
     const usage = await $.session.usage()
@@ -656,11 +659,12 @@ export const register: Register = on => {
 
     // Row 2: context, rate limits, cost and cache as labelled figures; narrow widths drop from the right.
     const percent = usage.context.percent
+    // Cells: narrow widths drop figures from the right. Elsewhere the row wraps instead.
     const barWidth = width >= 100 ? 20 : width >= 70 ? 14 : 10
-    const limits = width >= 70 ? usage.rateLimits : []
-    const costs = width >= 90 ? history.slice(-12).map(r => r.costUsd) : []
+    const limits = !cells || width >= 70 ? usage.rateLimits : []
+    const costs = !cells || width >= 90 ? history.slice(-12).map(r => r.costUsd) : []
     await read($, clockTick)
-    const clock = width >= 100 ? cacheClock(await read($, warmUntil), now) : null
+    const clock = !cells || width >= 100 ? cacheClock(await read($, warmUntil), now) : null
     const alive = await read($, keepAlive)
     const hit = cacheHit(sums)
     const compactAt = compactPercent(split)
@@ -674,20 +678,37 @@ export const register: Register = on => {
         (costs.length > 1 ? ` · chart: cost per turn, last ${costs.length} turns` : '') +
         ` · in ${formatCount(sums.input)} out ${formatCount(sums.output)} · ${hit === null ? '—' : `${hit}%`} reused from cache`,
     }
-    const tip = (scope: keyof typeof tips) => (
-      <Box key={`tip-${scope}`} position="absolute" top={2} left={0} width={width} display="none" hover={{ scope, display: 'flex' }}>
-        <Text color="suggestion">{pad(tips[scope], width)}</Text>
-      </Box>
-    )
+    // A cell surface paints over row 2 with a padded line; elsewhere the card's own fill covers it.
+    const tip = (scope: keyof typeof tips) =>
+      cells ? (
+        <Box key={`tip-${scope}`} position="absolute" top={2} left={0} width={width} display="none" hover={{ scope, display: 'flex' }}>
+          <Text color="suggestion">{pad(tips[scope], width)}</Text>
+        </Box>
+      ) : (
+        <Box key={`tip-${scope}`} position="absolute" top={2} left={0} width="100%" display="none" backgroundColor={CARD_FILL} hover={{ scope, display: 'flex' }}>
+          <Text color="suggestion" wrap="truncate-end">{tips[scope]}</Text>
+        </Box>
+      )
     const divider = <Text dimColor>{'  │  '}</Text>
 
     return (
-      <Box key="band" flexDirection="column" width={width}>
-        <Text>
-          <Text color={ruleColor}>{'──'}</Text>
-          {titleText ? <Text italic>{titleText}</Text> : null}
-          <Text color={ruleColor}>{'─'.repeat(Math.max(0, width - 2 - titleText.length))}</Text>
-        </Text>
+      <Box key="band" flexDirection="column" width={cells ? width : '100%'}>
+        {cells ? (
+          <Text>
+            <Text color={ruleColor}>{'──'}</Text>
+            {titleText ? <Text italic>{titleText}</Text> : null}
+            <Text color={ruleColor}>{'─'.repeat(Math.max(0, width - 2 - titleText.length))}</Text>
+          </Text>
+        ) : (
+          // Longer than any window; the one-row Box clips it, so the rule ends at the edge as it resizes.
+          <Box height={1} overflow="hidden" width="100%">
+            <Text>
+              <Text color={ruleColor}>{'──'}</Text>
+              {said ? <Text italic>{` ${said.text} `}</Text> : null}
+              <Text color={ruleColor}>{RULE}</Text>
+            </Text>
+          </Box>
+        )}
         <Box flexDirection="row" justifyContent="space-between">
           <Text wrap="truncate-end">
             <Text dimColor>{where.prefix}</Text>
@@ -713,24 +734,76 @@ export const register: Register = on => {
             <Text color={permission.color}>{permission.text}</Text>
           </Box>
         </Box>
-        <Box flexDirection="row" justifyContent="space-between">
-          <Box flexDirection="row">
-            <Box key="context" hover={{ scope: 'context' }}>
+        {cells ? (
+          <Box flexDirection="row" justifyContent="space-between">
+            <Box flexDirection="row">
+              <Box key="context" hover={{ scope: 'context' }}>
+                <Button key="context-open" plain onPress={openShelf}>
+                  <Text dimColor>{'ctx '}</Text>
+                  {runs(contextCells(split, percent, barWidth)).map(run => (
+                    <Text color={run.color}>{run.text}</Text>
+                  ))}
+                  {percent === undefined ? (
+                    <Text color="inactive"> —</Text>
+                  ) : (
+                    <Text color={percentColor(percent)}>{` ${Math.round(percent)}%`}</Text>
+                  )}
+                </Button>
+              </Box>
+              {limits.length ? (
+                <Box key="limits" hover={{ scope: 'limits' }}>
+                  {divider}
+                  <Button key="limits-open" plain onPress={openShelf}>
+                    {limits.map((limit, i) => (
+                      <Text>
+                        <Text dimColor>{`${i ? '  ' : ''}${limitName(limit)} `}</Text>
+                        <Text color={percentColor(limit.percentUsed)}>{`${Math.round(limit.percentUsed)}%`}</Text>
+                      </Text>
+                    ))}
+                  </Button>
+                </Box>
+              ) : null}
+              <Box key="cost" hover={{ scope: 'cost' }}>
+                {divider}
+                <Button key="cost-open" plain onPress={openShelf}>
+                  <Text dimColor>{'cost '}</Text>
+                  {costs.length > 1 ? <Text color="claude">{`${sparkline(costs)} `}</Text> : null}
+                  {formatMoney(usage.cost?.usd)}
+                </Button>
+              </Box>
+              {clock ? (
+                <Box key="cache" hover={{ scope: 'cost' }}>
+                  {divider}
+                  <Button key="cache-open" plain onPress={openShelf}>
+                    <Text dimColor>{'cache '}</Text>
+                    <Text color={clock.isWarm ? undefined : 'warning'}>{`${clock.text}${alive ? ' ↻' : ''}`}</Text>
+                  </Button>
+                </Box>
+              ) : null}
+            </Box>
+            <Button key="shelf" plain onPress={() => toggleShelf($).then(() => undefined)}>
+              {running > 0 ? (
+                <Text color="claude">{`● ${running} agent${running === 1 ? '' : 's'} ${shelfMark}`}</Text>
+              ) : (
+                <Text dimColor>{`shelf ${shelfMark}`}</Text>
+              )}
+            </Button>
+          </Box>
+        ) : (
+          <Box flexDirection="row" flexWrap="wrap" alignItems="center" columnGap="sm" width="100%">
+            <Box key="context" flexDirection="row" alignItems="center" flexGrow={1} minWidth={18} columnGap="xs" hover={{ scope: 'context' }}>
               <Button key="context-open" plain onPress={openShelf}>
-                <Text dimColor>{'ctx '}</Text>
-                {runs(contextCells(split, percent, barWidth)).map(run => (
-                  <Text color={run.color}>{run.text}</Text>
-                ))}
-                {percent === undefined ? (
-                  <Text color="inactive"> —</Text>
-                ) : (
-                  <Text color={percentColor(percent)}>{` ${Math.round(percent)}%`}</Text>
-                )}
+                <Text dimColor>ctx</Text>
               </Button>
+              {FlexBar(ui, contextParts(split, percent))}
+              {percent === undefined ? (
+                <Text color="inactive">—</Text>
+              ) : (
+                <Text color={percentColor(percent)}>{`${Math.round(percent)}%`}</Text>
+              )}
             </Box>
             {limits.length ? (
               <Box key="limits" hover={{ scope: 'limits' }}>
-                {divider}
                 <Button key="limits-open" plain onPress={openShelf}>
                   {limits.map((limit, i) => (
                     <Text>
@@ -741,37 +814,35 @@ export const register: Register = on => {
                 </Button>
               </Box>
             ) : null}
-            <Box key="cost" hover={{ scope: 'cost' }}>
-              {divider}
+            <Box key="cost" flexDirection="row" alignItems="center" columnGap="xs" hover={{ scope: 'cost' }}>
               <Button key="cost-open" plain onPress={openShelf}>
-                <Text dimColor>{'cost '}</Text>
-                {costs.length > 1 ? <Text color="claude">{`${sparkline(costs)} `}</Text> : null}
-                {formatMoney(usage.cost?.usd)}
+                <Text dimColor>cost</Text>
               </Button>
+              {costs.length > 1 ? FlexColumns(ui, { values: costs, max: Math.max(0, ...costs), rows: 1, width: 12, colorFor: () => 'claude' }) : null}
+              <Text>{formatMoney(usage.cost?.usd)}</Text>
             </Box>
             {clock ? (
               <Box key="cache" hover={{ scope: 'cost' }}>
-                {divider}
                 <Button key="cache-open" plain onPress={openShelf}>
                   <Text dimColor>{'cache '}</Text>
                   <Text color={clock.isWarm ? undefined : 'warning'}>{`${clock.text}${alive ? ' ↻' : ''}`}</Text>
                 </Button>
               </Box>
             ) : null}
+            <Button key="shelf" plain onPress={() => toggleShelf($).then(() => undefined)}>
+              {running > 0 ? (
+                <Text color="claude">{`● ${running} agent${running === 1 ? '' : 's'} ${shelfMark}`}</Text>
+              ) : (
+                <Text dimColor>{`shelf ${shelfMark}`}</Text>
+              )}
+            </Button>
           </Box>
-          <Button key="shelf" plain onPress={() => toggleShelf($).then(() => undefined)}>
-            {running > 0 ? (
-              <Text color="claude">{`● ${running} agent${running === 1 ? '' : 's'} ${shelfMark}`}</Text>
-            ) : (
-              <Text dimColor>{`shelf ${shelfMark}`}</Text>
-            )}
-          </Button>
-        </Box>
+        )}
         {shownAgents.map(row => (
           <Button key={`band-agent-${row.id}`} plain onPress={() => $.ui.view({ agentId: row.id })}>
             <Text color="claude">{`  ${agentGlyph(row.status)} `}</Text>
             <Text>{shortenMiddle(row.type, 16)}</Text>
-            <Text dimColor>{`  ${shortenMiddle(row.description, Math.max(8, width - 34))}  ${formatDuration(now - row.firstSeen)}`}</Text>
+            <Text dimColor wrap="truncate-end">{`  ${cells ? shortenMiddle(row.description, Math.max(8, width - 34)) : row.description}  ${formatDuration(now - row.firstSeen)}`}</Text>
           </Button>
         ))}
         {moreAgents > 0 ? (
@@ -780,7 +851,7 @@ export const register: Register = on => {
           </Button>
         ) : null}
         {contextKey.length ? (
-          <Box key="tip-context" position="absolute" top={2} left={0} width={width} display="none" hover={{ scope: 'context', display: 'flex' }}>
+          <Box key="tip-context" position="absolute" top={2} left={0} width={cells ? width : '100%'} display="none" {...(cells ? {} : { backgroundColor: CARD_FILL })} hover={{ scope: 'context', display: 'flex' }}>
             <Text wrap="truncate-end">
               {contextKey.map((entry, i) => (
                 <Text>
@@ -788,7 +859,7 @@ export const register: Register = on => {
                   <Text>{`${entry.name} ${entry.percent}`}</Text>
                 </Text>
               ))}
-              <Text>{' '.repeat(width)}</Text>
+              {cells ? <Text>{' '.repeat(width)}</Text> : null}
             </Text>
           </Box>
         ) : (
@@ -802,7 +873,9 @@ export const register: Register = on => {
 
   // The shelf: the session's title, its subagents, and where context, cost, cache and limits stand.
   on('ui.render', { component: 'Pane', requestId: SHELF }, async ($, e) => {
-    const { Box, Text, Button } = $.ui.resolve(e)
+    const ui = $.ui.resolve(e)
+    const { Box, Text, Button } = ui
+    const cells = isCellSurface(e)
     await read($, tick)
     const now = await $.clock.now()
     const usage = await $.session.usage()
@@ -819,7 +892,7 @@ export const register: Register = on => {
     const compactAt = compactPercent(split)
     const running = shelf.filter(isLiveAgent).length
 
-    // The readout under the title: the last turn, or the turn whose chart column is hovered.
+    // The readout under the title: the last turn, or the turn whose row in the Turns table is hovered.
     const sessionCost = `${formatMoney(usage.cost?.usd)} session`
     const turnLine = (r: Receipt) =>
       `${formatModel(r.model)} · ${r.effort ?? '—'} · ${formatDuration(r.durationMs)} · ${formatCount(r.output)} out · ${formatMoney(r.costUsd)} · ${sessionCost}`
@@ -833,24 +906,8 @@ export const register: Register = on => {
     const windowText = split ? `${formatCount(used)}/${formatCount(split.maxTokens)}` : formatCount(usage.context.window)
     const barWidth = Math.max(8, columns - windowText.length - 1)
 
-    // Turn charts: one column per turn, the newest at the right; hovering a column fills the readout.
-    const chartWidth = Math.max(4, columns - 5)
-    const shown = history.slice(-chartWidth)
-    const maxCost = Math.max(0, ...shown.map(r => r.costUsd))
-    const chart = (label: string, values: number[], max: number, colorFor: (i: number) => string) => (
-      <Box flexDirection="row">
-        <Text dimColor>{`${label.padEnd(4)} `}</Text>
-        {values.map((value, i) => {
-          const bar = column(value, max)
-          return (
-            <Box key={`${label}-${i}`} flexDirection="column" hover={{ scope: `turn-${i}` }}>
-              <Text color={colorFor(i)}>{bar.top}</Text>
-              <Text color={colorFor(i)}>{bar.bottom}</Text>
-            </Box>
-          )
-        })}
-      </Box>
-    )
+    // The Turns table's rows, newest first; hovering a row swaps that turn into the readout.
+    const recent = history.slice(-TURN_ROWS).reverse()
 
     // Cache: what this session's input cost relative to uncached, and why turns went cold.
     const rates = cacheRates(aliasOf(modelName))
@@ -867,9 +924,17 @@ export const register: Register = on => {
       inputAll,
       Math.max(8, columns - 2),
     )
-    const cold = shown.filter(r => r.cold !== null)
+    const cold = history.filter(r => r.cold !== null)
     const coldCounts = ['idle', 'model', 'effort', 'prefix'].map(cause => [cause, cold.filter(r => r.cold === cause).length] as const).filter(([, n]) => n > 0)
     const coldNames: Record<string, string> = { idle: 'pause', model: 'model switch', effort: 'effort change', prefix: 'prompt changed' }
+    const coldShort: Record<string, string> = { idle: 'pause', model: 'model', effort: 'effort', prefix: 'prompt' }
+    const rewrites = (
+      <Text wrap="wrap">
+        <Text dimColor>{'Rewrites '}</Text>
+        <Text color={cold.length ? 'warning' : undefined}>{`${cold.length} of ${history.length} turn${history.length === 1 ? '' : 's'}`}</Text>
+        {coldCounts.length ? <Text dimColor>{` · ${coldCounts.map(([cause, n]) => `${coldNames[cause]} ×${n}`).join(' · ')}`}</Text> : null}
+      </Text>
+    )
     const readPercent = `${Math.round(rates.read * 100)}%`
     await read($, clockTick)
     const clock = cacheClock(await read($, warmUntil), now)
@@ -888,14 +953,56 @@ export const register: Register = on => {
       { head: 'Written', body: ['New text, stored for the next turn at 125%.'] },
       { head: 'Lifetime', body: ['About an hour from the last request; each turn renews it.'] },
       { head: 'Rewrite', body: ['A long pause, a model or effort switch,', 'or an edited prompt file (CLAUDE.md, MCP servers).'] },
-      { head: 'Chart', body: ['Tokens written per turn; yellow = a rewrite.'] },
+      { head: 'Turns', body: ['The wrote column is tokens written per turn;', 'yellow marks a rewrite and its cause.'] },
       { head: 'Keep warm', body: ['Re-reads the entry before it lapses.'] },
     ]
     const helpWidth = Math.max(1, columns - 4)
+    const helpCard = (
+        <Box
+          key="cache-help-card"
+          position="absolute"
+          top={1}
+          left={0}
+          width={cells ? columns : '100%'}
+          flexDirection="column"
+          display="none"
+          {...(cells ? {} : { backgroundColor: CARD_FILL })}
+          hover={{ scope: 'cache-help', display: 'flex' }}
+          borderStyle="round"
+          borderColor="suggestion"
+          paddingX={1}
+        >
+          {help.flatMap((item, i) => {
+            const fit = (text: string) => (cells ? pad(text, helpWidth) : text)
+            return [
+              ...(i ? [<Text>{fit('')}</Text>] : []),
+              ...(item.head ? [<Text bold>{fit(item.head)}</Text>] : []),
+              ...item.body.map(line => <Text wrap={cells ? 'truncate-end' : 'wrap'}>{fit(item.head ? `  ${line}` : line)}</Text>),
+            ]
+          })}
+        </Box>
+    )
 
     // A section's heading: its name, a rule across, and its headline figure at the right.
     type Aside = { text: string; color?: string; dim?: boolean }
     const heading = (title: string, aside: Aside[] = []) => {
+      if (!cells) {
+        return (
+          <Box flexDirection="row" alignItems="center" columnGap="xs" width="100%">
+            <Text bold>{title}</Text>
+            <Box flexGrow={1} height={1} overflow="hidden">
+              <Text color="inactive">{RULE}</Text>
+            </Box>
+            {aside.length ? (
+              <Text>
+                {aside.map(part => (
+                  <Text color={part.color} dimColor={part.dim}>{part.text}</Text>
+                ))}
+              </Text>
+            ) : null}
+          </Box>
+        )
+      }
       const asideLength = aside.reduce((n, part) => n + part.text.length, 0)
       const fill = Math.max(2, columns - title.length - asideLength - (asideLength ? 2 : 1))
       return (
@@ -918,15 +1025,23 @@ export const register: Register = on => {
         <Text bold color="claude" wrap="truncate-end">{said?.text ?? 'shellfish'}</Text>
         <Box key="turn-readout" position="relative" height={1}>
           <Text dimColor wrap="truncate-end">{readout}</Text>
-          {shown.map((r, i) => (
-            <Box key={`turn-tip-${i}`} position="absolute" top={0} left={0} width={columns} display="none" hover={{ scope: `turn-${i}`, display: 'flex' }}>
-              <Text color="suggestion">{pad(turnLine(r), columns)}</Text>
-            </Box>
+          {recent.map((r, i) => (
+            cells ? (
+              <Box key={`turn-tip-${i}`} position="absolute" top={0} left={0} width={columns} display="none" hover={{ scope: `turn-${i}`, display: 'flex' }}>
+                <Text color="suggestion">{pad(turnLine(r), columns)}</Text>
+              </Box>
+            ) : (
+              <Box key={`turn-tip-${i}`} position="absolute" top={0} left={0} width="100%" display="none" backgroundColor={CARD_FILL} hover={{ scope: `turn-${i}`, display: 'flex' }}>
+                <Text color="suggestion" wrap="truncate-end">{turnLine(r)}</Text>
+              </Box>
+            )
           ))}
         </Box>
 
-        <Box flexDirection="column" marginTop={1}>
-          {heading('Agents', agentsAside)}
+        <Box key="agents" flexDirection="column" marginTop={1}>
+          <Box key="agents-head" hover={{ scope: 'agents-help' }}>
+            {heading('Agents', shelf.length ? agentsAside : [...agentsAside, { text: ' ?', dim: true }])}
+          </Box>
           {viewing ? (
             <Button key="main" plain onPress={() => $.ui.view({})}>
               <Text color="suggestion">← main conversation</Text>
@@ -937,30 +1052,53 @@ export const register: Register = on => {
               <Button key={`agent-${row.id}`} plain onPress={() => $.ui.view({ agentId: row.id })}>
                 <Text color={agentColor(row.status)}>{`${agentGlyph(row.status)} `}</Text>
                 <Text bold={row.id === viewing}>{shortenMiddle(row.type, 14).padEnd(14)}</Text>
-                <Text dimColor>{` ${shortenMiddle(row.description, Math.max(8, columns - 24))} `}</Text>
+                <Text dimColor wrap="truncate-end">{` ${cells ? shortenMiddle(row.description, Math.max(8, columns - 24)) : row.description} `}</Text>
                 <Text dimColor>{formatDuration(now - row.firstSeen)}</Text>
               </Button>
             ))
-          ) : (
-            <Text dimColor>Subagents list here as they spawn; press one to read its transcript.</Text>
+          ) : null}
+          {shelf.length ? null : (
+            <Box
+              key="agents-help-card"
+              position="absolute"
+              top={1}
+              left={0}
+              width={cells ? columns : '100%'}
+              display="none"
+              {...(cells ? {} : { backgroundColor: CARD_FILL })}
+              hover={{ scope: 'agents-help', display: 'flex' }}
+            >
+              <Text color="suggestion" wrap="truncate-end">{cells ? pad(AGENTS_HINT, columns) : AGENTS_HINT}</Text>
+            </Box>
           )}
         </Box>
 
         <Box flexDirection="column" marginTop={1}>
           {heading('Context', [percent === undefined ? { text: '—', color: 'inactive' } : { text: `${Math.round(percent)}%`, color: percentColor(percent) }])}
-          <Box flexDirection="row">
-            {runs(contextCells(split, percent, barWidth)).map(run => (
-              <Text color={run.color}>{run.text}</Text>
-            ))}
-            <Text dimColor>{` ${windowText}`}</Text>
-          </Box>
+          {cells ? (
+            <Box flexDirection="row">
+              {runs(contextCells(split, percent, barWidth)).map(run => (
+                <Text color={run.color}>{run.text}</Text>
+              ))}
+              <Text dimColor>{` ${windowText}`}</Text>
+            </Box>
+          ) : (
+            <Box flexDirection="row" alignItems="center" columnGap="xs" width="100%">
+              {FlexBar(ui, contextParts(split, percent))}
+              <Text dimColor>{windowText}</Text>
+            </Box>
+          )}
           {compactAt && split ? (
-            <Text dimColor wrap="truncate-end">{underTick(split, barWidth, split.isAutoCompactEnabled === false ? 'auto-compact off' : `compacts at ${compactAt}%`)}</Text>
+            cells ? (
+              <Text dimColor wrap="truncate-end">{underTick(split, barWidth, split.isAutoCompactEnabled === false ? 'auto-compact off' : `compacts at ${compactAt}%`)}</Text>
+            ) : (
+              <Text dimColor wrap="truncate-end">{split.isAutoCompactEnabled === false ? 'auto-compact off' : `┃ compacts at ${compactAt}%`}</Text>
+            )
           ) : null}
           {legend.length ? (
             <Box flexDirection="column" marginTop={1}>
               {legend.map(entry => (
-                <Box flexDirection="row" width={Math.min(columns, 44)}>
+                <Box flexDirection="row" width={cells ? Math.min(columns, 44) : '100%'}>
                   <Box flexGrow={1}>
                     <Text wrap="truncate-end">
                       <Text color={entry.color}>{`${entry.mark} `}</Text>
@@ -979,10 +1117,25 @@ export const register: Register = on => {
 
         <Box flexDirection="column" marginTop={1}>
           {heading('Turns', history.length ? [{ text: `${history.length} so far`, dim: true }] : [])}
-          {shown.length ? (
+          {history.length ? (
             <Box flexDirection="column">
-              {chart('cost', shown.map(r => r.costUsd), maxCost, () => 'claude')}
-              {chart('ctx', shown.map(r => r.contextPercent ?? 0), 100, () => 'suggestion')}
+              {turnTableRow(ui, 'turn-head', ['#', 'took', 'out', 'cost', 'ctx', 'wrote', ''].map(text => ({ text })), { isHead: true })}
+              {recent.map((r, i) =>
+                turnTableRow(
+                  ui,
+                  `turn-row-${i}`,
+                  [
+                    { text: String(history.length - i) },
+                    { text: formatDuration(r.durationMs) },
+                    { text: formatCount(r.output) },
+                    { text: formatMoney(r.costUsd) },
+                    { text: r.contextPercent === null || r.contextPercent === undefined ? '—' : `${Math.round(r.contextPercent)}%` },
+                    { text: formatCount(r.cacheWrite), color: r.cold ? 'warning' : undefined },
+                    { text: r.cold ? coldShort[r.cold] ?? r.cold : '', color: 'warning' },
+                  ],
+                  { scope: `turn-${i}` },
+                ),
+              )}
             </Box>
           ) : (
             <Text dimColor>No turns yet.</Text>
@@ -994,6 +1147,16 @@ export const register: Register = on => {
             {heading('Limits')}
             {usage.rateLimits.map((limit, i) => {
               const filled = Math.round((Math.min(100, limit.percentUsed) / 100) * 10)
+              if (!cells) {
+                return (
+                  <Box flexDirection="row" alignItems="center" columnGap="xs" marginTop={i ? 1 : 0} width="100%">
+                    <Text dimColor>{limitName(limit).padEnd(4)}</Text>
+                    {FlexBar(ui, { parts: [{ weight: Math.min(100, limit.percentUsed), color: percentColor(limit.percentUsed) }], total: 100, grow: 1 })}
+                    <Text>{`${Math.round(limit.percentUsed)}%`}</Text>
+                    <Text dimColor>{resets(limit)}</Text>
+                  </Box>
+                )
+              }
               return (
                 <Box marginTop={i ? 1 : 0}>
                   <Text>
@@ -1009,96 +1172,142 @@ export const register: Register = on => {
           </Box>
         ) : null}
 
-        <Box key="cache" flexDirection="column" marginTop={1}>
-          <Box key="cache-head" flexDirection="row" hover={{ scope: 'cache-help' }}>
-            {heading('Cache', [
-              hit === null ? { text: '—', color: 'inactive' } : { text: `${hit}% reused`, color: percentColor(100 - hit) },
-              { text: ' ?', dim: true },
-            ])}
-          </Box>
-          {clock ? (
-            <Box flexDirection="row">
-              <Text>
-                <Text color={warmth.color}>{'█'.repeat(warmth.filled)}</Text>
-                <Text color="inactive">{'░'.repeat(10 - warmth.filled)}</Text>
-                {alive ? (
-                  <Text color="success">{` ↻ keeping warm until ${wallClock(alive.until)} · ${alive.probes} renewal${alive.probes === 1 ? '' : 's'} · next in ${formatClock(Math.max(0, (await read($, warmUntil)) ?? 0) - now - KEEP_ALIVE_LEAD_MS)}`}</Text>
-                ) : clock.isWarm ? (
-                  <Text color={warmth.color}>{` warm ${formatClock(warmth.left)} left`}</Text>
-                ) : (
-                  <Text color="warning">{' cold'}</Text>
-                )}
-              </Text>
+        {cells ? (
+          <Box key="cache" flexDirection="column" marginTop={1}>
+            <Box key="cache-head" flexDirection="row" hover={{ scope: 'cache-help' }}>
+              {heading('Cache', [
+                hit === null ? { text: '—', color: 'inactive' } : { text: `${hit}% reused`, color: percentColor(100 - hit) },
+                { text: ' ?', dim: true },
+              ])}
             </Box>
-          ) : null}
-          {clock === null ? (
-            <Text dimColor>No request yet this session.</Text>
-          ) : clock.isWarm ? (
-            <Text dimColor wrap="truncate-end">{`Next turn reads ${formatCount(contextTokens)} from cache (~${formatMoney(prices.warm)}); cold it would cost ~${formatMoney(prices.cold)}.`}</Text>
-          ) : (
-            <Text color="warning" wrap="truncate-end">{`Next turn rewrites ${formatCount(contextTokens)} (~${formatMoney(prices.cold)}) unless kept warm.`}</Text>
-          )}
-          {clock ? (
-            <Box marginTop={1}>
-              <Button
-                key="keep-alive"
-                variant={alive ? 'secondary' : 'primary'}
-                label={alive ? '■ Stop keeping warm' : `▶ Keep warm for ${KEEP_ALIVE_DEFAULT_MIN} min`}
-                onPress={() => toggleKeepAlive($, KEEP_ALIVE_DEFAULT_MIN)}
-              />
-            </Box>
-          ) : null}
-          {inputAll > 0 ? (
-            <Box flexDirection="column" marginTop={1}>
+            {clock ? (
               <Box flexDirection="row">
-                {inputSegments.map(seg => (
-                  <Text color={seg.color}>{'█'.repeat(seg.cells)}</Text>
-                ))}
+                <Text>
+                  <Text color={warmth.color}>{'█'.repeat(warmth.filled)}</Text>
+                  <Text color="inactive">{'░'.repeat(10 - warmth.filled)}</Text>
+                  {alive ? (
+                    <Text color="success">{` ↻ keeping warm until ${wallClock(alive.until)} · ${alive.probes} renewal${alive.probes === 1 ? '' : 's'} · next in ${formatClock(Math.max(0, (await read($, warmUntil)) ?? 0) - now - KEEP_ALIVE_LEAD_MS)}`}</Text>
+                  ) : clock.isWarm ? (
+                    <Text color={warmth.color}>{` warm ${formatClock(warmth.left)} left`}</Text>
+                  ) : (
+                    <Text color="warning">{' cold'}</Text>
+                  )}
+                </Text>
               </Box>
-              <Text wrap="truncate-end">
-                <Text color="success">■ </Text>
-                <Text>{`reused ${share(sums.cacheRead)}`}</Text>
-                <Text color="warning">{'   ■ '}</Text>
-                <Text>{`written ${share(sums.cacheWrite)}`}</Text>
-                <Text color="error">{'   ■ '}</Text>
-                <Text>{`uncached ${share(sums.input)}`}</Text>
-                {effective !== null && effective < 1 ? <Text dimColor>{`   cost ${Math.round(effective * 100)}% of uncached`}</Text> : null}
-              </Text>
-              {shown.length ? (
-                <Box marginTop={1} flexDirection="column">
-                  {chart('wrote', shown.map(r => r.cacheWrite), Math.max(0, ...shown.map(r => r.cacheWrite)), i => (shown[i]?.cold ? 'warning' : 'text'))}
-                  <Text wrap="truncate-end">
-                    <Text dimColor>{'rewrites '}</Text>
-                    <Text color={cold.length ? 'warning' : undefined}>{String(cold.length)}</Text>
-                    {coldCounts.length ? <Text dimColor>{`  ${coldCounts.map(([cause, n]) => `${coldNames[cause]} ×${n}`).join(' · ')}`}</Text> : null}
-                  </Text>
+            ) : null}
+            {clock === null ? (
+              <Text dimColor>No request yet this session.</Text>
+            ) : clock.isWarm ? (
+              <Text dimColor wrap="truncate-end">{`Next turn reads ${formatCount(contextTokens)} from cache (~${formatMoney(prices.warm)}); cold it would cost ~${formatMoney(prices.cold)}.`}</Text>
+            ) : (
+              <Text color="warning" wrap="truncate-end">{`Next turn rewrites ${formatCount(contextTokens)} (~${formatMoney(prices.cold)}) unless kept warm.`}</Text>
+            )}
+            {clock ? (
+              <Box marginTop={1}>
+                <Button
+                  key="keep-alive"
+                  variant={alive ? 'secondary' : 'primary'}
+                  label={alive ? '■ Stop keeping warm' : `▶ Keep warm for ${KEEP_ALIVE_DEFAULT_MIN} min`}
+                  onPress={() => toggleKeepAlive($, KEEP_ALIVE_DEFAULT_MIN)}
+                />
+              </Box>
+            ) : null}
+            {inputAll > 0 ? (
+              <Box flexDirection="column" marginTop={1}>
+                <Box flexDirection="row">
+                  {inputSegments.map(seg => (
+                    <Text color={seg.color}>{'█'.repeat(seg.cells)}</Text>
+                  ))}
                 </Box>
-              ) : null}
-            </Box>
-          ) : null}
-          <Box
-            key="cache-help-card"
-            position="absolute"
-            top={1}
-            left={0}
-            width={columns}
-            flexDirection="column"
-            display="none"
-            hover={{ scope: 'cache-help', display: 'flex' }}
-            borderStyle="round"
-            borderColor="suggestion"
-            paddingX={1}
-          >
-            {help.flatMap((item, i) => [
-              ...(i ? [<Text>{pad('', helpWidth)}</Text>] : []),
-              ...(item.head ? [<Text bold>{pad(item.head, helpWidth)}</Text>] : []),
-              ...item.body.map(line => <Text wrap="truncate-end">{pad(item.head ? `  ${line}` : line, helpWidth)}</Text>),
-            ])}
+                <Text wrap="truncate-end">
+                  <Text color="success">■ </Text>
+                  <Text>{`reused ${share(sums.cacheRead)}`}</Text>
+                  <Text color="warning">{'   ■ '}</Text>
+                  <Text>{`written ${share(sums.cacheWrite)}`}</Text>
+                  <Text color="error">{'   ■ '}</Text>
+                  <Text>{`uncached ${share(sums.input)}`}</Text>
+                  {effective !== null && effective < 1 ? <Text dimColor>{`   cost ${Math.round(effective * 100)}% of uncached`}</Text> : null}
+                </Text>
+                {history.length ? <Box marginTop={1}>{rewrites}</Box> : null}
+              </Box>
+            ) : null}
+            {helpCard}
           </Box>
-        </Box>
+        ) : (
+          <Box key="cache" flexDirection="column" marginTop={1} rowGap="xs" width="100%">
+            <Box key="cache-head" flexDirection="row" justifyContent="space-between" hover={{ scope: 'cache-help' }}>
+              <Text>
+                <Text bold>Cache </Text>
+                {hit === null ? <Text color="inactive">—</Text> : <Text color={percentColor(100 - hit)}>{`${hit}% reused`}</Text>}
+              </Text>
+              <Text dimColor>?</Text>
+            </Box>
+            {clock === null ? (
+              <Text dimColor>No request yet this session.</Text>
+            ) : (
+              <Box flexDirection="column" rowGap="xs" width="100%">
+                <Box flexDirection="row" justifyContent="space-between">
+                  {clock.isWarm ? (
+                    <Text color={warmth.color}>{`Warm · ${formatClock(warmth.left)} left`}</Text>
+                  ) : (
+                    <Text color="warning">Cold</Text>
+                  )}
+                  <Text dimColor>{`of ${Math.round(CACHE_TTL_MS / 60_000)} min`}</Text>
+                </Box>
+                {FlexBar(ui, { parts: [{ weight: warmth.left, color: warmth.color }], total: CACHE_TTL_MS, width: '100%' })}
+                {clock.isWarm ? (
+                  <Text dimColor wrap="wrap">{`Next turn reads ${formatCount(contextTokens)} from cache (~${formatMoney(prices.warm)}); cold it would cost ~${formatMoney(prices.cold)}.`}</Text>
+                ) : (
+                  <Text color="warning" wrap="wrap">{`Next turn rewrites ${formatCount(contextTokens)} (~${formatMoney(prices.cold)}) unless kept warm.`}</Text>
+                )}
+                {alive ? (
+                  <Text color="success" wrap="wrap">{`↻ Keeping warm until ${wallClock(alive.until)} · ${alive.probes} renewal${alive.probes === 1 ? '' : 's'} · next in ${formatClock(Math.max(0, (await read($, warmUntil)) ?? 0) - now - KEEP_ALIVE_LEAD_MS)}`}</Text>
+                ) : null}
+                <Box flexDirection="row">
+                  <Button
+                    key="keep-alive"
+                    variant={alive ? 'secondary' : 'primary'}
+                    label={alive ? '■ Stop keeping warm' : `▶ Keep warm for ${KEEP_ALIVE_DEFAULT_MIN} min`}
+                    onPress={() => toggleKeepAlive($, KEEP_ALIVE_DEFAULT_MIN)}
+                  />
+                </Box>
+              </Box>
+            )}
+            {inputAll > 0 ? (
+              <Box flexDirection="column" rowGap="xs" marginTop={1} width="100%">
+                <Box flexDirection="row" justifyContent="space-between">
+                  <Text bold>Input</Text>
+                  {effective !== null && effective < 1 ? <Text dimColor>{`cost ${Math.round(effective * 100)}% of uncached`}</Text> : null}
+                </Box>
+                {FlexBar(ui, {
+                  parts: [
+                    { weight: sums.cacheRead, color: 'success' },
+                    { weight: sums.cacheWrite, color: 'warning' },
+                    { weight: sums.input, color: 'error' },
+                  ],
+                  total: inputAll,
+                  width: '100%',
+                })}
+                <Box flexDirection="row" flexWrap="wrap" columnGap="md">
+                  {Legend(ui, 'success', `reused ${share(sums.cacheRead)}`)}
+                  {Legend(ui, 'warning', `written ${share(sums.cacheWrite)}`)}
+                  {Legend(ui, 'error', `uncached ${share(sums.input)}`)}
+                </Box>
+                {history.length ? <Box marginTop={1}>{rewrites}</Box> : null}
+              </Box>
+            ) : null}
+            {helpCard}
+          </Box>
+        )}
 
         <Box flexDirection="column" marginTop={1}>
-          <Text color="inactive">{'┄'.repeat(columns)}</Text>
+          {cells ? (
+            <Text color="inactive">{'┄'.repeat(columns)}</Text>
+          ) : (
+            <Box height={1} overflow="hidden" width="100%">
+              <Text color="inactive">{'┄'.repeat(400)}</Text>
+            </Box>
+          )}
           <Text dimColor wrap="truncate-end">log ~/.claude/shellfish/usage.jsonl</Text>
           <Box marginTop={1}>
             <Text wrap="truncate-end">
@@ -1178,4 +1387,135 @@ function keyEntries(split: Breakdown | null, compactAt: number | null, withCompa
     { mark: '□', color: 'inactive', name: 'free', percent: share(free), tokens: formatCount(free), rawTokens: free },
     ...(compactAt && withCompaction ? [{ mark: '┃', color: 'subtle', name: 'compacts at', percent: `${compactAt}%`, tokens: null, rawTokens: null }] : []),
   ]
+}
+
+// ── Flex drawing, for the surfaces that lay out by themselves (desktop, VS Code, mobile) ──
+//
+// The terminal gets glyph strings sized to `bodyColumns`. A remote surface computes that count
+// from its code font and refreshes it only on a redraw, so after a resize those strings wrap or
+// fall short. These draw the same figures as coloured Boxes whose share of the row is `flexGrow`
+// (or a percent height), so the surface's own layout scales them to whatever room there is.
+
+type Ui = Pick<ElementTable, 'Box' | 'Text'>
+
+/** Whether this surface draws in fixed character cells (Ink) rather than laying out by itself. */
+function isCellSurface(e: { surface: string }): boolean {
+  return e.surface === 'terminal'
+}
+
+type Part = { weight: number; color: string }
+
+const BAR_UNITS = 1000
+
+// The fill under a hover card on a surface that lays out by itself, where padding with spaces
+// cannot cover what is beneath. No theme key names the background; `inverseText` is the colour
+// text takes on an accent fill, which themes set to the background's tone.
+const CARD_FILL = 'inverseText'
+
+/** The context bar as flex parts: categories by tokens, else a plain meter, with the compaction point. */
+function contextParts(split: Breakdown | null, percent: number | undefined): { parts: Part[]; total: number; marker: number | null; grow: number } {
+  const marker = split?.autoCompactAt && split.maxTokens > 0 ? split.autoCompactAt / split.maxTokens : null
+  if (split && split.maxTokens > 0 && agrees(split, percent)) {
+    return { parts: split.slices.map(slice => ({ weight: slice.tokens, color: slice.color })), total: split.maxTokens, marker, grow: 1 }
+  }
+  const used = percent === undefined ? 0 : Math.max(0, Math.min(100, percent))
+  return { parts: [{ weight: used, color: percentColor(used) }], total: 100, marker, grow: 1 }
+}
+
+/**
+ * A one-row bar: each part's share of the row is its weight out of `total`, the rest is track.
+ * `marker` (a fraction, 0 to 1) draws a one-cell tick in the track, as the compaction point.
+ */
+function FlexBar(ui: Ui, props: { parts: Part[]; total: number; marker?: number | null; grow?: number; width?: number | string; minWidth?: number }) {
+  const { Box } = ui
+  // The engine refuses a flexGrow past 10000, so weights are shares of a 1000-unit row.
+  const total = BAR_UNITS
+  const scale = props.total > 0 ? BAR_UNITS / props.total : 0
+  const parts = props.parts.map(p => ({ ...p, weight: p.weight * scale })).filter(p => p.weight > 0)
+  const used = Math.min(total, parts.reduce((a, p) => a + p.weight, 0))
+  const free = total - used
+  const marker = props.marker !== null && props.marker !== undefined ? props.marker * total : null
+  const isMarked = marker !== null && marker > used && marker < total
+  return (
+    <Box flexDirection="row" height={1} flexGrow={props.grow} width={props.width} minWidth={props.minWidth ?? 6} overflow="hidden">
+      {parts.map((p, i) => (
+        <Box key={`part-${i}`} flexGrow={p.weight} flexShrink={1} backgroundColor={p.color} />
+      ))}
+      {isMarked ? (
+        <>
+          <Box key="track-before" flexGrow={marker - used} flexShrink={1} backgroundColor="inactive" />
+          <Box key="marker" width={1} flexShrink={0} backgroundColor="subtle" />
+          <Box key="track-after" flexGrow={total - marker} flexShrink={1} backgroundColor="inactive" />
+        </>
+      ) : free > 0 ? (
+        <Box key="track" flexGrow={free} flexShrink={1} backgroundColor="inactive" />
+      ) : null}
+    </Box>
+  )
+}
+
+/**
+ * Columns as percent heights in a track `rows` tall, newest at the right. Each column is
+ * keyed and hover-scoped `${scope}-${i}`, so a hover can swap in that turn's readout.
+ */
+function FlexColumns(ui: Ui, props: { values: number[]; max: number; rows: number; colorFor: (i: number) => string; scope?: string; width?: number | string; grow?: number }) {
+  const { Box } = ui
+  return (
+    <Box flexDirection="row" height={props.rows} width={props.width} flexGrow={props.grow} alignItems="flex-end" columnGap="xs">
+      {props.values.map((value, i) => {
+        const share = props.max > 0 ? Math.max(0, value) / props.max : 0
+        const percent = value > 0 ? Math.max(8, Math.round(share * 100)) : 0
+        return (
+          <Box
+            key={`${props.scope ?? 'col'}-${i}`}
+            flexGrow={1}
+            height="100%"
+            flexDirection="column"
+            justifyContent="flex-end"
+            {...(props.scope ? { hover: { scope: `${props.scope}-${i}` } } : {})}
+          >
+            {percent ? <Box height={`${percent}%`} backgroundColor={props.colorFor(i)} /> : null}
+          </Box>
+        )
+      })}
+    </Box>
+  )
+}
+
+/** A key entry off the terminal: a small filled swatch and its label. */
+function Legend(ui: Ui, color: string, label: string) {
+  const { Box, Text } = ui
+  return (
+    <Box flexDirection="row" alignItems="center" columnGap="xs">
+      <Box width={1} height={1} backgroundColor={color} />
+      <Text>{label}</Text>
+    </Box>
+  )
+}
+
+// Longer than any surface; a one-row Box that clips it ends the rule at the edge, at any width.
+const RULE = '─'.repeat(400)
+
+const AGENTS_HINT = 'Subagents list here as they spawn; press one to read its transcript.'
+
+const TURN_COLUMNS = [3, 8, 6, 8, 5, 7, 8] as const
+
+type TurnCell = { text: string; color?: string }
+
+/**
+ * One row of the shelf's Turns table: fixed columns, right-aligned figures, so they line up.
+ * The last column is the rewrite cause, left-aligned after a gap.
+ */
+function turnTableRow(ui: Ui, key: string, values: TurnCell[], options: { isHead?: boolean; scope?: string } = {}) {
+  const { Box, Text } = ui
+  const last = values.length - 1
+  return (
+    <Box key={key} flexDirection="row" {...(options.scope ? { hover: { scope: options.scope } } : {})}>
+      {values.map((cell, i) => (
+        <Box width={TURN_COLUMNS[i] ?? 6} justifyContent={i === 0 || i === last ? 'flex-start' : 'flex-end'} paddingLeft={i === last ? 1 : 0}>
+          <Text color={cell.color} dimColor={options.isHead || i === 0}>{cell.text}</Text>
+        </Box>
+      ))}
+    </Box>
+  )
 }

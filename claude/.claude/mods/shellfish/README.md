@@ -35,10 +35,10 @@ The shelf is a pane that docks beside the transcript in fullscreen at 110 column
 
 From top to bottom:
 
-- **Title:** the session summary, with the last turn's model, effort, time, output and cost under it. Hover a chart column to see that turn instead.
-- **Agents:** every subagent this session, newest first, with the running count in the heading. Press one to open its transcript.
+- **Title:** the session summary, with the last turn's model, effort, time, output and cost under it. Hover a row of the Turns table to see that turn instead.
+- **Agents:** every subagent this session, newest first, with the running count in the heading. Press one to open its transcript. Before the first subagent, hover the heading's `?` for what will appear.
 - **Context:** the context bar with the compaction point, and a key sorted by size showing each category's share and tokens, with free space last.
-- **Turns:** cost and context charts, one column per turn.
+- **Turns:** the last five turns, newest first, as a table: turn number, time taken, output tokens, cost, context used when it ended, and tokens written to cache (`wrote`). A rewrite shows its `wrote` figure in yellow, with the cause beside it: pause, model, effort or prompt.
 - **Limits:** a bar per rate-limit window, with its reset time.
 - **Cache:** see [Cache](#cache).
 - **Footer:** the usage log's path and a `🐚 shellfish 🐟 a Claude mod by JD Santos` sign-off.
@@ -55,6 +55,19 @@ Each section opens with a ruled heading that carries its headline figure at the 
 | Toasts | One each when context or a rate-limit window reaches 80% |
 
 Hovering and clicking need a terminal that reports the mouse. Claude Code's fullscreen mode does.
+
+### Desktop, VS Code and mobile
+
+The terminal draws bars and charts as block characters sized to a column count. The other surfaces lay out by themselves, and their column count lags a resize, so there the same figures are coloured boxes: each bar segment's share of the row is its `flexGrow`, and the band's cost sparkline is columns of percent height. They scale with the window instead of wrapping.
+
+| Terminal | Elsewhere |
+| --- | --- |
+| Row 2 drops figures from the right as the width shrinks | Row 2 shows every figure and wraps; the context bar takes the spare room |
+| Cost sparkline `▁▂▅▃▇` | Twelve stretched columns, 12 cells wide |
+| Rules (band top, headings, footer) sized to the column count | One long run clipped by a one-row box, so it ends at the edge at any width |
+| Hover cards padded with spaces to cover what is beneath | Hover cards on an `inverseText` fill |
+| Compaction point labelled under its tick | `┃` tick in the bar; the label on its own line |
+| Cache: 10-cell warmth bar, `■` keys | Full-width countdown bar, swatch keys |
 
 ## Switching effort and model
 
@@ -89,8 +102,7 @@ The countdown assumes an entry lives about an hour from the last request, which 
 | reused | Share of the session's input tokens read back from cache |
 | warm m:ss / cold | Time left on the entry the last request wrote. The line under it says what the next turn will cost: a cache read while warm, or a rewrite of the whole conversation at 125% once cold. |
 | reused / written / uncached bar | Where the session's input tokens went. `cost n% of uncached` is what that input cost, as a share of the same tokens at full price. |
-| wrote per turn | Tokens written to cache per turn, one column each. A normal turn writes only its new text; a tall yellow column is a rewrite of the whole conversation. |
-| rewrites | Turns that found no cache entry, with the likely cause: a pause past the hour, a model switch, an effort change, or a changed prompt (an edited CLAUDE.md, a new MCP server). It reports what happened; none of these are settings. |
+| Rewrites | How many turns found no cache entry, out of all turns this session (`2 of 14 turns`), with the likely cause: a pause past the hour, a model switch, an effort change, or a changed prompt (an edited CLAUDE.md, a new MCP server). It reports what happened; none of these are settings. |
 
 Hover the Cache heading for a short explanation.
 
