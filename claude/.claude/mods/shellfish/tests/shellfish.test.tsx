@@ -212,7 +212,9 @@ test('a turn leaves a receipt on its closing line and a row in the log', async (
   expect(shelf).toContain('reused 90%')
   expect(shelf).toContain('warm 60:00')
   expect(shelf).toContain('Next turn reads')
-  expect(shelf).toContain('"rewrites "')
+  expect(shelf).toContain('"Rewrites "')
+  expect(shelf).toContain('0 of 1 turn')
+  expect(shelf).toContain('"wrote"')
   expect(shelf.indexOf('Limits')).toBeLessThan(shelf.indexOf('Cache '))
   expect(shelf.indexOf('"messages"')).toBeLessThan(shelf.indexOf('"free"'))
   expect(shelf).toContain('300 out · $0.250 · $1.484 session')
@@ -381,4 +383,70 @@ test('a rule with the session title tops the band, and a dated rule opens each p
   expect(message).toMatch(/ \d\d:\d\d /)
   expect(message).toContain('──')
   await row.unmount()
+})
+
+test('off the terminal, bars and charts are flex boxes, not glyphs sized to a cell count', async ($, on) => {
+  const world = engine(on, 40)
+  await start($)
+  await runTurn($, world)
+  await runTurn($, world)
+  await world.clock.settle()
+
+  const band = await $.ui.mount({ ...BAND, surface: 'desktop' } as never)
+  const drawn = JSON.stringify(await band.drawn())
+  for (const glyph of ['█', '░', '▁', '▇']) expect(drawn).not.toContain(glyph)
+  expect(drawn).toContain('"flexGrow":300')
+  expect(drawn).toContain('"width":"100%"')
+  expect(drawn).toContain('5h ')
+  await band.unmount()
+
+  const pane = await $.ui.mount({
+    plugin: 'shellfish',
+    surface: 'desktop',
+    component: 'Pane',
+    requestId: 'shellfish',
+    props: { title: 'shelf', isFocused: false, bodyColumns: 60, placement: 'dock', scroll: { offset: 0, bodyRows: 40, contentRows: 0 }, view: {} },
+  } as never)
+  const shelf = JSON.stringify(await pane.drawn())
+  for (const glyph of ['█', '░', '▁', '▇']) expect(shelf).not.toContain(glyph)
+  for (const text of ['compacts at 83%', '80k/200k', 'Limits', 'Cache', 'Rewrites', 'shellfish', '🐟']) expect(shelf).toContain(text)
+  // Rules are one long run clipped by a one-row Box, so they end at the edge at any width.
+  expect(shelf).toContain('"overflow":"hidden"')
+  // The keep-warm control is the surface's own button, not inverse text padded with spaces.
+  expect(shelf).toContain('▶ Keep warm for 180 min')
+    expect(shelf).not.toContain('"inverse":true')
+  await pane.unmount()
+})
+
+test('the shelf tucks the empty Agents hint into a hover card and lists recent turns as a table', async ($, on) => {
+  const world = engine(on, 40)
+  await start($)
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const pane = await $.ui.mount({
+      plugin: 'shellfish',
+      surface,
+      component: 'Pane',
+      requestId: 'shellfish',
+      props: { title: 'shelf', isFocused: false, bodyColumns: 60, placement: 'dock', scroll: { offset: 0, bodyRows: 40, contentRows: 0 }, view: {} },
+    } as never)
+    const empty = JSON.stringify(await pane.drawn())
+    // The hint is drawn only inside the hidden card the Agents heading reveals on hover.
+    expect(empty).toContain('"scope":"agents-help"')
+    expect(empty).toContain('Subagents list here as they spawn')
+    expect(empty).toContain('No turns yet.')
+    await pane.unmount()
+  }
+  await runTurn($, world)
+  await world.clock.settle()
+  const pane = await $.ui.mount({
+    plugin: 'shellfish',
+    surface: 'desktop',
+    component: 'Pane',
+    requestId: 'shellfish',
+    props: { title: 'shelf', isFocused: false, bodyColumns: 60, placement: 'dock', scroll: { offset: 0, bodyRows: 40, contentRows: 0 }, view: {} },
+  } as never)
+  const drawn = JSON.stringify(await pane.drawn())
+  for (const text of ['"took"', '"out"', '"cost"', '"ctx"', '"$0.250"']) expect(drawn).toContain(text)
+  expect(drawn).not.toContain('"cost "')
+  await pane.unmount()
 })
