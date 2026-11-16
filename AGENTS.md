@@ -42,7 +42,7 @@ and `.ssh/id_*`. Redacting does not help, because you see the value before you
 redact it. Instead, ask the user about the file's format and give them commands
 to run, such as `bash -n .env` and `file .env`.
 
-Varlock schema files (`.env.schema`, `.env-schema`) are the exception. They hold
+Varlock schema files (`.env.schema`, `.env-schema`) are a schema-file exception. They hold
 variable names, types, validation, and resolvers such as `op(...)`, and are safe
 to read. If one appears to contain a literal secret, stop and ask the user to
 check it.

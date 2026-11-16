@@ -2,7 +2,7 @@
 
 ## Secrets Protection
 
-Never read files that may contain secrets. This is an absolute rule with one narrow exception for Varlock schema files.
+Never read files that may contain secrets. The only exceptions are Varlock schema files and explicitly requested local Pi session-log analysis, under the restrictions below.
 
 Prohibited file patterns:
 
