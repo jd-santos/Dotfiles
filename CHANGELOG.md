@@ -6,6 +6,8 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 
 ### Added
 
+- Track Herdr App and Core in separate Stow packages: Dracula, silent alerts, 120% app zoom, and documented Core defaults, while retaining app-native shortcuts and the legacy TUI config. Bootstrap uses file-level symlinks to keep runtime state outside the checkout.
+
 - Add Cargo and other rustup tools to `PATH` in zsh when `~/.cargo/env` exists.
 
 - Add Pi's `/btw` side-question overlay with full context or `--last [N]`, per-request approval, estimated API budgets, and visible usage without adding side questions or answers to the main model history.
