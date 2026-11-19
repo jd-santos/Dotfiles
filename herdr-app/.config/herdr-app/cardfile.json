@@ -1,0 +1,16 @@
+{
+  "agent": ["claude"],
+  "sources": [
+    { "id": "todo", "label": "Todo", "run": ["~/bin/cardfile-todo"], "where": "space", "every": 60 }
+  ],
+  "board": [
+    { "id": "up-next", "label": "Up Next", "auto": "new", "tone": "idle" },
+    { "id": "in-progress", "label": "In Progress", "auto": "working", "tone": "working" },
+    { "id": "review", "label": "Review", "auto": "finished", "tone": "accent" },
+    { "id": "blocked", "label": "Blocked", "auto": "blocked", "tone": "blocked" },
+    { "id": "paused", "label": "Paused", "sticky": true, "tone": "muted" },
+    { "id": "done", "label": "Done", "tone": "done" },
+    { "id": "backlog", "label": "Backlog", "tone": "muted" },
+    { "id": "canceled", "label": "Canceled", "tone": "muted" }
+  ]
+}

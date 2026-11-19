@@ -7,7 +7,7 @@ Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). M
 | Package                               | Description                                                                                                            |
 | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | [`agents`](agents/README.md)          | AI agent skills ([Agent Skills](https://agentskills.io) standard)                                                      |
-| `bin`                                 | User scripts installed to `~/bin`, including `merge-settings` and the Pi auth wrapper                                  |
+| `bin`                                 | User scripts installed to `~/bin`, including `merge-settings`, the Pi auth wrapper, and Card File's todo and Jira sources |
 | [`claude`](claude/.claude/mods/shellfish/README.md) | Claude Code keybindings, shared settings merged by `merge-settings`, skills link, and the `shellfish` mod in a local plugin marketplace |
 | `cmux`                                | [cmux](https://github.com/manaflow-ai/cmux) terminal config and cmux-specific Ghostty UI overrides                     |
 | `docs/`                               | Repo documentation and the Typst terminal workflow cheatsheet, not a stow package                                      |
@@ -17,7 +17,7 @@ Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). M
 | `ghostty`                             | [Ghostty](https://ghostty.org) terminal (Dracula theme, Nerd Font icons)                                               |
 | `git`                                 | Git config, global gitignore, LFS, [`~/.gitconfig.local`](git/.gitconfig.local.example) for machine-specific overrides |
 | `herdr`                               | Legacy [Herdr](https://herdr.dev/) TUI config (tmux-like keys, Dracula theme, portable setup manifest)                 |
-| [`herdr-app`](herdr-app/README.md)      | Herdr desktop app (Dracula, silent alerts, shared settings merged by `merge-settings`; no runtime state)                                   |
+| [`herdr-app`](herdr-app/README.md)      | Herdr desktop app (Dracula, silent alerts, shared settings merged by `merge-settings`, Card File layout; no runtime state)                |
 | [`herdr-core`](herdr-core/README.md)    | Persistent terminal backend config, separate from the app and legacy TUI                                            |
 | `lint`                                | Markdown lint rules (`.markdownlint.jsonc`)                                                                            |
 | [`nvim`](nvim/.config/nvim/README.md) | Neovim (LazyVim, fzf-lua, tokyonight)                                                                                  |

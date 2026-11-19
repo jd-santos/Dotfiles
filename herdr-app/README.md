@@ -79,6 +79,23 @@ A layout's own look and saved theme-picker choice can override settings. Existin
 layout choices are not reset by installing this package. Layouts, mods and themes
 remain ordinary Stow-managed files; runtime state does not go through the merger.
 
+## Card File layout
+
+`layouts/cardfile.json` is the shipped main layout redone as index cards. The
+sidebar stacks spaces over agent cards, and the side panel to the right of the
+terminals has Files, Changes and Todo as tabs. Switch to it with
+`ctrl-shift-l`. **Board** in the tab bar swaps the terminals for a board of
+agents in lanes you define, such as Up Next, Review and Paused, alongside
+lanes Herdr fills from its own statuses. The `cardfile` mod draws the sidebar,
+the panel tabs, Todo and the board, and `themes/cardfile.json` gives it warm
+grays with a blush accent. Todo cards come from small programs listed in
+`cardfile.json`; the shared list runs
+`~/bin/cardfile-todo` (from the `bin` package), which reads the shown repo's
+`todo/TODO.md`. See the [mod's README](.config/herdr-app/mods/cardfile/README.md)
+for the card and board source contracts. `~/bin/cardfile-jira` puts a Jira
+Cloud project on the board; its settings go in the untracked
+`cardfile.local.json`.
+
 ## Default macOS shortcuts
 
 These are app defaults, not custom bindings maintained by this repo.
