@@ -1,0 +1,149 @@
+#!/usr/bin/env python3
+"""Print the open items in this repo's todo/TODO.md as Card File cards (JSON).
+
+Run from inside a repository; Herdr's Card File runs it in the shown space's folder.
+Reads the P1-P5 index that the todo-manager skill keeps:
+
+    ## P2: High
+    - [ ] Fix the thing
+      - [x] First step
+      - [ ] Second step
+    - [ ] [Bigger effort](work/bigger-effort/README.md) [context: medium]
+
+Each unchecked top-level item becomes a card: its priority as the tag, its next
+open step and any [key: value] notes as lines, its step count as progress, and a
+linked work record as the file the card opens.
+"""
+
+import hashlib
+import json
+import os
+import re
+import subprocess
+import sys
+
+HEADING = re.compile(r"^##\s+(P[1-5])\b")
+ITEM = re.compile(r"^(\s*)- \[( |x|X)\]\s+(.*)$")
+LINK = re.compile(r"\[([^\]]+)\]\(([^)\s]+)\)")
+NOTE = re.compile(r"\s*\[([a-z][\w -]*):\s*([^\]]+)\]")
+TONE = {"P1": "blocked", "P2": "accent"}
+
+
+def repo_root(start):
+    try:
+        out = subprocess.run(
+            ["git", "-C", start, "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if out.returncode == 0 and out.stdout.strip():
+            return out.stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return None
+
+
+def find_index(root):
+    for rel in ("todo/TODO.md", "TODO.md", "docs/TODO.md"):
+        path = os.path.join(root, rel)
+        if os.path.isfile(path):
+            return path
+    return None
+
+
+def plain(text):
+    """Markdown links to their text, notes and backticks removed."""
+    text = NOTE.sub("", text)
+    text = LINK.sub(lambda m: m.group(1), text)
+    return text.replace("`", "").strip()
+
+
+def parse(path):
+    base = os.path.dirname(path)
+    items, priority, current = [], None, None
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.rstrip("\n")
+            h = HEADING.match(line)
+            if h:
+                priority, current = h.group(1), None
+                continue
+            if line.startswith("#"):
+                priority, current = None, None
+                continue
+            m = ITEM.match(line)
+            if not m:
+                continue
+            indent, mark, text = m.groups()
+            done = mark.lower() == "x"
+            if not indent:
+                current = None
+                if done:
+                    continue
+                link = LINK.search(text)
+                target = link.group(2) if link else None
+                current = {
+                    "text": text,
+                    "priority": priority,
+                    "file": os.path.normpath(os.path.join(base, target))
+                    if target and target.endswith(".md") and "://" not in target else None,
+                    "url": target if target and "://" in target else None,
+                    "notes": [f"{k}: {v.strip()}" for k, v in NOTE.findall(text)],
+                    "steps": [],
+                }
+                items.append(current)
+            elif current is not None:
+                current["steps"].append((done, plain(text)))
+    return items
+
+
+def card(item, rel):
+    title = plain(item["text"])
+    steps = item["steps"]
+    done = sum(1 for d, _ in steps if d)
+    nxt = next((s for d, s in steps if not d), None)
+    lines = []
+    if nxt:
+        lines.append(f"Next: {nxt}")
+    lines.extend(item["notes"])
+    out = {
+        "id": hashlib.sha1(title.encode()).hexdigest()[:10],
+        "title": title,
+        "lines": lines,
+        "task": f"Pick up this item from {rel}: {title}"
+        + (f" (work record: {item['file']})" if item["file"] else ""),
+    }
+    if item["priority"]:
+        out["tag"] = item["priority"]
+    if item["priority"] in TONE:
+        out["tone"] = TONE[item["priority"]]
+    if steps:
+        out["progress"] = [done, len(steps)]
+    if item["file"]:
+        out["file"] = item["file"]
+    if item["url"]:
+        out["url"] = item["url"]
+    return out
+
+
+def main():
+    start = os.environ.get("CARDFILE_FOLDER") or os.getcwd()
+    root = repo_root(start)
+    if not root:
+        print(json.dumps({"cards": [], "empty": "Not in a git repository."}))
+        return
+    name = os.path.basename(root)
+    path = find_index(root)
+    if not path:
+        print(json.dumps({"title": f"Todo · {name}", "cards": [], "empty": f"No todo/TODO.md in {name}."}))
+        return
+    rel = os.path.relpath(path, root)
+    cards = [card(i, rel) for i in parse(path)]
+    print(json.dumps({"title": f"Todo · {name}", "cards": cards, "empty": "Nothing open."}))
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:  # The card file shows the last line of stderr.
+        print(f"cardfile-todo: {e}", file=sys.stderr)
+        sys.exit(1)
