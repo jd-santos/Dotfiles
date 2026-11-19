@@ -23,17 +23,21 @@ async function readJson(name) {
 
 // cardfile.json is shared (stowed); cardfile.local.json is this machine's. A local source
 // with the same id changes that source's fields, and `"enabled": false` turns it off.
+function mergeById(base, local) {
+  const byId = new Map();
+  for (const s of [...(Array.isArray(base) ? base : []), ...(Array.isArray(local) ? local : [])]) {
+    if (s && typeof s.id === "string") byId.set(s.id, { ...(byId.get(s.id) ?? {}), ...s });
+  }
+  return [...byId.values()].filter((s) => s.enabled !== false && Array.isArray(s.run) && s.run.length > 0);
+}
+
 async function loadConfig() {
   const base = await readJson("cardfile.json");
   const local = await readJson("cardfile.local.json");
-  const byId = new Map();
-  for (const s of [...(base.sources ?? []), ...(local.sources ?? [])]) {
-    if (s && typeof s.id === "string") byId.set(s.id, { ...(byId.get(s.id) ?? {}), ...s });
-  }
-  const sources = [...byId.values()].filter((s) => s.enabled !== false && Array.isArray(s.run) && s.run.length > 0);
   return {
     agent: local.agent ?? base.agent ?? ["claude"],
-    sources,
+    sources: mergeById(base.sources, local.sources),
+    boards: mergeById(base.boards, local.boards).filter((b) => b.id !== "agents"),
     lanes: cleanLanes(local.board) ?? cleanLanes(base.board) ?? DEFAULT_LANES,
     errors: [base.error, local.error].filter(Boolean),
   };
@@ -102,7 +106,6 @@ async function hc(args) {
 
 function cleanCard(c, i) {
   if (!c || typeof c.title !== "string" || !c.title.trim()) return null;
-  const str = (v) => (typeof v === "string" && v.trim() ? v.trim() : null);
   const progress = Array.isArray(c.progress) && c.progress.length === 2 && c.progress.every(Number.isFinite) && c.progress[1] > 0
     ? [Math.max(0, Math.min(c.progress[0], c.progress[1])), c.progress[1]]
     : null;
@@ -119,12 +122,12 @@ function cleanCard(c, i) {
   };
 }
 
-// Runs one source in `ctx.folder` and returns { title?, empty?, cards }. Throws with a
-// one-line reason when the program fails or prints something that isn't the contract.
-async function runSource(src, ctx) {
+// Runs a source's program in `ctx.folder` with `extra` arguments and environment, and
+// returns what it printed as JSON. Throws with a one-line reason when it fails.
+async function runProgram(src, ctx, extra = [], env = []) {
   const [cmd, ...args] = src.run.map(expand);
-  const env = [`CARDFILE_SOURCE=${src.id}`, `CARDFILE_SPACE=${ctx.space ?? ""}`, `CARDFILE_FOLDER=${ctx.folder ?? ""}`];
-  const r = await exec("env", [...env, cmd, ...args], {
+  const vars = [`CARDFILE_SOURCE=${src.id}`, `CARDFILE_SPACE=${ctx.space ?? ""}`, `CARDFILE_FOLDER=${ctx.folder ?? ""}`, ...env];
+  const r = await exec("env", [...vars, cmd, ...args, ...extra], {
     cwd: ctx.folder || home(),
     timeout: Math.min(Math.max(src.timeout ?? 20, 1), 120) * 1000,
   });
@@ -132,18 +135,48 @@ async function runSource(src, ctx) {
     const why = (r.stderr || r.stdout || "").trim().split("\n").at(-1);
     throw new Error(why ? `exit ${r.code}: ${why}` : `exit ${r.code}`);
   }
-  let out;
   try {
-    out = JSON.parse(r.stdout);
+    return JSON.parse(r.stdout);
   } catch {
     throw new Error("printed something other than JSON");
   }
+}
+
+// Runs one source and returns { title?, empty?, cards }.
+async function runSource(src, ctx) {
+  const out = await runProgram(src, ctx);
   if (!out || !Array.isArray(out.cards)) throw new Error('JSON has no "cards" list');
   return {
     title: typeof out.title === "string" ? out.title : null,
     empty: typeof out.empty === "string" ? out.empty : null,
     cards: out.cards.map(cleanCard).filter(Boolean).slice(0, Math.max(1, src.max ?? 50)),
   };
+}
+
+// ── Board sources: programs that print lanes and cards, and move cards ──────────
+// `run` printing { title?, empty?, lanes, views?, view?, cards }, `run moves <card>` printing
+// { lanes: [ids] }, and `run move <card> <lane>`. CARDFILE_VIEW carries the chosen view.
+
+const str = (v) => (typeof v === "string" && v.trim() ? v.trim() : null);
+
+async function runBoard(src, ctx, view) {
+  const out = await runProgram(src, ctx, [], [`CARDFILE_VIEW=${view ?? ""}`]);
+  if (!out || !Array.isArray(out.lanes) || !Array.isArray(out.cards)) throw new Error('JSON needs "lanes" and "cards" lists');
+  const lanes = [];
+  for (const l of out.lanes) {
+    if (!l || !str(l.id) || lanes.some((x) => x.id === l.id)) continue;
+    lanes.push({ id: l.id, label: str(l.label) ?? l.id, tone: TONES.has(l.tone) ? l.tone : null, note: str(l.note) });
+  }
+  if (!lanes.length) throw new Error("no lanes");
+  const views = (Array.isArray(out.views) ? out.views : []).filter((v) => v && str(v.id)).map((v) => ({ id: v.id, label: str(v.label) ?? v.id }));
+  const cards = out.cards.slice(0, Math.max(1, src.max ?? 500)).map((c, i) => {
+    const card = cleanCard(c, i);
+    if (!card) return null;
+    card.lane = lanes.some((l) => l.id === c.lane) ? c.lane : lanes[0].id;
+    card.meta = str(c.meta);
+    return card;
+  }).filter(Boolean);
+  return { title: str(out.title), empty: str(out.empty), lanes, views, view: str(out.view), cards };
 }
 
 // ── The mod ───────────────────────────────────────────────────────────────────
@@ -154,6 +187,8 @@ const fade = (c, a) => (typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c) ? c +
 const RANK = { blocked: 4, done: 3, working: 2, idle: 1 };
 const SCOPE_KEY = "cardfile.scope";
 const BOARD_KEY = "cardfile.board-opened"; // when the board was last opened
+const SOURCE_KEY = "cardfile.board-source"; // "agents" or a board source's id
+const viewKey = (id) => `cardfile.board-view.${id}`;
 const PANELS = [
   { id: "files", label: "Files" },
   { id: "changes", label: "Changes" },
@@ -415,15 +450,20 @@ export default class CardFile extends View {
     return div().px(4).py(2).text_size(11.5).text_color(color ?? t.dim).child(text);
   }
 
-  scopeToggle(t, scope) {
-    const opt = (id, label) => div()
-      .id(`scope-${id}`).px(7).h(20).rounded(5).flex().items_center()
-      .text_color(scope === id ? t.foreground : t.dim)
-      .when(scope === id, (el) => el.bg(t.selected))
+  // A row of options, one of them on: [{ id, label }].
+  toggle(t, prefix, options, on, onPick) {
+    const opt = ({ id, label }) => div()
+      .id(`${prefix}-${id}`).px(7).h(20).rounded(5).flex().items_center().flex_none()
+      .text_color(on === id ? t.foreground : t.dim)
+      .when(on === id, (el) => el.bg(t.selected))
       .hover((s) => s.text_color(t.foreground))
-      .on_click(() => setShared(SCOPE_KEY, id))
+      .on_click(() => onPick(id))
       .child(label);
-    return h_flex().gap(2).text_size(11).child(opt("space", "This space")).child(opt("all", "All"));
+    return h_flex().flex_none().gap(2).text_size(11).children(options.map(opt));
+  }
+
+  scopeToggle(t, scope) {
+    return this.toggle(t, "scope", [{ id: "space", label: "This space" }, { id: "all", label: "All" }], scope, (id) => setShared(SCOPE_KEY, id));
   }
 
   track(list, now) {
@@ -561,13 +601,104 @@ export default class CardFile extends View {
     this.changed = {};
     this.width = 248; // a lane's width; card() sizes its text from it
     this.moved = new Map(); // address -> { lane, turn, at }: moves the labels don't show yet
-    this.picking = null; // the agent whose lane menu is open
+    this.picking = null; // the card whose lane menu is open
     this.error = null;
-    this.config = { lanes: DEFAULT_LANES };
+    this.config = { agent: ["claude"], sources: [], boards: [], lanes: DEFAULT_LANES, errors: [] };
+    this.boards = new Map(); // `${source}|${view}` -> { at, data?, error? }
+    this.fetching = new Set();
+    this.moves = new Map(); // `${source}|${card}` -> { at, lanes?, error? }: where a card can go now
+    this.placed = new Map(); // `${source}|${card}` -> { lane, at }: moves the source doesn't show yet
     if (checking()) return;
-    const load = (cx) => cx.spawn(async (cx) => { this.config = await loadConfig(); cx.notify(); });
+    const load = (cx) => cx.spawn(async (cx) => { this.config = await loadConfig(); this.tickBoard(cx); cx.notify(); });
     load(cx);
     cx.timer.every(30000, (cx) => { load(cx); cx.notify(); });
+    cx.timer.every(1000, (cx) => this.tickBoard(cx));
+  }
+
+  // ── Which board: the agents, or a board source ─────────────────────────────
+
+  boardSource() {
+    const id = shared(SOURCE_KEY);
+    return this.config.boards.find((b) => b.id === id) ?? null;
+  }
+
+  boardView(src) {
+    const v = shared(viewKey(src.id));
+    return typeof v === "string" ? v : "";
+  }
+
+  boardKey(src) {
+    return `${src.id}|${this.boardView(src)}`;
+  }
+
+  // Board sources run in your home folder unless they ask for the shown space's.
+  sourceContext(src) {
+    const ctx = this.context();
+    return src.where === "space" ? ctx : { ...ctx, folder: "" };
+  }
+
+  // Fetches the shown board source when it's older than `every` seconds (default 120), or now.
+  tickBoard(cx, now = false) {
+    const src = this.boardSource();
+    if (!src || !boardShown()) return;
+    const key = this.boardKey(src);
+    const last = this.boards.get(key);
+    const every = Math.max(src.every ?? 120, 30) * 1000;
+    if (this.fetching.has(key) || (!now && last && Date.now() - last.at < every)) return;
+    this.fetching.add(key);
+    const started = Date.now();
+    const view = this.boardView(src);
+    cx.notify();
+    cx.spawn(async (cx) => {
+      try {
+        const data = await runBoard(src, this.sourceContext(src), view);
+        this.boards.set(key, { at: Date.now(), data });
+        for (const [k, p] of this.placed) if (k.startsWith(`${src.id}|`) && p.at < started) this.placed.delete(k);
+      } catch (e) {
+        this.boards.set(key, { at: Date.now(), error: e?.message ?? String(e), data: last?.data });
+      }
+      this.fetching.delete(key);
+      cx.notify();
+    });
+  }
+
+  // Opens a card's lane menu and asks the source where the card can go from here.
+  openMoves(src, c, cx) {
+    const key = `${src.id}|${c.id}`;
+    this.picking = this.picking === key ? null : key;
+    const last = this.moves.get(key);
+    if (this.picking && !(last && (last.lanes || last.loading) && Date.now() - last.at < 30000)) {
+      this.moves.set(key, { at: Date.now(), loading: true });
+      cx.spawn(async (cx) => {
+        try {
+          const out = await runProgram(src, this.sourceContext(src), ["moves", c.id]);
+          this.moves.set(key, { at: Date.now(), lanes: (Array.isArray(out?.lanes) ? out.lanes : []).filter((x) => typeof x === "string") });
+        } catch (e) {
+          this.moves.set(key, { at: Date.now(), error: e?.message ?? String(e) });
+        }
+        cx.notify();
+      });
+    }
+    cx.notify();
+  }
+
+  placeCard(src, c, lane, cx) {
+    const key = `${src.id}|${c.id}`;
+    this.placed.set(key, { lane: lane.id, at: Date.now() });
+    this.picking = null;
+    this.error = null;
+    this.moves.delete(key);
+    cx.notify();
+    cx.spawn(async (cx) => {
+      try {
+        await runProgram(src, this.sourceContext(src), ["move", c.id, lane.id]);
+        this.tickBoard(cx, true);
+      } catch (e) {
+        this.placed.delete(key);
+        this.error = `Couldn't move ${c.tag ?? c.title}: ${e?.message ?? e}`;
+      }
+      cx.notify();
+    });
   }
 
   // Puts an agent in a lane by labelling its terminal; `lane` null goes back to automatic.
@@ -600,23 +731,83 @@ export default class CardFile extends View {
     this.lastSpace = f?.space;
   }
 
-  lanePicker(t, a, term, current) {
-    const chip = (id, label, on, onClick) => div()
+  // ── Pieces ─────────────────────────────────────────────────────────────────
+
+  chip(t, id, label, on, onClick) {
+    return div()
       .id(id).px(7).h(20).rounded(5).flex().items_center().text_size(11)
       .border(1).border_color(on ? t.accent : t.border)
       .text_color(on ? t.foreground : t.muted)
       .hover((s) => s.bg(t.hover).text_color(t.foreground))
       .on_click((_e, cx) => { cx.stop_propagation(); onClick(cx); })
       .child(label);
-    const labelled = term?.labels?.[LANE_LABEL] ?? null;
-    return h_flex().flex_wrap().px(10).pb(8).gap(4)
-      .children(this.config.lanes.map((l) => chip(`mv-${a.address}-${l.id}`, l.label, l.id === current.id, (cx) => this.moveTo(a, term, l, cx))))
-      .when(Boolean(labelled || this.moved.get(a.address)?.lane), (el) => el.child(
-        chip(`mv-${a.address}-auto`, "Automatic", false, (cx) => this.moveTo(a, term, null, cx))));
   }
 
-  renderBoard(t) {
-    this.watchFocus();
+  footButton(t, id, label, tip, on, onClick) {
+    return div().id(id).flex_none().px(5).h(18).rounded(4).flex().items_center()
+      .text_color(on ? t.foreground : t.dim).when(on, (el) => el.bg(t.selected))
+      .hover((s) => s.bg(t.hover).text_color(t.foreground)).tooltip(tip)
+      .on_click((_e, cx) => { cx.stop_propagation(); onClick(cx); })
+      .child(label);
+  }
+
+  lanePicker(t, a, term, current) {
+    const labelled = term?.labels?.[LANE_LABEL] ?? null;
+    return h_flex().flex_wrap().px(10).pb(8).gap(4)
+      .children(this.config.lanes.map((l) => this.chip(t, `mv-${a.address}-${l.id}`, l.label, l.id === current.id, (cx) => this.moveTo(a, term, l, cx))))
+      .when(Boolean(labelled || this.moved.get(a.address)?.lane), (el) => el.child(
+        this.chip(t, `mv-${a.address}-auto`, "Automatic", false, (cx) => this.moveTo(a, term, null, cx))));
+  }
+
+  laneColumn(t, l, items, note = null) {
+    const tone = l.tone ? t[l.tone] ?? t.accent : t.dim;
+    return v_flex().id(`lane-${l.id}`).w(this.width).flex_none().h_full().min_h(0)
+      .rounded(8).bg(t.chrome).border(1).border_color(t.border)
+      .child(h_flex().px(10).h(34).flex_none().gap(7).items_center()
+        .child(div().size(7).flex_none().rounded(4).bg(tone))
+        .child(div().flex_1().min_w(0).truncate().text_size(12).font_medium().text_color(t.foreground).child(l.label))
+        .child(div().flex_none().text_size(11).text_color(t.dim).child(String(items.length))))
+      .when(Boolean(note), (el) => el.child(div().px(10).pb(6).flex_none().truncate().text_size(10.5).text_color(t.dim).child(note)))
+      .child(v_flex().id(`lane-cards-${l.id}`).flex_1().min_h(0).px(8).pb(8).gap(8).overflow_y_scrollbar()
+        .children(items.length ? items : [div().px(2).text_size(11.5).text_color(t.dim).child("Empty")]));
+  }
+
+  // A board source's card: the title over its lines, then its tag, meta, Agent and Move.
+  boardCard(t, src, c, lanes, laneId) {
+    const key = `${src.id}|${c.id}`;
+    const id = `${src.id}-${c.id}`;
+    const picking = this.picking === key;
+    const tone = c.tone ? t[c.tone] ?? t.accent : null;
+    let after = null;
+    if (picking) {
+      const m = this.moves.get(key);
+      const options = (m?.lanes ?? []).filter((x) => x !== laneId).map((x) => lanes.find((l) => l.id === x)).filter(Boolean);
+      after = h_flex().flex_wrap().px(10).pb(8).gap(4).children(
+        m?.error ? [this.note(t, m.error, t.blocked)]
+          : !m?.lanes ? [this.note(t, "Checking where it can go…")]
+          : options.length ? options.map((l) => this.chip(t, `bmv-${id}-${l.id}`, l.label, false, (cx) => this.placeCard(src, c, l, cx)))
+          : [this.note(t, "It can't move from here.")]);
+    }
+    return this.card(t, {
+      id: `bc-${id}`,
+      rule: tone ?? t.border,
+      onClick: c.file || c.url ? () => this.openCard(c) : null,
+      after,
+      head: [div().flex_1().min_w(0).max_h(42).overflow_hidden().text_size(13).font_medium().text_color(t.foreground).child(clip(c.title, 90))],
+      lines: c.lines,
+      foot: [
+        c.tag ? div().flex_none().px(5).h(16).rounded(4).border(1).border_color(tone ?? t.border).text_size(10).font_semibold()
+          .text_color(tone ?? t.muted).flex().items_center().child(c.tag) : null,
+        div().flex_1().min_w(0).truncate().child(c.meta ?? ""),
+        c.task ? this.footButton(t, `bc-run-${id}`, "Agent", "Start an agent on this", false, () => this.startAgent(c)) : null,
+        this.footButton(t, `bc-mv-${id}`, "Move", "Move to another lane", picking, (cx) => this.openMoves(src, c, cx)),
+      ].filter(Boolean),
+    });
+  }
+
+  // ── The two kinds of board ───────────────────────────────────────────────────
+
+  agentBoard(t) {
     const now = Date.now();
     const scope = shared(SCOPE_KEY) === "all" ? "all" : "space";
     const active = spaces().find((s) => s.active);
@@ -646,28 +837,59 @@ export default class CardFile extends View {
       const picking = this.picking === a.address;
       return this.agentCard(t, a, byAddress, kids, now, {
         onClick: () => { showBoard(false); run("pane.focus", { pane: a.pane }); },
-        foot: [div().id(`mv-${a.address}`).flex_none().px(5).h(18).rounded(4).flex().items_center()
-          .text_color(picking ? t.foreground : t.dim).when(picking, (el) => el.bg(t.selected))
-          .hover((s) => s.bg(t.hover).text_color(t.foreground)).tooltip("Move to another lane")
-          .on_click((_e, cx) => { cx.stop_propagation(); this.picking = picking ? null : a.address; cx.notify(); })
-          .child("Move")],
+        foot: [this.footButton(t, `mv-${a.address}`, "Move", "Move to another lane", picking,
+          (cx) => { this.picking = picking ? null : a.address; cx.notify(); })],
         after: picking ? this.lanePicker(t, a, term, laneFor.get(a.address)) : null,
       });
     };
 
-    const column = (l) => {
-      const items = groups.get(l.id).sort((x, y) => (y.pinned - x.pinned) || y.seq - x.seq);
-      const tone = l.tone ? t[l.tone] ?? t.accent : t.dim;
-      return v_flex().id(`lane-${l.id}`).w(this.width).flex_none().h_full().min_h(0)
-        .rounded(8).bg(t.chrome).border(1).border_color(t.border)
-        .child(h_flex().px(10).h(34).flex_none().gap(7).items_center()
-          .child(div().size(7).flex_none().rounded(4).bg(tone))
-          .child(div().flex_1().min_w(0).truncate().text_size(12).font_medium().text_color(t.foreground).child(l.label))
-          .child(div().flex_none().text_size(11).text_color(t.dim).child(String(items.length))))
-        .child(v_flex().id(`lane-cards-${l.id}`).flex_1().min_h(0).px(8).pb(8).gap(8).overflow_y_scrollbar()
-          .children(items.length ? items.map(card) : [div().px(2).text_size(11.5).text_color(t.dim).child("Empty")]));
+    return {
+      info: scope === "all" ? "All spaces" : active?.name ?? "",
+      error: this.error,
+      controls: [this.scopeToggle(t, scope)],
+      lanes: lanes.map((l) => this.laneColumn(t, l, groups.get(l.id).sort((x, y) => (y.pinned - x.pinned) || y.seq - x.seq).map(card))),
     };
+  }
 
+  sourceBoard(t, src) {
+    const key = this.boardKey(src);
+    const r = this.boards.get(key);
+    const data = r?.data;
+    const loading = this.fetching.has(key);
+    const controls = [];
+    if (data?.views?.length > 1) {
+      const on = this.boardView(src) || data.view || data.views[0].id;
+      controls.push(this.toggle(t, `bv-${src.id}`, data.views, on, (id) => { this.picking = null; setShared(viewKey(src.id), id); }));
+    }
+    controls.push(div().id(`bv-reload-${src.id}`).flex_none().px(5).h(20).rounded(5).flex().items_center().text_size(13).text_color(t.dim)
+      .hover((s) => s.bg(t.hover).text_color(t.foreground)).tooltip("Refresh")
+      .on_click((_e, cx) => this.tickBoard(cx, true)).child("↻"));
+    const age = r ? duration(Date.now() - r.at) : null;
+    const info = loading ? "Updating…" : age === "now" ? "Updated just now" : age ? `Updated ${age} ago` : "";
+    const error = this.error ?? (r?.error ? `Couldn't refresh: ${r.error}` : null);
+    if (!data) {
+      return { info, error, controls, lanes: [this.note(t, r?.error ? "Nothing to show yet." : "Loading…")] };
+    }
+    const groups = new Map(data.lanes.map((l) => [l.id, []]));
+    const laneFor = (c) => {
+      const p = this.placed.get(`${src.id}|${c.id}`)?.lane;
+      return p && groups.has(p) ? p : c.lane;
+    };
+    for (const c of data.cards) groups.get(laneFor(c)).push(c);
+    return {
+      info: data.cards.length ? info : data.empty ?? info,
+      error,
+      controls,
+      lanes: data.lanes.map((l) => this.laneColumn(t, l, groups.get(l.id).map((c) => this.boardCard(t, src, c, data.lanes, l.id)), l.note)),
+    };
+  }
+
+  renderBoard(t) {
+    this.watchFocus();
+    const src = this.boardSource();
+    const b = src ? this.sourceBoard(t, src) : this.agentBoard(t);
+    const boards = this.config.boards;
+    const pick = (id) => { this.picking = null; this.error = null; setShared(SOURCE_KEY, id); };
     return v_flex()
       .id("root")
       .size_full()
@@ -680,15 +902,17 @@ export default class CardFile extends View {
       // The board's header, in the pane header's style.
       .child(h_flex().h(30).flex_none().pl(12).pr(6).gap(10).items_center().text_size(12).border_b(1).border_color(t.border)
         .child(svg("mods/cardfile/kanban.svg").size(14).flex_none().text_color(t.dim))
-        .child(div().flex_none().font_medium().text_color(t.foreground).child("Board"))
-        .child(div().flex_none().text_color(t.dim).child(scope === "all" ? "All spaces" : active?.name ?? ""))
-        .child(div().flex_1().min_w(0).truncate().text_color(t.blocked).child(this.error ?? ""))
-        .child(this.scopeToggle(t, scope))
+        .child(boards.length
+          ? this.toggle(t, "bsrc", [{ id: "agents", label: "Agents" }, ...boards.map((s) => ({ id: s.id, label: s.label ?? s.id }))], src?.id ?? "agents", pick)
+          : div().flex_none().font_medium().text_color(t.foreground).child("Board"))
+        .child(div().flex_none().text_color(t.dim).child(b.info ?? ""))
+        .child(div().flex_1().min_w(0).truncate().text_color(t.blocked).child(b.error ?? ""))
+        .children(b.controls)
         .child(div().id("board-close").flex_none().px(5).h(20).rounded(5).flex().items_center().text_size(13).text_color(t.dim)
           .hover((s) => s.bg(t.hover).text_color(t.foreground)).tooltip("Back to terminals")
           .on_click(() => showBoard(false)).child("×")))
       .child(h_flex().id("cf-lanes").flex_1().min_h(0).p(10).gap(10).items_start().overflow_x_scrollbar()
-        .children(lanes.map(column)));
+        .children(b.lanes));
   }
 
   // ── Spaces column ──────────────────────────────────────────────────────────

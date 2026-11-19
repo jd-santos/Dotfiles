@@ -72,6 +72,35 @@ hc label t3 cardfile.lane= cardfile.turn=          # back to automatic
 
 An agent can move itself this way, for example from a hook when it stops.
 
+### Board sources
+
+A board source fills the board from a program instead of your agents, such as an
+issue tracker. List it under `boards`, usually in `cardfile.local.json`. The
+board's header then switches between **Agents** and each source.
+
+```json
+{ "boards": [{ "id": "issues", "label": "Issues", "run": ["~/.local/bin/my-board"], "every": 120, "timeout": 60 }] }
+```
+
+`every`, `timeout` and `max` (default 500) work as they do for card sources. It
+runs in your home folder; `"where": "space"` runs it in the shown space's folder.
+The program answers three calls:
+
+| Call | Prints |
+| --- | --- |
+| `my-board` | `{ "lanes": [...], "cards": [...], "views"?, "view"?, "title"?, "empty"? }` |
+| `my-board moves <card id>` | `{ "lanes": ["lane-id", ...] }`: where the card can go now |
+| `my-board move <card id> <lane id>` | Anything; exit non-zero with a reason on the last line to refuse |
+
+A lane is `{ "id", "label", "tone", "note" }`, where `note` is a short line under
+its name. A card takes the card source fields plus `lane`, its lane's id, and
+`meta`, a short footer line. Cards show `tag` in the footer. With `views`, such
+as `[{ "id": "mine", "label": "Mine" }, { "id": "team", "label": "Team" }]`, the
+header gets a switch, and the program gets the chosen view as `CARDFILE_VIEW`.
+
+**Move** asks `moves` first and offers only those lanes, so the program can
+apply its own workflow rules. After a move the board refreshes.
+
 ## Card sources
 
 A source is any program that prints cards as JSON. It can be a shell script,
