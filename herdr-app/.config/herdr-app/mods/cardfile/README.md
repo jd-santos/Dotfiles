@@ -101,6 +101,18 @@ header gets a switch, and the program gets the chosen view as `CARDFILE_VIEW`.
 **Move** asks `moves` first and offers only those lanes, so the program can
 apply its own workflow rules. After a move the board refreshes.
 
+With `"show": true` in the board's output, clicking a card opens it in a drawer
+on the board's right, and the program gets a fourth call:
+
+| Call | Prints |
+| --- | --- |
+| `my-board show <card id>` | The card fields plus `fields` (`[{ "label", "value" }]`), `markdown` (the body) and `lanes` (`[{ "id", "label" }]`, to name the moves) |
+
+The drawer shows the fields, the lanes the card can move to, **Start an agent
+on this** when the card has a `task`, and the markdown. Its buttons refresh it,
+open the card's `url`, open the card as a tab of its own, and close it. The open
+card is remembered, so the drawer stays open across reloads.
+
 ## Card sources
 
 A source is any program that prints cards as JSON. It can be a shell script,

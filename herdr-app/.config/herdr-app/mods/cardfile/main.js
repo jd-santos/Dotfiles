@@ -176,7 +176,7 @@ async function runBoard(src, ctx, view) {
     card.meta = str(c.meta);
     return card;
   }).filter(Boolean);
-  return { title: str(out.title), empty: str(out.empty), lanes, views, view: str(out.view), cards };
+  return { title: str(out.title), empty: str(out.empty), lanes, views, view: str(out.view), show: out.show === true, cards };
 }
 
 // ── The mod ───────────────────────────────────────────────────────────────────
@@ -189,6 +189,7 @@ const SCOPE_KEY = "cardfile.scope";
 const BOARD_KEY = "cardfile.board-opened"; // when the board was last opened
 const SOURCE_KEY = "cardfile.board-source"; // "agents" or a board source's id
 const viewKey = (id) => `cardfile.board-view.${id}`;
+const DETAIL_KEY = "cardfile.board-detail"; // { src, id }: the card open in the board's drawer
 const PANELS = [
   { id: "files", label: "Files" },
   { id: "changes", label: "Changes" },
@@ -252,7 +253,7 @@ function statusMark(t, status) {
 export default class CardFile extends View {
   init(_p, cx) {
     const p = props() ?? {};
-    this.role = p.view ? "view" : ["spaces", "todo", "panel-tabs", "tab-button", "board"].includes(p.column) ? p.column : "agents";
+    this.role = p.view ? "view" : p.ticket ? "ticket" : ["spaces", "todo", "panel-tabs", "tab-button", "board"].includes(p.column) ? p.column : "agents";
     this.width = 300;
     this.folded = new Set();
     if (this.role === "view") return this.initView(p.view, cx);
@@ -262,6 +263,7 @@ export default class CardFile extends View {
       return;
     }
     if (this.role === "board") return this.initBoard(cx);
+    if (this.role === "ticket") return this.initTicket(p.ticket, cx);
     if (this.role !== "todo") return;
     // Keep "todo" out of the tab bar's panel list: other layouts' tab bars would try to
     // reopen a Todo panel they don't have. (An earlier version added it.)
@@ -608,6 +610,7 @@ export default class CardFile extends View {
     this.fetching = new Set();
     this.moves = new Map(); // `${source}|${card}` -> { at, lanes?, error? }: where a card can go now
     this.placed = new Map(); // `${source}|${card}` -> { lane, at }: moves the source doesn't show yet
+    this.details = new Map(); // `${source}|${card}` -> { at, data?, error?, loading? }: what `show` printed
     if (checking()) return;
     const load = (cx) => cx.spawn(async (cx) => { this.config = await loadConfig(); this.tickBoard(cx); cx.notify(); });
     load(cx);
@@ -616,6 +619,12 @@ export default class CardFile extends View {
   }
 
   // ── Which board: the agents, or a board source ─────────────────────────────
+
+  // The card open in the board's drawer: { src, id }, or null.
+  get detail() {
+    const d = shared(DETAIL_KEY);
+    return d && typeof d.src === "string" && typeof d.id === "string" ? d : null;
+  }
 
   boardSource() {
     const id = shared(SOURCE_KEY);
@@ -641,6 +650,11 @@ export default class CardFile extends View {
   tickBoard(cx, now = false) {
     const src = this.boardSource();
     if (!src || !boardShown()) return;
+    // A drawer left open (or reopened after a reload) loads its card.
+    if (this.detail?.src === src.id && !this.details.has(`${src.id}|${this.detail.id}`)) {
+      this.fetchDetail(src, this.detail.id, cx);
+      this.loadMoves(src, this.detail.id, cx);
+    }
     const key = this.boardKey(src);
     const last = this.boards.get(key);
     const every = Math.max(src.every ?? 120, 30) * 1000;
@@ -662,23 +676,28 @@ export default class CardFile extends View {
     });
   }
 
-  // Opens a card's lane menu and asks the source where the card can go from here.
+  // Asks the source where a card can go from here, unless it was asked lately.
+  loadMoves(src, id, cx) {
+    const key = `${src.id}|${id}`;
+    const last = this.moves.get(key);
+    if (last && (last.lanes || last.loading) && Date.now() - last.at < 30000) return;
+    this.moves.set(key, { at: Date.now(), loading: true });
+    cx.spawn(async (cx) => {
+      try {
+        const out = await runProgram(src, this.sourceContext(src), ["moves", id]);
+        this.moves.set(key, { at: Date.now(), lanes: (Array.isArray(out?.lanes) ? out.lanes : []).filter((x) => typeof x === "string") });
+      } catch (e) {
+        this.moves.set(key, { at: Date.now(), error: e?.message ?? String(e) });
+      }
+      cx.notify();
+    });
+  }
+
+  // Opens or closes a card's lane menu.
   openMoves(src, c, cx) {
     const key = `${src.id}|${c.id}`;
     this.picking = this.picking === key ? null : key;
-    const last = this.moves.get(key);
-    if (this.picking && !(last && (last.lanes || last.loading) && Date.now() - last.at < 30000)) {
-      this.moves.set(key, { at: Date.now(), loading: true });
-      cx.spawn(async (cx) => {
-        try {
-          const out = await runProgram(src, this.sourceContext(src), ["moves", c.id]);
-          this.moves.set(key, { at: Date.now(), lanes: (Array.isArray(out?.lanes) ? out.lanes : []).filter((x) => typeof x === "string") });
-        } catch (e) {
-          this.moves.set(key, { at: Date.now(), error: e?.message ?? String(e) });
-        }
-        cx.notify();
-      });
-    }
+    if (this.picking) this.loadMoves(src, c.id, cx);
     cx.notify();
   }
 
@@ -692,13 +711,113 @@ export default class CardFile extends View {
     cx.spawn(async (cx) => {
       try {
         await runProgram(src, this.sourceContext(src), ["move", c.id, lane.id]);
-        this.tickBoard(cx, true);
+        if (this.role === "board") this.tickBoard(cx, true);
+        if (this.details.has(key)) {
+          this.fetchDetail(src, c.id, cx, true);
+          this.loadMoves(src, c.id, cx);
+        }
       } catch (e) {
         this.placed.delete(key);
         this.error = `Couldn't move ${c.tag ?? c.title}: ${e?.message ?? e}`;
       }
       cx.notify();
     });
+  }
+
+  // ── One card in full: the board's drawer, or a tab of its own ───────────────
+
+  fetchDetail(src, id, cx, now = false) {
+    const key = `${src.id}|${id}`;
+    const last = this.details.get(key);
+    if (last?.loading || (!now && last?.data && Date.now() - last.at < 60000)) return;
+    this.details.set(key, { ...last, at: last?.at ?? 0, loading: true });
+    cx.spawn(async (cx) => {
+      try {
+        const out = await runProgram(src, this.sourceContext(src), ["show", id]);
+        const card = cleanCard(out, 0);
+        if (!card) throw new Error("printed no card");
+        card.id = id;
+        card.lane = str(out.lane);
+        card.markdown = typeof out.markdown === "string" ? out.markdown : "";
+        card.lanes = (Array.isArray(out.lanes) ? out.lanes : []).filter((l) => l && str(l.id)).map((l) => ({ id: l.id, label: str(l.label) ?? l.id }));
+        card.fields = (Array.isArray(out.fields) ? out.fields : []).filter((f) => f && str(f.label) && str(f.value)).map((f) => ({ label: f.label.trim(), value: f.value.trim() }));
+        this.details.set(key, { at: Date.now(), data: card });
+      } catch (e) {
+        this.details.set(key, { at: Date.now(), error: e?.message ?? String(e), data: last?.data });
+      }
+      cx.notify();
+    });
+  }
+
+  // Shows a card in the drawer; the same card again closes it.
+  openDetail(src, c, cx) {
+    const same = this.detail?.src === src.id && this.detail?.id === c.id;
+    setShared(DETAIL_KEY, same ? null : { src: src.id, id: c.id });
+    if (!same) {
+      this.fetchDetail(src, c.id, cx);
+      this.loadMoves(src, c.id, cx);
+    }
+    cx.notify();
+  }
+
+  // Opens the card as a tab of its own, in the terminals' place (so the board steps aside).
+  popOut(src, c) {
+    showBoard(false);
+    run("tab.new", { name: clip(c.tag ?? c.title, 24), mod: "cardfile", props: { ticket: { source: src.id, id: c.id, title: c.title, tag: c.tag } } });
+  }
+
+  // The card's header, fields, moves and markdown. `c` is what's known before `show` answers.
+  ticketView(t, src, c, { drawer }) {
+    const key = `${src.id}|${c.id}`;
+    const r = this.details.get(key);
+    const d = r?.data ?? null;
+    const card = { ...c, ...(d ?? {}) };
+    const id = `${src.id}-${c.id}`;
+    const tone = card.tone ? t[card.tone] ?? t.accent : null;
+    const iconButton = (bid, label, tip, onClick) => div().id(bid).flex_none().px(6).h(20).rounded(5).flex().items_center()
+      .text_size(12).text_color(t.dim).hover((s) => s.bg(t.hover).text_color(t.foreground)).tooltip(tip)
+      .on_click((_e, cx) => { cx.stop_propagation(); onClick(cx); })
+      .child(label.endsWith(".svg") ? svg(label).size(13) : label);
+
+    const head = h_flex().h(30).flex_none().pl(12).pr(6).gap(8).items_center().text_size(12).border_b(1).border_color(t.border)
+      .when(Boolean(card.tag), (el) => el.child(div().flex_none().px(5).h(16).rounded(4).border(1).border_color(tone ?? t.border)
+        .text_size(10).font_semibold().text_color(tone ?? t.muted).flex().items_center().child(card.tag)))
+      .child(div().flex_1().min_w(0).truncate().text_color(r?.error ? t.blocked : t.dim)
+        .child(r?.loading ? "Loading…" : r?.error ? `Couldn't load: ${r.error}` : ""))
+      .child(iconButton(`tv-reload-${id}`, "↻", "Refresh", (cx) => this.fetchDetail(src, c.id, cx, true)))
+      .when(Boolean(card.url), (el) => el.child(iconButton(`tv-url-${id}`, "mods/cardfile/globe.svg", "Open in the browser", () => exec("open", [card.url]))))
+      .when(drawer, (el) => el
+        .child(iconButton(`tv-tab-${id}`, "↗", "Open as a tab", () => this.popOut(src, card)))
+        .child(iconButton(`tv-close-${id}`, "×", "Close", (cx) => { setShared(DETAIL_KEY, null); cx.notify(); })));
+
+    const field = (f) => h_flex().gap(10).items_start().text_size(12)
+      .child(div().w(84).flex_none().text_color(t.dim).child(f.label))
+      .child(div().flex_1().min_w(0).text_color(t.foreground).child(f.value));
+
+    const m = this.moves.get(key);
+    const lanes = d?.lanes?.length ? d.lanes : this.boards?.get(this.boardKey(src))?.data?.lanes ?? [];
+    const here = this.placed.get(key)?.lane ?? card.lane;
+    const order = (l) => { const i = lanes.findIndex((x) => x.id === l.id); return i < 0 ? lanes.length : i; };
+    const options = (m?.lanes ?? []).filter((x) => x !== here).map((x) => lanes.find((l) => l.id === x) ?? { id: x, label: x })
+      .sort((a, b) => order(a) - order(b));
+    const moveRow = h_flex().flex_wrap().gap(4).items_center()
+      .child(div().w(84).flex_none().text_size(12).text_color(t.dim).child("Move to"))
+      .children(m?.error ? [div().text_size(11.5).text_color(t.blocked).child(m.error)]
+        : !m?.lanes ? [div().text_size(11.5).text_color(t.dim).child("Checking…")]
+        : options.length ? options.map((l) => this.chip(t, `tv-mv-${id}-${l.id}`, l.label, false, (cx) => this.placeCard(src, card, l, cx)))
+        : [div().text_size(11.5).text_color(t.dim).child("It can't move from here.")]);
+
+    const body = v_flex().id(`tv-body-${id}`).flex_1().min_h(0).px(16).py(12).gap(12).overflow_y_scrollbar()
+      .child(div().text_size(drawer ? 15 : 18).font_semibold().text_color(t.foreground).child(card.title))
+      .when(Boolean(d?.fields?.length), (el) => el.child(v_flex().gap(5).children(d.fields.map(field))))
+      .child(moveRow)
+      .when(Boolean(card.task), (el) => el.child(h_flex().gap(6)
+        .child(this.chip(t, `tv-run-${id}`, "Start an agent on this", false, () => this.startAgent(card)))))
+      .child(div().h(1).flex_none().bg(t.border))
+      .child(d ? div().text_size(13).text_color(t.foreground).child(TextView.markdown(`tv-md-${id}`, d.markdown || "*Nothing more.*").selectable(true))
+        : div().text_size(12).text_color(t.dim).child(r?.error ? "" : "Loading…"));
+
+    return v_flex().size_full().min_h(0).child(head).child(body);
   }
 
   // Puts an agent in a lane by labelling its terminal; `lane` null goes back to automatic.
@@ -773,7 +892,7 @@ export default class CardFile extends View {
   }
 
   // A board source's card: the title over its lines, then its tag, meta, Agent and Move.
-  boardCard(t, src, c, lanes, laneId) {
+  boardCard(t, src, c, lanes, laneId, show) {
     const key = `${src.id}|${c.id}`;
     const id = `${src.id}-${c.id}`;
     const picking = this.picking === key;
@@ -791,7 +910,8 @@ export default class CardFile extends View {
     return this.card(t, {
       id: `bc-${id}`,
       rule: tone ?? t.border,
-      onClick: c.file || c.url ? () => this.openCard(c) : null,
+      onClick: show ? (_e, cx) => this.openDetail(src, c, cx) : c.file || c.url ? () => this.openCard(c) : null,
+      selected: show && this.detail?.src === src.id && this.detail?.id === c.id,
       after,
       head: [div().flex_1().min_w(0).max_h(42).overflow_hidden().text_size(13).font_medium().text_color(t.foreground).child(clip(c.title, 90))],
       lines: c.lines,
@@ -880,7 +1000,8 @@ export default class CardFile extends View {
       info: data.cards.length ? info : data.empty ?? info,
       error,
       controls,
-      lanes: data.lanes.map((l) => this.laneColumn(t, l, groups.get(l.id).map((c) => this.boardCard(t, src, c, data.lanes, l.id)), l.note)),
+      lanes: data.lanes.map((l) => this.laneColumn(t, l, groups.get(l.id).map((c) => this.boardCard(t, src, c, data.lanes, l.id, data.show)), l.note)),
+      drawer: data.show && this.detail?.src === src.id ? this.ticketView(t, src, data.cards.find((c) => c.id === this.detail.id) ?? { id: this.detail.id, title: this.detail.id }, { drawer: true }) : null,
     };
   }
 
@@ -911,8 +1032,44 @@ export default class CardFile extends View {
         .child(div().id("board-close").flex_none().px(5).h(20).rounded(5).flex().items_center().text_size(13).text_color(t.dim)
           .hover((s) => s.bg(t.hover).text_color(t.foreground)).tooltip("Back to terminals")
           .on_click(() => showBoard(false)).child("×")))
-      .child(h_flex().id("cf-lanes").flex_1().min_h(0).p(10).gap(10).items_start().overflow_x_scrollbar()
-        .children(b.lanes));
+      .child(h_flex().flex_1().min_h(0)
+        .child(h_flex().id("cf-lanes").flex_1().min_w(0).h_full().p(10).gap(10).items_start().overflow_x_scrollbar()
+          .children(b.lanes))
+        .when(Boolean(b.drawer), (el) => el.child(v_flex().id("cf-drawer").w(460).flex_none().h_full().min_h(0)
+          .border_l(1).border_color(t.border).bg(t.background).child(b.drawer))));
+  }
+
+  // A card in a tab of its own: props { ticket: { source, id, title, tag } }.
+  initTicket(ticket, cx) {
+    this.ticket = ticket;
+    this.width = 600;
+    this.picking = null;
+    this.error = null;
+    this.config = { agent: ["claude"], sources: [], boards: [], lanes: DEFAULT_LANES, errors: [] };
+    this.boards = new Map();
+    this.moves = new Map();
+    this.placed = new Map();
+    this.details = new Map();
+    this.loaded = false;
+    if (checking()) return;
+    cx.spawn(async (cx) => {
+      this.config = await loadConfig();
+      this.loaded = true;
+      const src = this.config.boards.find((b) => b.id === ticket.source);
+      if (src) {
+        this.fetchDetail(src, ticket.id, cx, true);
+        this.loadMoves(src, ticket.id, cx);
+      }
+      cx.notify();
+    });
+  }
+
+  renderTicket(t) {
+    const src = this.config.boards.find((b) => b.id === this.ticket.source);
+    return v_flex().id("root").size_full().min_h(0).bg(t.background)
+      .child(src ? this.ticketView(t, src, this.ticket, { drawer: false })
+        : this.note(t, this.loaded ? `No board source "${this.ticket.source}" in cardfile.json.` : "Loading…"))
+      .when(Boolean(this.error), (el) => el.child(div().px(16).pb(8).text_size(12).text_color(t.blocked).child(this.error)));
   }
 
   // ── Spaces column ──────────────────────────────────────────────────────────
@@ -987,6 +1144,7 @@ export default class CardFile extends View {
     if (this.role === "panel-tabs") return this.renderPanelTabs(t);
     if (this.role === "tab-button") return this.renderTabButton(t);
     if (this.role === "board") return this.renderBoard(t);
+    if (this.role === "ticket") return this.renderTicket(t);
     return this.renderAgents(t);
   }
 }
