@@ -651,8 +651,9 @@ export default class CardFile extends View {
   tickBoard(cx, now = false) {
     const src = this.boardSource();
     if (!src || !boardShown()) return;
-    // A drawer left open (or reopened after a reload) loads its card.
-    if (this.detail?.src === src.id && !this.details.has(`${src.id}|${this.detail.id}`)) {
+    // A drawer left open (or reopened after a reload) loads its card, and retries a failed load.
+    const shown = this.detail?.src === src.id ? this.details.get(`${src.id}|${this.detail.id}`) : null;
+    if (this.detail?.src === src.id && (!shown || (shown.error && !shown.loading && Date.now() - shown.at > 30000))) {
       this.composer(`${src.id}|${this.detail.id}`);
       this.fetchDetail(src, this.detail.id, cx);
       this.loadMoves(src, this.detail.id, cx);
