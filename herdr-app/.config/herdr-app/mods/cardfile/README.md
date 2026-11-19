@@ -3,13 +3,14 @@
 Herdr App's sidebar and side panel, redone as index cards. The sidebar stacks
 spaces over agent cards. The side panel, right of the terminals, holds
 **Files**, **Changes** and **Todo** as tabs. Todo shows cards from card
-sources (plugins).
+sources (plugins). **Board** shows your agents in lanes, in place of the
+terminals.
 
 The `cardfile` layout uses it, with the `cardfile` theme. Switch with
 `ctrl-shift-l` or `herdr-app do layout.switch '{"name":"cardfile"}'`. Open the
-panel from **Files**, **Changes** or **Todo** in the tab bar. Todo's button is
-a separate `cardfile` block after Herdr's tab bar, so the shipped tab bar stays
-unmodified and keeps getting updates.
+panel from **Files**, **Changes** or **Todo** in the tab bar. The Todo and Board
+buttons are a separate `cardfile` block after Herdr's tab bar, so the shipped
+tab bar stays unmodified and keeps getting updates.
 
 ## Agent cards
 
@@ -25,6 +26,52 @@ Agents elsewhere that need you or have finished still get a line under
 **Other spaces**. **All** shows every agent. `agent.next` and `agent.prev`
 follow the order on screen.
 
+## Board
+
+**Board** in the tab bar swaps the terminals for your agents in lanes. Click a
+card to go to that agent. Picking another tab or pane in this space also goes
+back to the terminals, and so does **×**. Switching spaces keeps the board, so
+you can look through each space's board. It follows the sidebar's **This
+space** / **All** switch.
+
+Some lanes fill themselves from Herdr's statuses. Others hold agents you put
+there: click **Move** on a card and pick a lane, or **Automatic** to undo the
+move. A move holds until the agent starts another turn, because a new turn
+makes the old triage out of date. A `sticky` lane keeps its agents anyway.
+While an agent is working or needs you, it shows in that lane whatever you
+moved it to.
+
+The lanes are `board` in `cardfile.json`, in board order. A `board` in
+`cardfile.local.json` replaces the whole list.
+
+```json
+"board": [
+  { "id": "up-next", "label": "Up Next", "auto": "new", "tone": "idle" },
+  { "id": "in-progress", "label": "In Progress", "auto": "working", "tone": "working" },
+  { "id": "review", "label": "Review", "auto": "finished", "tone": "accent" },
+  { "id": "paused", "label": "Paused", "sticky": true, "tone": "muted" }
+]
+```
+
+| Lane field | Meaning |
+| --- | --- |
+| `id` | Required. What the label stores. |
+| `label` | The lane's name. |
+| `auto` | Herdr statuses this lane collects, one or a list: `working`, `blocked` (needs you), `new` (idle, never given a turn), `finished` (done or idle, not moved anywhere). |
+| `sticky` | Keep agents moved here after they start another turn. |
+| `tone` | The dot's color: `blocked`, `working`, `done`, `idle`, `accent` or `muted`. |
+
+A move is two labels on the agent's terminal, so it survives restarts, works
+for agents on other machines, and can be set from anywhere:
+
+```sh
+hc label t3 cardfile.lane=review cardfile.turn=6   # until turn 7 starts
+hc label t3 cardfile.lane=review                   # no turn: until changed
+hc label t3 cardfile.lane= cardfile.turn=          # back to automatic
+```
+
+An agent can move itself this way, for example from a hook when it stops.
+
 ## Card sources
 
 A source is any program that prints cards as JSON. It can be a shell script,
@@ -38,7 +85,8 @@ Python, or anything that calls an API, such as Jira's.
 
 A local source with the same `id` changes that source's fields, and
 `"enabled": false` turns it off. `agent` is the command **Start agent** runs.
-The config is reread every 30 seconds.
+The config is reread every 30 seconds. The board's lanes are in the same file
+(see above).
 
 ```json
 {

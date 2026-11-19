@@ -1,7 +1,8 @@
-// Card file: spaces stacked over agent cards in the sidebar, and plugin cards (todo,
-// Jira, ...) in a side panel next to Files and Changes.
+// Card file: spaces stacked over agent cards in the sidebar, plugin cards (todo,
+// Jira, ...) in a side panel next to Files and Changes, and a board of agents by lane.
 // One mod in several roles, chosen by props: { column: "spaces" | "agents" | "todo" |
-// "panel-tabs" }, and { view: card } for the dialog that opens a card's file.
+// "panel-tabs" | "tab-button" | "board" }, and { view: card } for the dialog that opens a
+// card's file.
 
 import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex, TextView } from "gpui-base";
@@ -33,11 +34,71 @@ async function loadConfig() {
   return {
     agent: local.agent ?? base.agent ?? ["claude"],
     sources,
+    lanes: cleanLanes(local.board) ?? cleanLanes(base.board) ?? DEFAULT_LANES,
     errors: [base.error, local.error].filter(Boolean),
   };
 }
 
 const TONES = new Set(["blocked", "working", "done", "idle", "accent", "muted"]);
+
+// ── Board lanes ─────────────────────────────────────────────────────────────
+// A lane can fill itself from Herdr's statuses (`auto`): "working", "blocked", "new" (idle,
+// never given a turn) and "finished" (idle or done, with no lane of its own). Otherwise an
+// agent is in a lane because its terminal has the label cardfile.lane=<id>. The label
+// cardfile.turn=<n> records the agent's turn when it was moved: once the agent starts
+// another turn the move is out of date, unless the lane is `sticky`. Live "working" and
+// "blocked" always win.
+
+const LANE_LABEL = "cardfile.lane";
+const TURN_LABEL = "cardfile.turn";
+const AUTO = new Set(["working", "blocked", "new", "finished"]);
+const DEFAULT_LANES = [
+  { id: "in-progress", label: "In Progress", auto: ["working"], tone: "working" },
+  { id: "blocked", label: "Blocked", auto: ["blocked"], tone: "blocked" },
+  { id: "review", label: "Review", auto: ["finished"], tone: "accent" },
+  { id: "done", label: "Done", tone: "done" },
+].map((l) => ({ sticky: false, ...l }));
+
+function cleanLanes(list) {
+  if (!Array.isArray(list)) return null;
+  const seen = new Set();
+  const lanes = [];
+  for (const l of list) {
+    if (!l || typeof l.id !== "string" || !l.id.trim() || seen.has(l.id)) continue;
+    seen.add(l.id);
+    lanes.push({
+      id: l.id,
+      label: typeof l.label === "string" && l.label.trim() ? l.label.trim() : l.id,
+      auto: (Array.isArray(l.auto) ? l.auto : l.auto ? [l.auto] : []).filter((a) => AUTO.has(a)),
+      sticky: l.sticky === true,
+      tone: TONES.has(l.tone) ? l.tone : null,
+    });
+  }
+  return lanes.length ? lanes : null;
+}
+
+// The lane an agent is in. `moved` is a move not yet visible in the labels: { lane, turn }.
+function laneOf(a, term, lanes, moved) {
+  const auto = (k) => lanes.find((l) => l.auto.includes(k));
+  if (a.status === "working" || a.status === "blocked") {
+    const live = auto(a.status);
+    if (live) return live;
+  }
+  const turn = Number(term?.turn) || 0;
+  const labels = term?.labels ?? {};
+  const id = moved ? moved.lane : labels[LANE_LABEL];
+  const at = moved ? moved.turn : Number(labels[TURN_LABEL] ?? NaN); // no turn: holds until changed
+  const lane = id ? lanes.find((l) => l.id === id) : null;
+  if (lane && (lane.sticky || !Number.isFinite(at) || turn <= at)) return lane;
+  return auto(turn ? "finished" : "new") ?? auto("finished") ?? lanes[0];
+}
+
+// Herdr sets labels through herdr-core's `hc`, which a GUI app may not find on PATH.
+async function hc(args) {
+  const r = await exec("hc", args).catch(() => null);
+  if (r && r.code === 0) return r;
+  return exec(`${home()}/.local/bin/hc`, args);
+}
 
 function cleanCard(c, i) {
   if (!c || typeof c.title !== "string" || !c.title.trim()) return null;
@@ -92,6 +153,7 @@ const ICONS = "mods/workspace-chrome";
 const fade = (c, a) => (typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c) ? c + a : c);
 const RANK = { blocked: 4, done: 3, working: 2, idle: 1 };
 const SCOPE_KEY = "cardfile.scope";
+const BOARD_KEY = "cardfile.board-opened"; // when the board was last opened
 const PANELS = [
   { id: "files", label: "Files" },
   { id: "changes", label: "Changes" },
@@ -119,6 +181,10 @@ function showPanel(id) {
   run("layout.select", { stack: "panel-body", child: id });
   run("layout.show", { id: "panel" });
 }
+
+// The middle of the window is a stack: the terminals ("main") or the board.
+const boardShown = () => find(layout(), "center")?.active === "board";
+const showBoard = (on) => run("layout.select", { stack: "center", child: on ? "board" : "main" });
 
 // Drops a status glyph or spinner an agent puts before its title ("✦  Working").
 const clean = (s) => (s ?? "").replace(/^[^\p{L}\p{N}\p{Ps}\p{Pi}]+/u, "").trim();
@@ -151,7 +217,7 @@ function statusMark(t, status) {
 export default class CardFile extends View {
   init(_p, cx) {
     const p = props() ?? {};
-    this.role = p.view ? "view" : ["spaces", "todo", "panel-tabs", "tab-button"].includes(p.column) ? p.column : "agents";
+    this.role = p.view ? "view" : ["spaces", "todo", "panel-tabs", "tab-button", "board"].includes(p.column) ? p.column : "agents";
     this.width = 300;
     this.folded = new Set();
     if (this.role === "view") return this.initView(p.view, cx);
@@ -160,6 +226,7 @@ export default class CardFile extends View {
       cx.timer.every(30000, (cx) => cx.notify()); // keeps the "4m" durations honest
       return;
     }
+    if (this.role === "board") return this.initBoard(cx);
     if (this.role !== "todo") return;
     // Keep "todo" out of the tab bar's panel list: other layouts' tab bars would try to
     // reopen a Todo panel they don't have. (An earlier version added it.)
@@ -243,7 +310,7 @@ export default class CardFile extends View {
 
   // An index card: a title line, a ruled line under it in the card's color, a few
   // lines of text, and a small footer. `rule` is a theme color.
-  card(t, { id, rule, head, lines, foot, selected, onClick }) {
+  card(t, { id, rule, head, lines, foot, selected, onClick, after }) {
     const chars = Math.max(40, Math.floor(((this.width - 40) / 6.4) * 2));
     return v_flex()
       .id(id)
@@ -259,10 +326,12 @@ export default class CardFile extends View {
       .child(div().mx(10).h(1).bg(fade(rule, "aa")))
       .when(lines.length > 0, (el) => el.child(v_flex().px(10).pt(6).gap(2).text_size(12).text_color(t.muted)
         .children(lines.map((l, i) => div().max_h(i === 0 ? 38 : 19).overflow_hidden().child(clip(l, i === 0 ? chars : chars / 2))))))
-      .child(h_flex().px(10).pt(6).pb(7).gap(6).items_center().text_size(11).text_color(t.dim).children(foot));
+      .child(h_flex().px(10).pt(6).pb(7).gap(6).items_center().text_size(11).text_color(t.dim).children(foot))
+      .when(Boolean(after), (el) => el.child(after));
   }
 
-  agentCard(t, a, byAddress, kids, now) {
+  // `opts` (the board): { onClick, foot: extra footer items, after: an element under the footer }.
+  agentCard(t, a, byAddress, kids, now, opts = {}) {
     const term = byAddress.get(a.address);
     const report = term?.report;
     const msg = typeof report === "object" ? report?.msg : null;
@@ -275,7 +344,8 @@ export default class CardFile extends View {
       id: `ag-${a.address}`,
       rule: t[a.status] ?? t.border,
       selected: a.focused,
-      onClick: () => run("pane.focus", { pane: a.pane }),
+      onClick: opts.onClick ?? (() => run("pane.focus", { pane: a.pane })),
+      after: opts.after,
       head: [
         div().flex_1().min_w(0).truncate().text_size(13).font_medium().text_color(a.status === "idle" && !a.focused ? t.muted : t.foreground).child(name),
         statusMark(t, a.status),
@@ -287,6 +357,7 @@ export default class CardFile extends View {
         helpers ? div().flex_none().child(`${helpers} helper${helpers > 1 ? "s" : ""}`) : null,
         term?.turn ? div().flex_none().child(`turn ${term.turn}`) : null,
         since ? div().flex_none().child(duration(now - since)) : null,
+        ...(opts.foot ?? []),
       ].filter(Boolean),
     });
   }
@@ -441,16 +512,21 @@ export default class CardFile extends View {
   // ── Tab bar button: sits after the tab bar's Files and Changes, in their style ──
 
   renderTabButton(t) {
-    const on = openPanel() === "todo";
-    return h_flex().size_full().pr(10).items_center().bg(t.chrome).border_b(1).border_color(t.border)
-      .child(h_flex().id("tab-todo").h(26).px(8).gap(5).flex_none().items_center().rounded(6)
-        .text_size(12).bg(on ? t.selected : t.chrome).text_color(on ? t.foreground : t.muted)
-        .hover((s) => s.bg(t.hover))
-        // The block drags the window; a press on the button shouldn't.
-        .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
-        .on_click(() => showPanel("todo"))
-        .child(svg(`${ICONS}/circle-check.svg`).size(14))
-        .child("Todo"));
+    const button = (id, on, icon, label, onClick) => h_flex().id(id).h(26).px(8).gap(5).flex_none().items_center().rounded(6)
+      .text_size(12).bg(on ? t.selected : t.chrome).text_color(on ? t.foreground : t.muted)
+      .hover((s) => s.bg(t.hover))
+      // The block drags the window; a press on the button shouldn't.
+      .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
+      .on_click(onClick)
+      .child(svg(icon).size(14))
+      .child(label);
+    const board = boardShown();
+    return h_flex().size_full().pr(10).gap(4).items_center().bg(t.chrome).border_b(1).border_color(t.border)
+      .child(button("tab-todo", openPanel() === "todo", `${ICONS}/circle-check.svg`, "Todo", () => showPanel("todo")))
+      .child(button("tab-board", board, "mods/cardfile/kanban.svg", "Board", () => {
+        if (!board) setShared(BOARD_KEY, Date.now());
+        showBoard(!board);
+      }));
   }
 
   // ── Panel tabs: Files, Changes, Todo ─────────────────────────────────────
@@ -478,6 +554,142 @@ export default class CardFile extends View {
         .on_click(() => run("layout.hide", { id: "panel" })).child("×"));
   }
 
+
+  // ── Board: agents in lanes, in the middle of the window ──────────────────────
+
+  initBoard(cx) {
+    this.changed = {};
+    this.width = 248; // a lane's width; card() sizes its text from it
+    this.moved = new Map(); // address -> { lane, turn, at }: moves the labels don't show yet
+    this.picking = null; // the agent whose lane menu is open
+    this.error = null;
+    this.config = { lanes: DEFAULT_LANES };
+    if (checking()) return;
+    const load = (cx) => cx.spawn(async (cx) => { this.config = await loadConfig(); cx.notify(); });
+    load(cx);
+    cx.timer.every(30000, (cx) => { load(cx); cx.notify(); });
+  }
+
+  // Puts an agent in a lane by labelling its terminal; `lane` null goes back to automatic.
+  moveTo(a, term, lane, cx) {
+    const turn = Number(term?.turn) || 0;
+    this.moved.set(a.address, { lane: lane?.id ?? null, turn, at: Date.now() });
+    this.picking = null;
+    this.error = null;
+    cx.notify();
+    const labels = lane ? [`${LANE_LABEL}=${lane.id}`, `${TURN_LABEL}=${turn}`] : [`${LANE_LABEL}=`, `${TURN_LABEL}=`];
+    cx.spawn(async (cx) => {
+      const r = await hc(["label", a.address, ...labels]).catch((e) => ({ code: 1, stderr: e?.message ?? String(e) }));
+      if (r.code !== 0) {
+        this.moved.delete(a.address);
+        this.error = `Couldn't move the card: ${(r.stderr || r.stdout || `exit ${r.code}`).trim().split("\n").at(-1)}`;
+      }
+      cx.notify();
+    });
+  }
+
+  // Leave the board when you pick another tab or pane in this space (a card, the tab bar, the
+  // sidebar). Switching spaces keeps it, so you can look through spaces' boards.
+  watchFocus() {
+    const f = focused();
+    const key = f ? `${f.tab}|${f.pane}` : "";
+    const opened = shared(BOARD_KEY);
+    if (opened === this.opened && boardShown() && f?.space === this.lastSpace && key !== this.lastFocus) showBoard(false);
+    this.opened = opened;
+    this.lastFocus = key;
+    this.lastSpace = f?.space;
+  }
+
+  lanePicker(t, a, term, current) {
+    const chip = (id, label, on, onClick) => div()
+      .id(id).px(7).h(20).rounded(5).flex().items_center().text_size(11)
+      .border(1).border_color(on ? t.accent : t.border)
+      .text_color(on ? t.foreground : t.muted)
+      .hover((s) => s.bg(t.hover).text_color(t.foreground))
+      .on_click((_e, cx) => { cx.stop_propagation(); onClick(cx); })
+      .child(label);
+    const labelled = term?.labels?.[LANE_LABEL] ?? null;
+    return h_flex().flex_wrap().px(10).pb(8).gap(4)
+      .children(this.config.lanes.map((l) => chip(`mv-${a.address}-${l.id}`, l.label, l.id === current.id, (cx) => this.moveTo(a, term, l, cx))))
+      .when(Boolean(labelled || this.moved.get(a.address)?.lane), (el) => el.child(
+        chip(`mv-${a.address}-auto`, "Automatic", false, (cx) => this.moveTo(a, term, null, cx))));
+  }
+
+  renderBoard(t) {
+    this.watchFocus();
+    const now = Date.now();
+    const scope = shared(SCOPE_KEY) === "all" ? "all" : "space";
+    const active = spaces().find((s) => s.active);
+    const all = terminals();
+    const byAddress = new Map(all.map((k) => [k.address, k]));
+    const kids = new Map();
+    for (const k of all) if (k.parent && k.state === "live") kids.set(k.parent, (kids.get(k.parent) ?? 0) + 1);
+    const list = agents().filter((a) => scope === "all" || a.space === active?.id);
+    this.track(list, now);
+
+    // Forget a move once the labels show it (or it has had long enough to).
+    for (const [address, m] of this.moved) {
+      if ((byAddress.get(address)?.labels?.[LANE_LABEL] ?? null) === m.lane || now - m.at > 15000) this.moved.delete(address);
+    }
+
+    const lanes = this.config.lanes;
+    const groups = new Map(lanes.map((l) => [l.id, []]));
+    const laneFor = new Map();
+    for (const a of list) {
+      const lane = laneOf(a, byAddress.get(a.address), lanes, this.moved.get(a.address));
+      laneFor.set(a.address, lane);
+      groups.get(lane.id).push(a);
+    }
+
+    const card = (a) => {
+      const term = byAddress.get(a.address);
+      const picking = this.picking === a.address;
+      return this.agentCard(t, a, byAddress, kids, now, {
+        onClick: () => { showBoard(false); run("pane.focus", { pane: a.pane }); },
+        foot: [div().id(`mv-${a.address}`).flex_none().px(5).h(18).rounded(4).flex().items_center()
+          .text_color(picking ? t.foreground : t.dim).when(picking, (el) => el.bg(t.selected))
+          .hover((s) => s.bg(t.hover).text_color(t.foreground)).tooltip("Move to another lane")
+          .on_click((_e, cx) => { cx.stop_propagation(); this.picking = picking ? null : a.address; cx.notify(); })
+          .child("Move")],
+        after: picking ? this.lanePicker(t, a, term, laneFor.get(a.address)) : null,
+      });
+    };
+
+    const column = (l) => {
+      const items = groups.get(l.id).sort((x, y) => (y.pinned - x.pinned) || y.seq - x.seq);
+      const tone = l.tone ? t[l.tone] ?? t.accent : t.dim;
+      return v_flex().id(`lane-${l.id}`).w(this.width).flex_none().h_full().min_h(0)
+        .rounded(8).bg(t.chrome).border(1).border_color(t.border)
+        .child(h_flex().px(10).h(34).flex_none().gap(7).items_center()
+          .child(div().size(7).flex_none().rounded(4).bg(tone))
+          .child(div().flex_1().min_w(0).truncate().text_size(12).font_medium().text_color(t.foreground).child(l.label))
+          .child(div().flex_none().text_size(11).text_color(t.dim).child(String(items.length))))
+        .child(v_flex().id(`lane-cards-${l.id}`).flex_1().min_h(0).px(8).pb(8).gap(8).overflow_y_scrollbar()
+          .children(items.length ? items.map(card) : [div().px(2).text_size(11.5).text_color(t.dim).child("Empty")]));
+    };
+
+    return v_flex()
+      .id("root")
+      .size_full()
+      .min_h(0)
+      .rounded(10)
+      .overflow_hidden()
+      .bg(t.background)
+      .border_1()
+      .border_color(t.border)
+      // The board's header, in the pane header's style.
+      .child(h_flex().h(30).flex_none().pl(12).pr(6).gap(10).items_center().text_size(12).border_b(1).border_color(t.border)
+        .child(svg("mods/cardfile/kanban.svg").size(14).flex_none().text_color(t.dim))
+        .child(div().flex_none().font_medium().text_color(t.foreground).child("Board"))
+        .child(div().flex_none().text_color(t.dim).child(scope === "all" ? "All spaces" : active?.name ?? ""))
+        .child(div().flex_1().min_w(0).truncate().text_color(t.blocked).child(this.error ?? ""))
+        .child(this.scopeToggle(t, scope))
+        .child(div().id("board-close").flex_none().px(5).h(20).rounded(5).flex().items_center().text_size(13).text_color(t.dim)
+          .hover((s) => s.bg(t.hover).text_color(t.foreground)).tooltip("Back to terminals")
+          .on_click(() => showBoard(false)).child("×")))
+      .child(h_flex().id("cf-lanes").flex_1().min_h(0).p(10).gap(10).items_start().overflow_x_scrollbar()
+        .children(lanes.map(column)));
+  }
 
   // ── Spaces column ──────────────────────────────────────────────────────────
 
@@ -550,6 +762,7 @@ export default class CardFile extends View {
     if (this.role === "todo") return this.renderTodo(t);
     if (this.role === "panel-tabs") return this.renderPanelTabs(t);
     if (this.role === "tab-button") return this.renderTabButton(t);
+    if (this.role === "board") return this.renderBoard(t);
     return this.renderAgents(t);
   }
 }
