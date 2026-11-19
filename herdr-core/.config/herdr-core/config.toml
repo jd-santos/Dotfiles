@@ -1,0 +1,11 @@
+# Herdr Core runs terminals; Herdr App owns appearance and shortcuts.
+# Keep these documented defaults explicit. No shell override: use the
+# machine's own shell for new terminals and recovery.
+
+# Seconds an unfinished draft holds sends and notes after the last key.
+# Read on each delivery; does not restart running programs.
+draft_wait = 60
+
+# Do not show a lost program's saved screen above its recovery shell.
+# Applies at the next recovery, not to running programs.
+restore_screen = false

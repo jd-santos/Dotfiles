@@ -13,7 +13,7 @@ fi
 cd "$repo_root"
 
 # `agents` is handled by setup-agent-skills, which also stows it.
-packages=(bin claude cmux fzf ghostty git herdr lint nvim opencode pgcli pi starship tmux zed zsh)
+packages=(bin claude cmux fzf ghostty git herdr herdr-app herdr-core lint nvim opencode pgcli pi starship tmux zed zsh)
 
 require() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -36,8 +36,12 @@ fi
 echo "==> Agent skills"
 ./scripts/setup-agent-skills
 
+echo "==> Preparing local Herdr App settings"
+"$repo_root/bin/bin/merge-settings" --herdr-app-only
+
 echo "==> Stowing packages: ${packages[*]}"
-stow --target="$HOME" -R "${packages[@]}"
+# Keep app-managed files beside, not inside, the versioned configuration.
+stow --no-folding --target="$HOME" -R "${packages[@]}"
 
 echo "==> Merging generated settings"
 "$repo_root/bin/bin/merge-settings"

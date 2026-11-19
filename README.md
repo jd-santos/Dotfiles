@@ -16,7 +16,9 @@ Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). M
 | `fzf`                                 | [fzf](https://github.com/junegunn/fzf) setup (PATH and shell integration)                                              |
 | `ghostty`                             | [Ghostty](https://ghostty.org) terminal (Dracula theme, Nerd Font icons)                                               |
 | `git`                                 | Git config, global gitignore, LFS, [`~/.gitconfig.local`](git/.gitconfig.local.example) for machine-specific overrides |
-| `herdr`                               | [Herdr](https://herdr.dev/) config (tmux-like keys, Dracula theme, portable setup manifest)                            |
+| `herdr`                               | Legacy [Herdr](https://herdr.dev/) TUI config (tmux-like keys, Dracula theme, portable setup manifest)                 |
+| [`herdr-app`](herdr-app/README.md)      | Herdr desktop app (Dracula, silent alerts, shared settings merged by `merge-settings`; no runtime state)                                   |
+| [`herdr-core`](herdr-core/README.md)    | Persistent terminal backend config, separate from the app and legacy TUI                                            |
 | `lint`                                | Markdown lint rules (`.markdownlint.jsonc`)                                                                            |
 | [`nvim`](nvim/.config/nvim/README.md) | Neovim (LazyVim, fzf-lua, tokyonight)                                                                                  |
 | `opencode`                            | [OpenCode](https://opencode.ai/) AI assistant config and local agent prompts                                           |
@@ -53,7 +55,7 @@ Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). M
 
 **Copy Mode (vi-style):** Press `Prefix` + `[` to enter, `v` to select, `y` to copy.
 
-### Herdr (Prefix: `` ` ``)
+### Herdr TUI (Prefix: `` ` ``)
 
 | Shortcut                     | Description                                   |
 | ---------------------------- | --------------------------------------------- |
@@ -72,6 +74,12 @@ Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). M
 
 Use `herdr --remote <host>` to attach to a remote Herdr server over SSH.
 That workflow does not need the tmux F12 nested-session toggle.
+
+### Herdr App
+
+Uses direct shortcuts, not the TUI's backtick prefix. This package does not
+customize `keys.json`; the app maintains its defaults. See the
+[default macOS shortcuts and migration notes](herdr-app/README.md).
 
 ### Neovim (Leader: `Space`)
 
@@ -143,7 +151,8 @@ stow zsh          # Creates symlinks for all files in zsh/ to ~/
 ### Install Multiple Tools
 
 ```bash
-stow herdr nvim git starship zsh   # Install multiple configurations
+./bin/bin/merge-settings --herdr-app-only
+stow --no-folding herdr-app herdr-core nvim git starship zsh
 ```
 
 ### Install Everything
@@ -152,7 +161,9 @@ Initialize the Skills submodule before stowing packages:
 
 ```bash
 git submodule update --init --recursive
-stow agents bin claude cmux fzf ghostty git herdr lint nvim opencode pgcli pi starship tmux zed zsh
+./bin/bin/merge-settings --herdr-app-only
+stow --no-folding agents bin claude cmux fzf ghostty git herdr herdr-app herdr-core lint nvim opencode pgcli pi starship tmux zed zsh
+merge-settings
 ```
 
 To initialize, hydrate, and verify the agent skills in one command, run:
@@ -174,7 +185,17 @@ reconciles Herdr integrations and plugins:
 ./scripts/bootstrap
 ```
 
-Herdr registers plugins imperatively, so `scripts/setup-herdr` reads
+Herdr App and `hc` are installed separately from the legacy TUI. Their new
+packages are included in bootstrap, but bootstrap still requires `herdr` for
+the legacy integration setup below. It does not install or restart either app
+or Core. Back up existing app/Core config files outside the checkout first;
+Herdr App keeps its live `settings.json` local and merges shared defaults from
+`settings.base.json`, with optional `settings.local.json` overrides. Bootstrap
+migrates the previous settings symlink before Stow. See [Herdr App setup](herdr-app/README.md)
+and [Core setup](herdr-core/README.md). Use `--no-folding` to keep generated files
+and runtime state outside the versioned directories.
+
+The legacy Herdr TUI registers plugins imperatively, so `scripts/setup-herdr` reads
 `herdr/.config/herdr/herdr-setup.toml` and replays it. Re-run it after editing
 the manifest, or pass `--refresh` to reinstall integrations after a Herdr
 update. Pass `--allow-missing-herdr` to skip the Herdr step on a machine
@@ -213,7 +234,7 @@ stow --simulate nvim
 The `stowp` function (included in `.zshrc`) previews changes and prompts before applying:
 
 ```bash
-stowp agents bin claude cmux fzf ghostty git herdr lint nvim opencode pgcli pi starship tmux zed zsh
+stowp --no-folding agents bin claude cmux fzf ghostty git herdr herdr-app herdr-core lint nvim opencode pgcli pi starship tmux zed zsh
 stowp nvim zsh     # Preview specific packages, then confirm
 ```
 
@@ -242,6 +263,8 @@ git/.gitconfig                          → ~/.gitconfig
 tmux/.tmux.conf                         → ~/.tmux.conf
 starship/.config/starship.toml          → ~/.config/starship.toml
 herdr/.config/herdr/config.toml          → ~/.config/herdr/config.toml
+herdr-app/.config/herdr-app/settings.base.json → ~/.config/herdr-app/settings.base.json
+herdr-core/.config/herdr-core/config.toml → ~/.config/herdr-core/config.toml
 ```
 
 **Key Principle:** The directory structure _inside_ each package mirrors the path from `$HOME`.

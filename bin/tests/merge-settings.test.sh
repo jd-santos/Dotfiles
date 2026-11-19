@@ -4,6 +4,7 @@ set -euo pipefail
 script="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/bin/merge-settings"
 fixture="$(mktemp -d)"
 trap 'rm -rf "$fixture"' EXIT
+export HERDR_APP_HOME="$fixture/.config/herdr-app"
 mkdir -p "$fixture/.config/zed" "$fixture/.pi/agent" "$fixture/.claude"
 printf '%s\n' '{}' > "$fixture/.config/zed/settings.base.json"
 printf '%s\n' '{"enabledModels":["base-model"],"packages":["npm:pi-subagents@0.76.1","npm:@parallel-web/pi-extension"],"subagents":{"defaultModel":"base-child"},"defaultModel":"base-default"}' > "$fixture/.pi/agent/settings.base.json"
