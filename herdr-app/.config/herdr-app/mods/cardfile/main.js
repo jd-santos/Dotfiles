@@ -346,8 +346,9 @@ export default class CardFile extends View {
   // ── The card ───────────────────────────────────────────────────────────────
 
   // An index card: a title line, a ruled line under it in the card's color, a few
-  // lines of text, and a small footer. `rule` is a theme color.
-  card(t, { id, rule, head, lines, foot, selected, onClick, after }) {
+  // lines of text, and a small footer. `rule` is a theme color. `top` aligns the
+  // title line's items to the top, for a title that wraps.
+  card(t, { id, rule, head, top, lines, foot, selected, onClick, after }) {
     const chars = Math.max(40, Math.floor(((this.width - 40) / 6.4) * 2));
     return v_flex()
       .id(id)
@@ -359,7 +360,7 @@ export default class CardFile extends View {
       .border_color(selected ? t.accent : t.border)
       .shadow_sm()
       .when(Boolean(onClick), (el) => el.cursor_pointer().hover((s) => s.border_color(selected ? t.accent : t.input)).on_click(onClick))
-      .child(h_flex().px(10).pt(8).pb(6).gap(7).items_center().min_w(0).children(head))
+      .child(h_flex().px(10).pt(8).pb(6).gap(7).min_w(0).when(Boolean(top), (el) => el.items_start()).when(!top, (el) => el.items_center()).children(head))
       .child(div().mx(10).h(1).bg(fade(rule, "aa")))
       .when(lines.length > 0, (el) => el.child(v_flex().px(10).pt(6).gap(2).text_size(12).text_color(t.muted)
         .children(lines.map((l, i) => div().max_h(i === 0 ? 38 : 19).overflow_hidden().child(clip(l, i === 0 ? chars : chars / 2))))))
@@ -377,15 +378,20 @@ export default class CardFile extends View {
     const helpers = kids.get(a.address) ?? 0;
     const where = [a.space_name, /^\d+$/.test(a.tab_name) ? `tab ${a.tab_name}` : a.tab_name].filter(Boolean).join(" · ");
     const pic = icon(a.program, 13, t.muted);
+    const mark = statusMark(t, a.status);
+    // The title is the agent's summary of its task, so it wraps to three lines.
+    const chars = Math.max(40, Math.floor((this.width - 60) / 7) * 3);
     return this.card(t, {
       id: `ag-${a.address}`,
       rule: t[a.status] ?? t.border,
       selected: a.focused,
       onClick: opts.onClick ?? (() => run("pane.focus", { pane: a.pane })),
       after: opts.after,
+      top: true,
       head: [
-        div().flex_1().min_w(0).truncate().text_size(13).font_medium().text_color(a.status === "idle" && !a.focused ? t.muted : t.foreground).child(name),
-        statusMark(t, a.status),
+        div().flex_1().min_w(0).max_h(63).overflow_hidden().text_size(13).font_medium()
+          .text_color(a.status === "idle" && !a.focused ? t.muted : t.foreground).child(clip(name, chars)),
+        mark ? h_flex().flex_none().h(21).items_center().child(mark) : null,
       ].filter(Boolean),
       lines: msg && msg !== name ? [msg] : [],
       foot: [

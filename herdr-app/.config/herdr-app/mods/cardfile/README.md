@@ -16,7 +16,8 @@ tab bar stays unmodified and keeps getting updates.
 
 Each card shows:
 
-1. The agent's title (Claude Code names its session) and its status.
+1. The agent's title (Claude Code names its session), up to three lines, and
+   its status.
 2. What it reports it is doing now, up to two lines.
 3. Its space and tab, helpers it started, its turn, and how long it has been in
    this state.
