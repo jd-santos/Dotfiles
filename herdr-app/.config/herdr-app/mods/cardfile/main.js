@@ -5,7 +5,7 @@
 // card's file.
 
 import { View, div, image, svg } from "gpui-kit";
-import { v_flex, h_flex, TextView } from "gpui-base";
+import { v_flex, h_flex, TextView, TextareaState, Textarea, InputState, Input } from "gpui-base";
 import { agents, terminals, spaces, focused, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, exec, readTextFile, appHome, home, checking, layout } from "herdr";
 
 // ── Card sources: programs that print cards as JSON (README.md has the contract) ──
@@ -611,6 +611,7 @@ export default class CardFile extends View {
     this.moves = new Map(); // `${source}|${card}` -> { at, lanes?, error? }: where a card can go now
     this.placed = new Map(); // `${source}|${card}` -> { lane, at }: moves the source doesn't show yet
     this.details = new Map(); // `${source}|${card}` -> { at, data?, error?, loading? }: what `show` printed
+    this.composers = new Map(); // `${source}|${card}` -> { box, posting, error, typing }: comment drafts
     if (checking()) return;
     const load = (cx) => cx.spawn(async (cx) => { this.config = await loadConfig(); this.tickBoard(cx); cx.notify(); });
     load(cx);
@@ -652,6 +653,7 @@ export default class CardFile extends View {
     if (!src || !boardShown()) return;
     // A drawer left open (or reopened after a reload) loads its card.
     if (this.detail?.src === src.id && !this.details.has(`${src.id}|${this.detail.id}`)) {
+      this.composer(`${src.id}|${this.detail.id}`);
       this.fetchDetail(src, this.detail.id, cx);
       this.loadMoves(src, this.detail.id, cx);
     }
@@ -739,6 +741,10 @@ export default class CardFile extends View {
         card.id = id;
         card.lane = str(out.lane);
         card.markdown = typeof out.markdown === "string" ? out.markdown : "";
+        card.comment = out.comment === true;
+        card.edit = out.edit === true;
+        card.description = typeof out.description === "string" ? out.description : null;
+        card.descriptionNote = str(out.descriptionNote);
         card.lanes = (Array.isArray(out.lanes) ? out.lanes : []).filter((l) => l && str(l.id)).map((l) => ({ id: l.id, label: str(l.label) ?? l.id }));
         card.fields = (Array.isArray(out.fields) ? out.fields : []).filter((f) => f && str(f.label) && str(f.value)).map((f) => ({ label: f.label.trim(), value: f.value.trim() }));
         this.details.set(key, { at: Date.now(), data: card });
@@ -749,11 +755,144 @@ export default class CardFile extends View {
     });
   }
 
+  // A card's comment box, made on first use. Text boxes need a live host call, so this runs
+  // from init, clicks and timers, never from render.
+  composer(key) {
+    let c = this.composers.get(key);
+    if (c || checking()) return c ?? null;
+    const box = TextareaState.new({ placeholder: "Add a comment…" });
+    box.set_auto_grow(3, 12);
+    c = { box, posting: false, error: null, typing: false };
+    box.on("focus", (_e, cx) => { c.typing = true; cx.notify(); });
+    box.on("blur", (_e, cx) => { c.typing = false; cx.notify(); });
+    // Enter is a new line; Cmd+Enter posts.
+    box.on("submit", (e, cx) => { if (e.secondary) this.postComment(key, cx); });
+    this.composers.set(key, c);
+    return c;
+  }
+
+  postComment(key, cx) {
+    const c = this.composers.get(key);
+    const [srcId, ...rest] = key.split("|");
+    const id = rest.join("|");
+    const src = this.config.boards.find((b) => b.id === srcId);
+    const text = c?.box.value().trim();
+    if (!c || !src || !text || c.posting) return;
+    c.posting = true;
+    c.error = null;
+    cx.notify();
+    cx.spawn(async (cx) => {
+      try {
+        await runProgram(src, this.sourceContext(src), ["comment", id, text]);
+        if (c.box.value().trim() === text) c.box.set_value("");
+        this.fetchDetail(src, id, cx, true);
+      } catch (e) {
+        c.error = `Couldn't post: ${e?.message ?? e}`;
+      }
+      c.posting = false;
+      cx.notify();
+    });
+  }
+
+  commentBox(t, key, id) {
+    const c = this.composers.get(key);
+    if (!c) return null;
+    return v_flex().gap(6)
+      .child(div().w_full().px(10).py(6).rounded(7).border_1().border_color(c.typing ? t.accent : t.input)
+        .bg(t.background).text_size(13).text_color(t.foreground).child(Textarea.new(c.box)))
+      .child(h_flex().gap(8).items_center().text_size(11.5)
+        .child(div().flex_1().min_w(0).truncate().text_color(c.error ? t.blocked : t.dim)
+          .child(c.error ?? "Markdown. ⌘↵ posts it as you."))
+        .child(c.posting ? div().flex_none().text_color(t.dim).child("Posting…")
+          : this.chip(t, `tv-post-${id}`, "Post", false, (cx) => this.postComment(key, cx))));
+  }
+
+  // ── Editing a card's title or description ───────────────────────────────────
+  // One edit at a time: { key, field, input, base, saving, error }. `base` is the text the edit
+  // started from. Text boxes need a live host call, so edits start from a click.
+
+  startEdit(key, field, value, cx) {
+    this.stopEditing();
+    const multi = field === "description";
+    const input = multi ? TextareaState.new({ value }) : InputState.new({ value });
+    if (multi) input.set_auto_grow(6, 30);
+    const e = { key, field, input, base: value, saving: false, error: null };
+    // A title saves on Enter; a description takes Enter as a new line and saves on Cmd+Enter.
+    input.on("submit", (ev, cx) => { if (!multi || ev.secondary) this.saveEdit(cx); });
+    this.editing = e;
+    // The box isn't on screen until the next frame, and a focus before that lands nowhere.
+    input.focus();
+    cx.timer?.after?.(60, () => input.focus());
+    cx.timer?.after?.(300, () => input.focus());
+    cx.notify();
+  }
+
+  stopEditing() {
+    if (this.editing) this.editing.input.release();
+    this.editing = null;
+  }
+
+  saveEdit(cx) {
+    const e = this.editing;
+    if (!e || e.saving) return;
+    const [srcId, ...rest] = e.key.split("|");
+    const id = rest.join("|");
+    const src = this.config.boards.find((b) => b.id === srcId);
+    const raw = e.input.value();
+    const text = e.field === "title" ? raw.replace(/\s+/g, " ").trim() : raw.trim();
+    if (!src || !text) return;
+    if (text === e.base.trim()) { this.stopEditing(); cx.notify(); return; }
+    e.saving = true;
+    e.error = null;
+    cx.notify();
+    const args = e.field === "title" ? ["title", id, text] : ["describe", id, text, e.base];
+    cx.spawn(async (cx) => {
+      try {
+        await runProgram(src, this.sourceContext(src), args);
+        const d = this.details.get(e.key)?.data;
+        if (d && e.field === "title") d.title = text; // shows at once; the refetch below confirms it
+        if (this.editing === e) this.stopEditing();
+        this.fetchDetail(src, id, cx, true);
+        if (this.role === "board" && e.field === "title") this.tickBoard(cx, true);
+      } catch (err) {
+        e.saving = false;
+        e.error = `Couldn't save: ${err?.message ?? err}`;
+      }
+      cx.notify();
+    });
+  }
+
+  editor(t, id, note = null) {
+    const e = this.editing;
+    const multi = e.field === "description";
+    return v_flex().gap(6)
+      .on_key_down((ev, cx) => { if (ev.key === "escape") { cx.stop_propagation(); this.stopEditing(); cx.notify(); } })
+      .child(div().w_full().px(10).py(multi ? 6 : 4).rounded(7).border_1().border_color(t.accent).bg(t.background)
+        .text_size(multi ? 13 : 15).when(!multi, (el) => el.font_semibold()).text_color(t.foreground)
+        .child(multi ? Textarea.new(e.input) : Input.new(e.input).h(28)))
+      .when(Boolean(note), (el) => el.child(div().text_size(11.5).text_color(t.blocked).child(note)))
+      .child(h_flex().gap(8).items_center().text_size(11.5)
+        .child(div().flex_1().min_w(0).truncate().text_color(e.error ? t.blocked : t.dim)
+          .child(e.error ?? (multi ? "Markdown. ⌘↵ saves · Esc cancels" : "↵ saves · Esc cancels")))
+        .child(e.saving ? div().flex_none().text_color(t.dim).child("Saving…") : h_flex().flex_none().gap(4)
+          .child(this.chip(t, `tv-cancel-${id}`, "Cancel", false, (cx) => { this.stopEditing(); cx.notify(); }))
+          .child(this.chip(t, `tv-save-${id}`, "Save", true, (cx) => this.saveEdit(cx)))));
+  }
+
+  pencil(t, bid, tip, onClick) {
+    return div().id(bid).flex_none().p(3).rounded(4).text_color(t.dim)
+      .hover((s) => s.bg(t.hover).text_color(t.foreground)).tooltip(tip)
+      .on_click((_e, cx) => { cx.stop_propagation(); onClick(cx); })
+      .child(svg(`${ICONS}/square-pen.svg`).size(13));
+  }
+
   // Shows a card in the drawer; the same card again closes it.
   openDetail(src, c, cx) {
     const same = this.detail?.src === src.id && this.detail?.id === c.id;
     setShared(DETAIL_KEY, same ? null : { src: src.id, id: c.id });
+    if (this.editing && this.editing.key !== `${src.id}|${c.id}`) this.stopEditing();
     if (!same) {
+      this.composer(`${src.id}|${c.id}`);
       this.fetchDetail(src, c.id, cx);
       this.loadMoves(src, c.id, cx);
     }
@@ -788,7 +927,7 @@ export default class CardFile extends View {
       .when(Boolean(card.url), (el) => el.child(iconButton(`tv-url-${id}`, "mods/cardfile/globe.svg", "Open in the browser", () => exec("open", [card.url]))))
       .when(drawer, (el) => el
         .child(iconButton(`tv-tab-${id}`, "↗", "Open as a tab", () => this.popOut(src, card)))
-        .child(iconButton(`tv-close-${id}`, "×", "Close", (cx) => { setShared(DETAIL_KEY, null); cx.notify(); })));
+        .child(iconButton(`tv-close-${id}`, "×", "Close", (cx) => { this.stopEditing(); setShared(DETAIL_KEY, null); cx.notify(); })));
 
     const field = (f) => h_flex().gap(10).items_start().text_size(12)
       .child(div().w(84).flex_none().text_color(t.dim).child(f.label))
@@ -807,17 +946,29 @@ export default class CardFile extends View {
         : options.length ? options.map((l) => this.chip(t, `tv-mv-${id}-${l.id}`, l.label, false, (cx) => this.placeCard(src, card, l, cx)))
         : [div().text_size(11.5).text_color(t.dim).child("It can't move from here.")]);
 
+    const editing = this.editing?.key === key ? this.editing.field : null;
     const body = v_flex().id(`tv-body-${id}`).flex_1().min_h(0).px(16).py(12).gap(12).overflow_y_scrollbar()
-      .child(div().text_size(drawer ? 15 : 18).font_semibold().text_color(t.foreground).child(card.title))
+      .child(editing === "title" ? this.editor(t, id)
+        : h_flex().gap(6).items_start()
+          .child(div().flex_1().min_w(0).text_size(drawer ? 15 : 18).font_semibold().text_color(t.foreground).child(card.title))
+          .when(Boolean(d?.edit), (el) => el.child(this.pencil(t, `tv-edit-${id}`, "Edit the title",
+            (cx) => this.startEdit(key, "title", card.title, cx)).mt(2))))
       .when(Boolean(d?.fields?.length), (el) => el.child(v_flex().gap(5).children(d.fields.map(field))))
       .child(moveRow)
       .when(Boolean(card.task), (el) => el.child(h_flex().gap(6)
         .child(this.chip(t, `tv-run-${id}`, "Start an agent on this", false, () => this.startAgent(card)))))
       .child(div().h(1).flex_none().bg(t.border))
-      .child(d ? div().text_size(13).text_color(t.foreground).child(TextView.markdown(`tv-md-${id}`, d.markdown || "*Nothing more.*").selectable(true))
+      .when(Boolean(d?.edit && d.description != null), (el) => el.child(h_flex().gap(6).items_center()
+        .child(div().flex_1().text_size(12).font_medium().text_color(t.dim).child("Description"))
+        .when(editing !== "description", (el) => el.child(this.pencil(t, `tv-desc-${id}`, "Edit the description",
+          (cx) => this.startEdit(key, "description", d.description, cx))))))
+      .child(editing === "description" ? this.editor(t, id, d?.descriptionNote)
+        : d ? div().text_size(13).text_color(t.foreground).child(TextView.markdown(`tv-md-${id}`, d.markdown || "*Nothing more.*").selectable(true))
         : div().text_size(12).text_color(t.dim).child(r?.error ? "" : "Loading…"));
 
-    return v_flex().size_full().min_h(0).child(head).child(body);
+    const compose = d?.comment ? this.commentBox(t, key, id) : null;
+    return v_flex().size_full().min_h(0).child(head).child(body)
+      .when(Boolean(compose), (el) => el.child(div().flex_none().px(12).pt(10).pb(10).border_t(1).border_color(t.border).child(compose)));
   }
 
   // Puts an agent in a lane by labelling its terminal; `lane` null goes back to automatic.
@@ -1050,8 +1201,10 @@ export default class CardFile extends View {
     this.moves = new Map();
     this.placed = new Map();
     this.details = new Map();
+    this.composers = new Map();
     this.loaded = false;
     if (checking()) return;
+    this.composer(`${ticket.source}|${ticket.id}`);
     cx.spawn(async (cx) => {
       this.config = await loadConfig();
       this.loaded = true;

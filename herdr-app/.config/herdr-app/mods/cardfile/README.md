@@ -113,6 +113,22 @@ on this** when the card has a `task`, and the markdown. Its buttons refresh it,
 open the card's `url`, open the card as a tab of its own, and close it. The open
 card is remembered, so the drawer stays open across reloads.
 
+With `"comment": true` in what `show` prints, the drawer and tab get a comment
+box under the card. Enter starts a new line; Cmd+Enter or **Post** sends it as
+`my-board comment <card id> <text>`, and the card reloads. A failed post keeps
+your text and shows the program's reason.
+
+With `"edit": true`, a pencil beside the title turns it into a text box. Enter
+or **Save** sends `my-board title <card id> <text>`, then the card and the board
+reload; Esc or **Cancel** keeps the old title.
+
+If `show` also prints `description` (the editable markdown), a pencil beside
+**Description** edits it in a larger box. Enter starts a new line; Cmd+Enter or
+**Save** sends `my-board describe <card id> <text> <was>`, where `<was>` is the
+description the edit started from, so the program can refuse when someone else
+changed it in the meantime. A `descriptionNote` shows above the box, for
+example to warn that saving loses formatting the program can't write back.
+
 ## Card sources
 
 A source is any program that prints cards as JSON. It can be a shell script,
