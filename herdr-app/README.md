@@ -92,7 +92,9 @@ grays with a blush accent. Todo cards come from small programs listed in
 `cardfile.json`; the shared list runs
 `~/bin/cardfile-todo` (from the `bin` package), which reads the shown repo's
 `todo/TODO.md`. See the [mod's README](.config/herdr-app/mods/cardfile/README.md)
-for the card source contract and for machine-local sources such as Jira.
+for the card and board source contracts. `~/bin/cardfile-jira` puts a Jira
+Cloud project on the board; its settings go in the untracked
+`cardfile.local.json`.
 
 ## Default macOS shortcuts
 

@@ -132,13 +132,13 @@ example to warn that saving loses formatting the program can't write back.
 ## Card sources
 
 A source is any program that prints cards as JSON. It can be a shell script,
-Python, or anything that calls an API, such as Jira's.
+Python, or anything that calls an API.
 
 ### Where sources are listed
 
 - `~/.config/herdr-app/cardfile.json` is shared and stowed from this repo.
 - `~/.config/herdr-app/cardfile.local.json` is for this machine only and is not
-  in the repo. Put work sources, such as Jira, here.
+  in the repo. Put sources that name work systems here.
 
 A local source with the same `id` changes that source's fields, and
 `"enabled": false` turns it off. `agent` is the command **Start agent** runs.
@@ -209,19 +209,62 @@ Only `cards`, and `title` in each card, are required.
 A program that exits with an error keeps its last cards on screen and shows the
 last line of its error output above them.
 
-## Writing a Jira source
+## Jira board
 
-Keep the script and its configuration out of this public repo. Put the script
-somewhere local, read the token from the environment or 1Password (for example
-`op read`), and list it in `cardfile.local.json`:
+`cardfile-jira` (from the `bin` package) is a board source for Jira Cloud. It
+calls Jira's REST API directly as you, so you can browse, move, comment on and
+edit issues from the board. It needs Python 3.9 or later and nothing else.
+
+Put its settings in the board's entry in `cardfile.local.json`, under `jira`,
+because they name your site, your account and your project:
 
 ```json
-{ "sources": [{ "id": "jira", "label": "Jira", "run": ["~/.local/bin/cardfile-jira"], "where": "home", "every": 300 }] }
+{
+  "boards": [{
+    "id": "jira", "label": "Jira", "run": ["~/bin/cardfile-jira"], "timeout": 60,
+    "jira": {
+      "site": "example.atlassian.net",
+      "email": "you@example.com",
+      "token": "keychain:jira-api-token",
+      "project": "PROJ"
+    }
+  }]
+}
 ```
 
-Map each issue to a card: the key as `tag`, the summary as `title`, the status
-and assignee as `lines`, the browse link as `url`, and a `task` that names the
-key so an agent can pick it up.
+`token` says where your [API token](https://id.atlassian.com/manage-profile/security/api-tokens)
+lives, never the token itself:
+
+- `"env:JIRA_API_TOKEN"`: an environment variable Herdr App can see.
+- `"keychain:SERVICE"`: a macOS keychain item. Add one with
+  `security add-generic-password -s jira-api-token -a "$USER" -w`. Use
+  `"keychain:SERVICE/ACCOUNT"` to pick the account.
+- `"op://vault/item/field"`: a 1Password reference, read with `op read`.
+
+With only those settings you get three lanes, one per status category (To Do,
+In Progress, Done), and **Mine** and **Team** views. The rest is optional:
+
+| `jira` field | Meaning |
+| --- | --- |
+| `project` / `jql` | The issues: a project key, or any JQL (without `ORDER BY`). |
+| `excludeTypes` | Issue types to leave off, such as `["Epic"]`. |
+| `lanes` | Lanes in board order, each `{ "id", "label", "status" or "statuses", "tone" }`, or `"category"` in place of statuses. `"final": true` lets only the issue's assignee move it there. `"max": 50` gives a long lane its own query and keeps the 50 most recently updated. |
+| `views` | `[{ "id", "label", "jql" }]`, where `jql` narrows the view. The default is Mine (`assignee = currentUser()`) and Team. |
+| `order` | The board's `ORDER BY` (default `Rank ASC`). |
+| `doneDays` | How long Done issues stay on the board (default 14). |
+| `priorityTones` | Priority name to card tone, such as `{ "Highest": "blocked" }`. |
+| `quietPriority` | A priority not worth naming on cards (default `Medium`). |
+| `estimateField` | A custom field to show as Estimate, such as `customfield_10016`. |
+| `title` | The board's name in the header. |
+
+**Move** offers only the statuses Jira's workflow allows from where the issue is.
+Comments and descriptions are markdown, converted to and from Jira's document
+format. Mentions, panels, images, checklists and some other formatting can't be
+written back, so the drawer warns before a description save that would flatten
+them.
+
+`cardfile-jira md-to-adf` and `cardfile-jira adf-to-md` run the converters on
+standard input, with no network. `bin/tests/cardfile-jira.test.sh` tests them.
 
 ## Editing
 

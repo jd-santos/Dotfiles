@@ -1,0 +1,716 @@
+#!/usr/bin/env python3
+"""A Jira Cloud board source for Herdr App's Card File (see its README for the contract).
+
+    cardfile-jira                   print the board: lanes, views and cards
+    cardfile-jira show KEY          print one issue: fields, moves' lane names and markdown
+    cardfile-jira moves KEY         print the lanes the issue can move to now
+    cardfile-jira move KEY LANE     move it there
+    cardfile-jira comment KEY TEXT  post a comment (markdown) as you
+    cardfile-jira title KEY TEXT    change the summary
+    cardfile-jira describe KEY TEXT [WAS]
+                                    replace the description, unless it's no longer WAS
+
+Settings come from the `jira` object of this board's entry (CARDFILE_SOURCE, default
+"jira") under `boards` in cardfile.json and cardfile.local.json. Keep them in the local
+file: they name your site, account and project.
+
+    { "boards": [{ "id": "jira", "label": "Jira", "run": ["~/bin/cardfile-jira"],
+                   "jira": { "site": "example.atlassian.net", "email": "you@example.com",
+                             "token": "keychain:jira-api-token", "project": "PROJ" } }] }
+
+`token` names where the API token lives, never the token itself: "env:NAME",
+"keychain:SERVICE" (macOS) or an "op://vault/item/field" 1Password reference.
+"""
+
+import base64
+import json
+import os
+import re
+import ssl
+import subprocess
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+from datetime import datetime, timezone
+
+KEY = re.compile(r"^[A-Z][A-Z0-9_]+-\d+$")
+TONES = {"blocked", "working", "done", "idle", "accent", "muted"}
+DEFAULT_TONE = {"Highest": "blocked", "Blocker": "blocked", "Critical": "blocked", "High": "accent"}
+
+
+class Refusal(Exception):
+    """A reason to print and exit 1."""
+
+
+# ── Settings ───────────────────────────────────────────────────────────────
+
+
+def app_home():
+    if os.environ.get("HERDR_APP_HOME"):
+        return os.environ["HERDR_APP_HOME"]
+    base = os.environ.get("XDG_CONFIG_HOME") or os.path.join(os.path.expanduser("~"), ".config")
+    return os.path.join(base, "herdr-app")
+
+
+def read_json(path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError) as e:
+        raise Refusal(f"{os.path.basename(path)}: {e}")
+
+
+def settings():
+    source = os.environ.get("CARDFILE_SOURCE") or "jira"
+    merged = {}
+    for name in ("cardfile.json", "cardfile.local.json"):
+        for b in read_json(os.path.join(app_home(), name)).get("boards") or []:
+            if isinstance(b, dict) and b.get("id") == source and isinstance(b.get("jira"), dict):
+                merged.update(b["jira"])
+    for need in ("site", "email", "token"):
+        if not merged.get(need):
+            raise Refusal(f'board "{source}" needs jira.{need} in cardfile.local.json')
+    if not merged.get("project") and not merged.get("jql"):
+        raise Refusal(f'board "{source}" needs jira.project or jira.jql')
+    return merged
+
+
+def secret(ref):
+    """The API token, from where `ref` says it lives."""
+    try:
+        if ref.startswith("env:"):
+            value = os.environ.get(ref[4:], "")
+        elif ref.startswith("keychain:"):
+            service, _, account = ref[9:].partition("/")
+            args = ["security", "find-generic-password", "-s", service, "-w"] + (["-a", account] if account else [])
+            value = subprocess.run(args, capture_output=True, text=True, timeout=30).stdout
+        elif ref.startswith("op://"):
+            value = subprocess.run(["op", "read", ref], capture_output=True, text=True, timeout=60).stdout
+        else:
+            raise Refusal('jira.token must be "env:NAME", "keychain:SERVICE" or an "op://" reference')
+    except (OSError, subprocess.SubprocessError) as e:
+        raise Refusal(f"couldn't read the API token: {e.__class__.__name__}")
+    value = value.strip()
+    if not value:
+        raise Refusal(f"no API token at {ref.split('/')[0] if ref.startswith('op://') else ref}")
+    return value
+
+
+# ── Lanes and views ──────────────────────────────────────────────────────────
+
+# Without configured lanes, one lane per status category.
+DEFAULT_LANES = [
+    {"id": "to-do", "label": "To Do", "category": "To Do", "tone": "idle"},
+    {"id": "in-progress", "label": "In Progress", "category": "In Progress", "tone": "working"},
+    {"id": "done", "label": "Done", "category": "Done", "tone": "done"},
+]
+DEFAULT_VIEWS = [
+    {"id": "mine", "label": "Mine", "jql": "assignee = currentUser()"},
+    {"id": "team", "label": "Team"},
+]
+
+
+def slug(s):
+    return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-") or "lane"
+
+
+def lanes_of(cfg):
+    out, seen = [], set()
+    for l in cfg.get("lanes") or DEFAULT_LANES:
+        statuses = l.get("statuses") or ([l["status"]] if l.get("status") else [])
+        lane_id = l.get("id") or slug(l.get("label") or (statuses or [l.get("category", "")])[0])
+        if lane_id in seen or not (statuses or l.get("category")):
+            continue
+        seen.add(lane_id)
+        out.append({
+            "id": lane_id,
+            "label": l.get("label") or (statuses[0] if statuses else l["category"]),
+            "statuses": statuses,
+            "category": l.get("category"),
+            "tone": l.get("tone") if l.get("tone") in TONES else None,
+            "final": bool(l.get("final")),  # only the assignee may move an issue here
+            "max": int(l["max"]) if str(l.get("max", "")).isdigit() else None,
+        })
+    return out
+
+
+def lane_for(lanes, status, category):
+    return next((l for l in lanes if status in l["statuses"]), None) or next(
+        (l for l in lanes if not l["statuses"] and l["category"] == category), None)
+
+
+def done_days(cfg):
+    return int(cfg.get("doneDays", 14))
+
+
+def tone_of(cfg, priority):
+    t = (cfg.get("priorityTones") or DEFAULT_TONE).get(priority)
+    return t if t in TONES else None
+
+
+# ── Jira's REST API ───────────────────────────────────────────────────────────
+
+
+def tls():
+    """Python's default trust, or a system bundle when it has none: python.org's macOS
+    builds start with no certificates until their Install Certificates script runs."""
+    ctx = ssl.create_default_context()
+    if ctx.cert_store_stats().get("x509_ca", 0) == 0:
+        try:
+            import certifi  # noqa: PLC0415 - optional
+            ctx.load_verify_locations(certifi.where())
+            return ctx
+        except ImportError:
+            pass
+        for f in (os.environ.get("SSL_CERT_FILE"), "/etc/ssl/cert.pem", "/opt/homebrew/etc/openssl@3/cert.pem",
+                  "/usr/local/etc/openssl@3/cert.pem", "/etc/ssl/certs/ca-certificates.crt"):
+            if f and os.path.isfile(f):
+                ctx.load_verify_locations(f)
+                break
+    return ctx
+
+
+class Jira:
+    def __init__(self, cfg):
+        site = cfg["site"].removeprefix("https://").removeprefix("http://").strip("/")
+        self.base = f"https://{site}"
+        auth = base64.b64encode(f"{cfg['email']}:{secret(cfg['token'])}".encode()).decode()
+        self.headers = {"Authorization": f"Basic {auth}", "Accept": "application/json", "Content-Type": "application/json"}
+        self._me = None
+        self.tls = tls()
+
+    def call(self, method, path, body=None, query=None):
+        url = self.base + path + ("?" + urllib.parse.urlencode(query) if query else "")
+        data = json.dumps(body).encode() if body is not None else None
+        req = urllib.request.Request(url, data=data, method=method, headers=self.headers)
+        try:
+            with urllib.request.urlopen(req, timeout=40, context=self.tls) as r:
+                text = r.read().decode()
+                return json.loads(text) if text.strip() else None
+        except urllib.error.HTTPError as e:
+            raise Refusal(f"Jira said {e.code}: {jira_reason(e)}")
+        except urllib.error.URLError as e:
+            raise Refusal(f"couldn't reach {self.base}: {e.reason}")
+
+    def me(self):
+        if self._me is None:
+            self._me = self.call("GET", "/rest/api/3/myself")["accountId"]
+        return self._me
+
+    def search(self, jql, fields, limit):
+        out, token = [], None
+        while len(out) < limit:
+            body = {"jql": jql, "fields": fields, "maxResults": min(100, limit - len(out))}
+            if token:
+                body["nextPageToken"] = token
+            page = self.call("POST", "/rest/api/3/search/jql", body)
+            out.extend(page.get("issues") or [])
+            token = page.get("nextPageToken")
+            if page.get("isLast", True) or not token:
+                return out, False
+        return out, bool(token)
+
+    def issue(self, key, fields):
+        return self.call("GET", f"/rest/api/3/issue/{key}", query={"fields": ",".join(fields)})
+
+
+def jira_reason(e):
+    try:
+        body = json.loads(e.read().decode())
+        msgs = list(body.get("errorMessages") or []) + [f"{k}: {v}" for k, v in (body.get("errors") or {}).items()]
+        if msgs:
+            return "; ".join(msgs)
+    except Exception:  # noqa: BLE001 - any unreadable body falls back to the status text
+        pass
+    return e.reason or "no reason given"
+
+
+# ── Jira's document format (ADF) and markdown ───────────────────────────────────
+
+# Nodes and marks text_to_adf writes. Anything else in a description is lost when it's saved.
+WRITES = {"doc", "paragraph", "text", "heading", "bulletList", "orderedList", "listItem", "codeBlock",
+          "blockquote", "rule", "hardBreak", "table", "tableRow", "tableHeader", "tableCell",
+          "strong", "em", "code", "strike", "link"}
+NAMES = {"mention": "mentions", "emoji": "emoji", "inlineCard": "smart links", "blockCard": "smart links",
+         "embedCard": "smart links", "date": "dates", "status": "status lozenges", "panel": "panels",
+         "expand": "expands", "nestedExpand": "expands", "mediaSingle": "images and files",
+         "mediaGroup": "images and files", "mediaInline": "images and files", "media": "images and files",
+         "taskList": "checklists", "taskItem": "checklists", "decisionList": "decisions", "decisionItem": "decisions",
+         "underline": "underlines", "subsup": "sub- and superscript", "textColor": "text colors",
+         "backgroundColor": "highlights"}
+
+
+def lossy(doc):
+    found = []
+    def walk(n):
+        if not isinstance(n, dict):
+            return
+        for t in [n.get("type")] + [m.get("type") for m in n.get("marks") or []]:
+            if t and t not in WRITES:
+                name = NAMES.get(t, t)
+                if name not in found:
+                    found.append(name)
+        for c in n.get("content") or []:
+            walk(c)
+    walk(doc)
+    return found
+
+
+def adf_to_md(doc):
+    if not isinstance(doc, dict):
+        return ""
+    return "\n\n".join(b for b in (block(n, 0) for n in doc.get("content") or []) if b).strip()
+
+
+def inline(nodes):
+    out = []
+    for n in nodes or []:
+        t, a = n.get("type"), n.get("attrs") or {}
+        if t == "text":
+            s = n.get("text", "")
+            marks = {m.get("type"): m.get("attrs") or {} for m in n.get("marks") or []}
+            if "code" in marks:
+                s = f"`{s}`"
+            if "strong" in marks:
+                s = f"**{s}**"
+            if "em" in marks:
+                s = f"*{s}*"
+            if "strike" in marks:
+                s = f"~~{s}~~"
+            if "link" in marks and marks["link"].get("href"):
+                s = f"[{s}]({marks['link']['href']})"
+            out.append(s)
+        elif t == "hardBreak":
+            out.append("\n")
+        elif t == "mention":
+            out.append(a.get("text") or "@someone")
+        elif t == "emoji":
+            out.append(a.get("text") or a.get("shortName") or "")
+        elif t == "inlineCard":
+            out.append(a.get("url") or "")
+        elif t == "date":
+            try:
+                out.append(datetime.fromtimestamp(int(a.get("timestamp")) / 1000, timezone.utc).strftime("%Y-%m-%d"))
+            except (TypeError, ValueError):
+                pass
+        elif t == "status":
+            out.append(f"[{a.get('text', '')}]")
+        elif t == "mediaInline":
+            out.append("*(attachment)*")
+        else:
+            out.append(inline(n.get("content")))
+    return "".join(out)
+
+
+def block(n, depth):
+    t, a, kids = n.get("type"), n.get("attrs") or {}, n.get("content") or []
+    if t == "paragraph":
+        return inline(kids)
+    if t == "heading":
+        return "#" * min(max(int(a.get("level", 1)), 1), 6) + " " + inline(kids)
+    if t in ("bulletList", "orderedList", "taskList", "decisionList"):
+        lines = []
+        for i, item in enumerate(kids):
+            if t == "orderedList":
+                mark = f"{int(a.get('order', 1)) + i}."
+            elif t == "taskList":
+                mark = "- [x]" if (item.get("attrs") or {}).get("state") == "DONE" else "- [ ]"
+            else:
+                mark = "-"
+            parts = item.get("content") or []
+            first, rest = (parts[0], parts[1:]) if parts and parts[0].get("type") == "paragraph" else (None, parts)
+            head = inline(first.get("content")) if first else inline(parts) if t in ("taskList", "decisionList") else ""
+            lines.append("  " * depth + f"{mark} {head}".rstrip())
+            if t not in ("taskList", "decisionList"):
+                for r in rest:
+                    lines.append(block(r, depth + 1) if r.get("type") in ("bulletList", "orderedList")
+                                 else "  " * (depth + 1) + block(r, depth + 1))
+        return "\n".join(lines)
+    if t == "codeBlock":
+        return f"```{a.get('language') or ''}\n" + "".join(c.get("text", "") for c in kids) + "\n```"
+    if t in ("blockquote", "panel"):
+        inner = "\n\n".join(block(c, 0) for c in kids)
+        return "\n".join("> " + l if l else ">" for l in inner.split("\n"))
+    if t in ("expand", "nestedExpand"):
+        return "\n\n".join([f"**{a.get('title') or 'Details'}**"] + [block(c, depth) for c in kids])
+    if t == "rule":
+        return "---"
+    if t == "table":
+        rows = [[inline(sum(((p.get("content") or []) + [{"type": "text", "text": " "}] for p in (cell.get("content") or [])), []))
+                 .strip().replace("|", "\\|").replace("\n", " ") for cell in row.get("content") or []] for row in kids]
+        if not rows:
+            return ""
+        width = max(len(r) for r in rows)
+        rows = [r + [""] * (width - len(r)) for r in rows]
+        return "\n".join(["| " + " | ".join(rows[0]) + " |", "|" + " --- |" * width] + ["| " + " | ".join(r) + " |" for r in rows[1:]])
+    if t in ("mediaSingle", "mediaGroup", "media"):
+        return "*(attachment)*"
+    if t in ("blockCard", "embedCard"):
+        return a.get("url") or ""
+    return "\n\n".join(block(c, depth) for c in kids) if kids else inline([n])
+
+
+INLINE = re.compile(r"`([^`]+)`|\*\*(.+?)\*\*|~~(.+?)~~|\[([^\]]+)\]\(([^)\s]+)\)|(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?!\w)|(?<!\w)_(?!\s)(.+?)(?<!\s)_(?!\w)")
+
+
+def md_inline(text, marks=()):
+    out, pos = [], 0
+    def text_node(s, ms):
+        node = {"type": "text", "text": s}
+        if ms:
+            node["marks"] = [dict(m) for m in ms]
+        return node
+    for m in INLINE.finditer(text):
+        if m.start() > pos:
+            out.append(text_node(text[pos:m.start()], marks))
+        code, strong, strike, label, href, em1, em2 = m.groups()
+        if code is not None:
+            out.append(text_node(code, marks + ({"type": "code"},)))
+        elif strong is not None:
+            out.extend(md_inline(strong, marks + ({"type": "strong"},)))
+        elif strike is not None:
+            out.extend(md_inline(strike, marks + ({"type": "strike"},)))
+        elif label is not None:
+            out.extend(md_inline(label, marks + ({"type": "link", "attrs": {"href": href}},)))
+        else:
+            out.extend(md_inline(em1 or em2, marks + ({"type": "em"},)))
+        pos = m.end()
+    if pos < len(text):
+        out.append(text_node(text[pos:], marks))
+    return out
+
+
+def para(lines):
+    content = []
+    for i, line in enumerate(lines):
+        if i:
+            content.append({"type": "hardBreak"})
+        content.extend(md_inline(line.strip()))
+    return {"type": "paragraph", "content": content} if content else {"type": "paragraph"}
+
+
+LIST = re.compile(r"^(\s*)([-*+]|\d+[.)])\s+(.*)$")
+
+
+def md_list(lines, i):
+    """Parses a list starting at lines[i]; returns (node, next index)."""
+    first = LIST.match(lines[i])
+    indent, ordered = len(first.group(1)), first.group(2)[0].isdigit()
+    node = {"type": "orderedList" if ordered else "bulletList", "content": []}
+    if ordered:
+        node["attrs"] = {"order": int(re.match(r"\d+", first.group(2)).group())}
+    while i < len(lines):
+        m = LIST.match(lines[i])
+        if not m or len(m.group(1)) < indent:
+            break
+        if len(m.group(1)) > indent:
+            sub, i = md_list(lines, i)
+            node["content"][-1]["content"].append(sub)
+            continue
+        if m.group(2)[0].isdigit() != ordered:
+            break
+        node["content"].append({"type": "listItem", "content": [para([m.group(3)])]})
+        i += 1
+    return node, i
+
+
+def md_to_adf(text):
+    lines = text.replace("\r\n", "\n").split("\n")
+    out, i = [], 0
+    while i < len(lines):
+        line = lines[i]
+        if not line.strip():
+            i += 1
+        elif line.startswith("```"):
+            lang, body, i = line[3:].strip(), [], i + 1
+            while i < len(lines) and not lines[i].startswith("```"):
+                body.append(lines[i])
+                i += 1
+            node = {"type": "codeBlock", "content": [{"type": "text", "text": "\n".join(body)}] if body else []}
+            if lang:
+                node["attrs"] = {"language": lang}
+            out.append(node)
+            i += 1
+        elif re.match(r"^#{1,6}\s", line):
+            hashes = len(line) - len(line.lstrip("#"))
+            out.append({"type": "heading", "attrs": {"level": hashes}, "content": md_inline(line[hashes:].strip())})
+            i += 1
+        elif re.match(r"^\s*([-*_])(\s*\1){2,}\s*$", line):
+            out.append({"type": "rule"})
+            i += 1
+        elif line.startswith(">"):
+            quoted = []
+            while i < len(lines) and lines[i].startswith(">"):
+                quoted.append(re.sub(r"^>\s?", "", lines[i]))
+                i += 1
+            out.append({"type": "blockquote", "content": md_to_adf("\n".join(quoted))["content"]})
+        elif LIST.match(line):
+            node, i = md_list(lines, i)
+            out.append(node)
+        elif line.lstrip().startswith("|") and i + 1 < len(lines) and re.match(r"^\s*\|?\s*:?-{3,}", lines[i + 1]):
+            cells = lambda l: [c.strip() for c in re.split(r"(?<!\\)\|", l.strip().strip("|"))]
+            rows = [cells(line)]
+            i += 2
+            while i < len(lines) and lines[i].lstrip().startswith("|"):
+                rows.append(cells(lines[i]))
+                i += 1
+            out.append({"type": "table", "content": [
+                {"type": "tableRow", "content": [
+                    {"type": "tableHeader" if r == 0 else "tableCell", "content": [para([c.replace("\\|", "|")])]} for c in row]}
+                for r, row in enumerate(rows)]})
+        else:
+            body = []
+            while i < len(lines) and lines[i].strip() and not (
+                    lines[i].startswith(("```", ">", "#")) or LIST.match(lines[i]) or lines[i].lstrip().startswith("|")):
+                body.append(lines[i])
+                i += 1
+            if not body:  # a line that only looked like a block start
+                body.append(lines[i])
+                i += 1
+            out.append(para(body))
+    return {"type": "doc", "version": 1, "content": out or [{"type": "paragraph"}]}
+
+
+# ── Commands ─────────────────────────────────────────────────────────────────
+
+FIELDS = ["summary", "status", "issuetype", "priority", "assignee", "components", "labels", "parent", "updated"]
+
+
+def where(cfg, extra):
+    base = cfg.get("jql") or f"project = {cfg['project']}"
+    types = cfg.get("excludeTypes")
+    parts = [f"({base})"]
+    if types:
+        parts.append("issuetype not in (" + ", ".join(json.dumps(t) for t in types) + ")")
+    return " AND ".join(parts + [p for p in extra if p])
+
+
+def quote(names):
+    return ", ".join(json.dumps(n) for n in names)
+
+
+def board(cfg, jira):
+    views = cfg.get("views") or DEFAULT_VIEWS
+    chosen = next((v for v in views if v.get("id") == os.environ.get("CARDFILE_VIEW")), views[0])
+    lanes = lanes_of(cfg)
+    order = cfg.get("order") or "Rank ASC"
+    view_jql = f"({chosen['jql']})" if chosen.get("jql") else None
+    days = done_days(cfg)
+    recent = f"(statusCategory != Done OR statusCategoryChangedDate >= -{days}d)"
+
+    def lane_filter(group):
+        named = [s for l in group for s in l["statuses"]]
+        cats = [l["category"] for l in group if not l["statuses"] and l["category"]]
+        terms = ([f"status in ({quote(named)})"] if named else []) + ([f"statusCategory in ({quote(cats)})"] if cats else [])
+        return "(" + " OR ".join(terms) + ")"
+
+    shared = [l for l in lanes if l["max"] is None]
+    capped = [l for l in lanes if l["max"] is not None]
+    issues, notes = [], {}
+    if shared:
+        found, _ = jira.search(where(cfg, [lane_filter(shared), recent, view_jql]) + f" ORDER BY {order}", FIELDS, int(cfg.get("limit", 300)))
+        issues += found
+    # A lane with `max` gets its own query, newest first: for long backlogs.
+    for l in capped:
+        found, more = jira.search(where(cfg, [lane_filter([l]), recent, view_jql]) + " ORDER BY updated DESC", FIELDS, l["max"])
+        issues += found
+        if more:
+            notes[l["id"]] = f"The {l['max']} most recently updated"
+    # Done issues stay on the board for `doneDays`. Final lanes and Done-category lanes say so.
+    for l in lanes:
+        if l["final"] or l["category"] == "Done":
+            notes.setdefault(l["id"], f"Last {days} days")
+
+    cards, seen = [], set()
+    for i in issues:
+        f = i.get("fields") or {}
+        status = (f.get("status") or {}).get("name")
+        lane = lane_for(lanes, status, ((f.get("status") or {}).get("statusCategory") or {}).get("name"))
+        if not lane or i["key"] in seen:
+            continue
+        seen.add(i["key"])
+        parent = ((f.get("parent") or {}).get("fields") or {}).get("summary")
+        priority = (f.get("priority") or {}).get("name")
+        meta = [((f.get("assignee") or {}).get("displayName") or "Unassigned") if chosen.get("jql") is None else None,
+                (f.get("issuetype") or {}).get("name"),
+                priority if priority and priority != cfg.get("quietPriority", "Medium") else None]
+        cards.append({
+            "id": i["key"], "lane": lane["id"], "tag": i["key"], "tone": tone_of(cfg, priority),
+            "title": f.get("summary") or i["key"],
+            "lines": [x for x in [f"↳ {parent}" if parent else None, ", ".join(c.get("name", "") for c in f.get("components") or []) or None] if x],
+            "meta": " · ".join(x for x in meta if x),
+            "url": f"{jira.base}/browse/{i['key']}",
+            "task": f"Pick up {i['key']}: {f.get('summary')}.",
+        })
+    return {
+        "title": cfg.get("title") or cfg.get("project") or "Jira",
+        "lanes": [{"id": l["id"], "label": l["label"], "tone": l["tone"], "note": notes.get(l["id"])} for l in lanes],
+        "views": [{"id": v["id"], "label": v.get("label") or v["id"]} for v in views],
+        "view": chosen["id"], "show": True, "cards": cards,
+        "empty": "Nothing here.",
+    }
+
+
+def as_text(v):
+    """A field's value as text: options, users and lists of them included."""
+    if isinstance(v, dict):
+        return v.get("value") or v.get("name") or v.get("displayName") or v.get("key")
+    if isinstance(v, list):
+        return ", ".join(t for t in (as_text(x) for x in v) if t) or None
+    return v
+
+
+def day(s):
+    return s[:10] if isinstance(s, str) else None
+
+
+def show(cfg, jira, key):
+    est = cfg.get("estimateField")
+    i = jira.issue(key, FIELDS + ["reporter", "created", "description", "issuelinks", "subtasks"] + ([est] if est else []))
+    f = i.get("fields") or {}
+    status = f.get("status") or {}
+    lanes = lanes_of(cfg)
+    lane = lane_for(lanes, status.get("name"), (status.get("statusCategory") or {}).get("name"))
+    parent = f.get("parent")
+    rows = [
+        ("Status", status.get("name")),
+        ("Type", (f.get("issuetype") or {}).get("name")),
+        ("Priority", (f.get("priority") or {}).get("name")),
+        ("Assignee", (f.get("assignee") or {}).get("displayName") or "Unassigned"),
+        ("Reporter", (f.get("reporter") or {}).get("displayName")),
+        ("Estimate", as_text(f.get(est)) if est else None),
+        ("Parent", f"{parent['key']} · {(parent.get('fields') or {}).get('summary', '')}" if parent else None),
+        ("Components", ", ".join(c.get("name", "") for c in f.get("components") or [])),
+        ("Labels", ", ".join(f.get("labels") or [])),
+        ("Created", day(f.get("created"))),
+        ("Updated", day(f.get("updated"))),
+    ]
+    description = adf_to_md(f.get("description"))
+    parts = [description or "*No description.*"]
+    links = []
+    for l in f.get("issuelinks") or []:
+        kind = l.get("type") or {}
+        other, rel = (l["outwardIssue"], kind.get("outward")) if l.get("outwardIssue") else (l.get("inwardIssue"), kind.get("inward"))
+        if other:
+            of = other.get("fields") or {}
+            links.append(f"- {rel} **{other['key']}** {of.get('summary', '')} · {(of.get('status') or {}).get('name', '')}")
+    if links:
+        parts += ["## Links", "\n".join(links)]
+    subs = [f"- **{s['key']}** {(s.get('fields') or {}).get('summary', '')} · {((s.get('fields') or {}).get('status') or {}).get('name', '')}"
+            for s in f.get("subtasks") or []]
+    if subs:
+        parts += ["## Sub-tasks", "\n".join(subs)]
+    comments = (jira.call("GET", f"/rest/api/3/issue/{key}/comment", query={"orderBy": "created", "maxResults": 100}) or {}).get("comments") or []
+    parts.append(f"## Comments ({len(comments)})")
+    parts.append("\n\n---\n\n".join(
+        f"**{(c.get('author') or {}).get('displayName', 'Someone')}** · {day(c.get('created')) or ''}\n\n{adf_to_md(c.get('body'))}"
+        for c in comments) or "*No comments.*")
+    flattens = lossy(f.get("description"))
+    priority = (f.get("priority") or {}).get("name")
+    return {
+        "id": key, "tag": key, "title": f.get("summary") or key, "url": f"{jira.base}/browse/{key}",
+        "tone": tone_of(cfg, priority), "lane": lane["id"] if lane else None,
+        "lanes": [{"id": l["id"], "label": l["label"]} for l in lanes],
+        "comment": True, "edit": True,
+        "description": description,
+        "descriptionNote": f"Saving here turns its {', '.join(flattens)} into plain text." if flattens else None,
+        "fields": [{"label": k, "value": str(v)} for k, v in rows if v],
+        "markdown": "\n\n".join(parts),
+        "task": f"Pick up {key}: {f.get('summary')}.",
+    }
+
+
+def reachable(cfg, jira, key):
+    """{lane id: transition id} for the lanes the issue can move to now."""
+    lanes = lanes_of(cfg)
+    transitions = (jira.call("GET", f"/rest/api/3/issue/{key}/transitions") or {}).get("transitions") or []
+    yours = None
+    out = {}
+    for t in transitions:
+        to = t.get("to") or {}
+        lane = lane_for(lanes, to.get("name"), (to.get("statusCategory") or {}).get("name"))
+        if not lane or lane["id"] in out:
+            continue
+        if lane["final"]:
+            if yours is None:
+                assignee = ((jira.issue(key, ["assignee"]).get("fields") or {}).get("assignee") or {}).get("accountId")
+                yours = assignee == jira.me()
+            if not yours:
+                continue
+        out[lane["id"]] = t["id"]
+    return out
+
+
+def move(cfg, jira, key, lane_id):
+    lanes = {l["id"]: l for l in lanes_of(cfg)}
+    if lane_id not in lanes:
+        raise Refusal(f"no lane {lane_id}")
+    to = reachable(cfg, jira, key)
+    if lane_id not in to:
+        lane = lanes[lane_id]
+        raise Refusal(f"{key} can only go to {lane['label']} from its assignee" if lane["final"] else f"{key} can't go straight to {lane['label']}")
+    jira.call("POST", f"/rest/api/3/issue/{key}/transitions", {"transition": {"id": to[lane_id]}})
+    return {"ok": True}
+
+
+def describe(jira, key, text, was):
+    if was is not None:
+        now = adf_to_md((jira.issue(key, ["description"]).get("fields") or {}).get("description"))
+        if now.strip() != was.strip():
+            raise Refusal("it changed in Jira since you started; copy your text, then reload")
+    jira.call("PUT", f"/rest/api/3/issue/{key}", {"fields": {"description": md_to_adf(text)}})
+    return {"ok": True}
+
+
+def retitle(jira, key, text):
+    one = " ".join(text.split())
+    if len(one) > 255:
+        raise Refusal(f"a summary is at most 255 characters (this is {len(one)})")
+    jira.call("PUT", f"/rest/api/3/issue/{key}", {"fields": {"summary": one}})
+    return {"ok": True, "title": one}
+
+
+def main(argv):
+    cmd, rest = (argv[0], argv[1:]) if argv else ("board", [])
+    # Offline converters, for tests and for checking what a save would send.
+    if cmd == "md-to-adf":
+        return md_to_adf(sys.stdin.read())
+    if cmd == "adf-to-md":
+        doc = json.load(sys.stdin)
+        return {"markdown": adf_to_md(doc), "lossy": lossy(doc)}
+    key = rest[0] if rest else None
+    if key is not None and not KEY.match(key):
+        raise Refusal(f"not an issue key: {key}")
+    text = rest[1].strip() if len(rest) > 1 else ""
+    cfg = settings()
+    jira = Jira(cfg)
+    if cmd == "board" and not rest:
+        return board(cfg, jira)
+    if cmd == "show" and key:
+        return show(cfg, jira, key)
+    if cmd == "moves" and key:
+        return {"lanes": list(reachable(cfg, jira, key))}
+    if cmd == "move" and key and text:
+        return move(cfg, jira, key, text)
+    if cmd == "comment" and key and text:
+        jira.call("POST", f"/rest/api/3/issue/{key}/comment", {"body": md_to_adf(text)})
+        return {"ok": True}
+    if cmd == "title" and key and text:
+        return retitle(jira, key, text)
+    if cmd == "describe" and key and text:
+        return describe(jira, key, text, rest[2] if len(rest) > 2 else None)
+    raise Refusal("usage: cardfile-jira [show KEY | moves KEY | move KEY LANE | comment KEY TEXT | title KEY TEXT | describe KEY TEXT [WAS]]")
+
+
+if __name__ == "__main__":
+    try:
+        print(json.dumps(main(sys.argv[1:])))
+    except Refusal as e:
+        print(f"cardfile-jira: {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:  # noqa: BLE001 - the board shows the last line of stderr
+        print(f"cardfile-jira: {e.__class__.__name__}: {e}", file=sys.stderr)
+        sys.exit(1)

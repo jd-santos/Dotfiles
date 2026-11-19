@@ -7,7 +7,7 @@ Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). M
 | Package                               | Description                                                                                                            |
 | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | [`agents`](agents/README.md)          | AI agent skills ([Agent Skills](https://agentskills.io) standard)                                                      |
-| `bin`                                 | User scripts installed to `~/bin`, including `merge-settings` and the Pi auth wrapper                                  |
+| `bin`                                 | User scripts installed to `~/bin`, including `merge-settings`, the Pi auth wrapper, and Card File's todo and Jira sources |
 | [`claude`](claude/.claude/mods/shellfish/README.md) | Claude Code keybindings, shared settings merged by `merge-settings`, skills link, and the `shellfish` mod in a local plugin marketplace |
 | `cmux`                                | [cmux](https://github.com/manaflow-ai/cmux) terminal config and cmux-specific Ghostty UI overrides                     |
 | `docs/`                               | Repo documentation and the Typst terminal workflow cheatsheet, not a stow package                                      |
