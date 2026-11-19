@@ -81,3 +81,8 @@ herdr-app/.config/herdr-app/settings.local.json
 # Zed stow package generated settings
 zed/.config/zed/settings.json
 zed/.config/zed/settings.local.json
+
+# Herdr App: generated mod files and machine-local card sources
+herdr-app/.config/herdr-app/mods/*/jsconfig.json
+herdr-app/.config/herdr-app/mods/*/*.d.ts
+herdr-app/.config/herdr-app/cardfile.local.json

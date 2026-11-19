@@ -6,6 +6,8 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 
 ### Added
 
+- Add a Card File layout for Herdr App: spaces stacked over agent cards that show each agent's title, what it is doing now, and its space, turn and time in its current state; a framed drawer to the right of the terminals with Files, Changes and Todo tabs, plus a Todo button in the tab bar; and a warm gray theme with a blush accent. Todo cards come from card sources, small programs that print JSON, listed in `cardfile.json` with machine-only sources such as Jira in an untracked `cardfile.local.json`. `cardfile-todo` turns the shown repo's `todo/TODO.md` into cards with priority, next step, progress and a Start agent action.
+
 - Track Herdr App and Core in separate Stow packages: Dracula, silent alerts, 120% app zoom, and documented Core defaults, while retaining app-native shortcuts and the legacy TUI config. Bootstrap uses file-level symlinks to keep runtime state outside the checkout. Herdr App settings merge tracked defaults with app-saved settings and explicit local overrides; `merge-settings --herdr-app-only` safely migrates the previous settings symlink without touching other tools.
 
 - Add Cargo and other rustup tools to `PATH` in zsh when `~/.cargo/env` exists.

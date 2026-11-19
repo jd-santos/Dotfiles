@@ -1,0 +1,12 @@
+{
+  "agent": ["claude"],
+  "sources": [
+    {
+      "id": "todo",
+      "label": "Todo",
+      "run": ["~/bin/cardfile-todo"],
+      "where": "space",
+      "every": 60
+    }
+  ]
+}

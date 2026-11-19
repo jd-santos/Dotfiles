@@ -29,3 +29,6 @@ _darcs
 
 # Herdr App writes live settings; only the base belongs in Stow.
 (^|/)\.config/herdr-app/settings(\.local)?\.json$
+
+# Herdr writes type files and jsconfig.json into each mod folder it checks.
+(^|/)\.config/herdr-app/mods/[^/]+/(jsconfig\.json|[^/]+\.d\.ts)$

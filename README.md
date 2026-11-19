@@ -17,7 +17,7 @@ Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). M
 | `ghostty`                             | [Ghostty](https://ghostty.org) terminal (Dracula theme, Nerd Font icons)                                               |
 | `git`                                 | Git config, global gitignore, LFS, [`~/.gitconfig.local`](git/.gitconfig.local.example) for machine-specific overrides |
 | `herdr`                               | Legacy [Herdr](https://herdr.dev/) TUI config (tmux-like keys, Dracula theme, portable setup manifest)                 |
-| [`herdr-app`](herdr-app/README.md)      | Herdr desktop app (Dracula, silent alerts, shared settings merged by `merge-settings`; no runtime state)                                   |
+| [`herdr-app`](herdr-app/README.md)      | Herdr desktop app (Dracula, silent alerts, shared settings merged by `merge-settings`, Card File layout; no runtime state)                |
 | [`herdr-core`](herdr-core/README.md)    | Persistent terminal backend config, separate from the app and legacy TUI                                            |
 | `lint`                                | Markdown lint rules (`.markdownlint.jsonc`)                                                                            |
 | [`nvim`](nvim/.config/nvim/README.md) | Neovim (LazyVim, fzf-lua, tokyonight)                                                                                  |
