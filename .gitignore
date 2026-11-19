@@ -74,6 +74,10 @@ pi/.pi/agent/mcp-cache.json
 pi/.pi/agent/models-store.json
 pi/.pi/agent/npm/
 
+# Herdr App generated settings and machine-local overrides
+herdr-app/.config/herdr-app/settings.json
+herdr-app/.config/herdr-app/settings.local.json
+
 # Zed stow package generated settings
 zed/.config/zed/settings.json
 zed/.config/zed/settings.local.json

@@ -6,7 +6,7 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 
 ### Added
 
-- Track Herdr App and Core in separate Stow packages: Dracula, silent alerts, 120% app zoom, and documented Core defaults, while retaining app-native shortcuts and the legacy TUI config. Bootstrap uses file-level symlinks to keep runtime state outside the checkout.
+- Track Herdr App and Core in separate Stow packages: Dracula, silent alerts, 120% app zoom, and documented Core defaults, while retaining app-native shortcuts and the legacy TUI config. Bootstrap uses file-level symlinks to keep runtime state outside the checkout. Herdr App settings merge tracked defaults with app-saved settings and explicit local overrides; `merge-settings --herdr-app-only` safely migrates the previous settings symlink without touching other tools.
 
 - Add Cargo and other rustup tools to `PATH` in zsh when `~/.cargo/env` exists.
 

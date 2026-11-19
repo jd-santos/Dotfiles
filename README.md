@@ -17,7 +17,7 @@ Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). M
 | `ghostty`                             | [Ghostty](https://ghostty.org) terminal (Dracula theme, Nerd Font icons)                                               |
 | `git`                                 | Git config, global gitignore, LFS, [`~/.gitconfig.local`](git/.gitconfig.local.example) for machine-specific overrides |
 | `herdr`                               | Legacy [Herdr](https://herdr.dev/) TUI config (tmux-like keys, Dracula theme, portable setup manifest)                 |
-| [`herdr-app`](herdr-app/README.md)      | Herdr desktop app (Dracula, silent alerts, app-native shortcuts; no runtime state)                                   |
+| [`herdr-app`](herdr-app/README.md)      | Herdr desktop app (Dracula, silent alerts, shared settings merged by `merge-settings`; no runtime state)                                   |
 | [`herdr-core`](herdr-core/README.md)    | Persistent terminal backend config, separate from the app and legacy TUI                                            |
 | `lint`                                | Markdown lint rules (`.markdownlint.jsonc`)                                                                            |
 | [`nvim`](nvim/.config/nvim/README.md) | Neovim (LazyVim, fzf-lua, tokyonight)                                                                                  |
@@ -151,6 +151,7 @@ stow zsh          # Creates symlinks for all files in zsh/ to ~/
 ### Install Multiple Tools
 
 ```bash
+./bin/bin/merge-settings --herdr-app-only
 stow --no-folding herdr-app herdr-core nvim git starship zsh
 ```
 
@@ -160,7 +161,9 @@ Initialize the Skills submodule before stowing packages:
 
 ```bash
 git submodule update --init --recursive
+./bin/bin/merge-settings --herdr-app-only
 stow --no-folding agents bin claude cmux fzf ghostty git herdr herdr-app herdr-core lint nvim opencode pgcli pi starship tmux zed zsh
+merge-settings
 ```
 
 To initialize, hydrate, and verify the agent skills in one command, run:
@@ -185,9 +188,11 @@ reconciles Herdr integrations and plugins:
 Herdr App and `hc` are installed separately from the legacy TUI. Their new
 packages are included in bootstrap, but bootstrap still requires `herdr` for
 the legacy integration setup below. It does not install or restart either app
-or Core. Back up any existing app/Core config files outside the checkout before
-stowing them; see [Herdr App setup](herdr-app/README.md) and
-[Core setup](herdr-core/README.md). Use `--no-folding` to keep generated files
+or Core. Back up existing app/Core config files outside the checkout first;
+Herdr App keeps its live `settings.json` local and merges shared defaults from
+`settings.base.json`, with optional `settings.local.json` overrides. Bootstrap
+migrates the previous settings symlink before Stow. See [Herdr App setup](herdr-app/README.md)
+and [Core setup](herdr-core/README.md). Use `--no-folding` to keep generated files
 and runtime state outside the versioned directories.
 
 The legacy Herdr TUI registers plugins imperatively, so `scripts/setup-herdr` reads
@@ -258,7 +263,7 @@ git/.gitconfig                          → ~/.gitconfig
 tmux/.tmux.conf                         → ~/.tmux.conf
 starship/.config/starship.toml          → ~/.config/starship.toml
 herdr/.config/herdr/config.toml          → ~/.config/herdr/config.toml
-herdr-app/.config/herdr-app/settings.json → ~/.config/herdr-app/settings.json
+herdr-app/.config/herdr-app/settings.base.json → ~/.config/herdr-app/settings.base.json
 herdr-core/.config/herdr-core/config.toml → ~/.config/herdr-core/config.toml
 ```
 

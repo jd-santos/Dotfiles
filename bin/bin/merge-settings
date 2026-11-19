@@ -6,6 +6,8 @@
 #
 # Per-tool local override files (not tracked in dotfiles):
 #   ~/.config/zed/settings.local.json
+#   ~/.config/herdr-app/settings.local.json (overrides shared defaults)
+#   ~/.config/herdr-app/settings.json (app-written values outside shared defaults)
 #   ~/.pi/agent/settings.local.json
 #   ~/.pi/agent/mcp.local.json
 #   ~/.claude/settings.json (Claude Code writes it; the tracked base merges into it)
@@ -15,6 +17,16 @@
 # overrides for shared keys under localOverrides in settings.local.json.
 
 set -euo pipefail
+
+herdr_app_only=false
+if [[ $# -gt 0 ]]; then
+  if [[ $# -eq 1 && "$1" == "--herdr-app-only" ]]; then
+    herdr_app_only=true
+  else
+    echo "Usage: merge-settings [--herdr-app-only]" >&2
+    exit 2
+  fi
+fi
 
 if ! command -v jq &>/dev/null; then
   echo "Error: jq is required (brew install jq)" >&2
@@ -61,6 +73,71 @@ base_path() {
 
   printf '%s\n' "$installed_path"
 }
+
+merge_herdr_app_settings() {
+  local label="Herdr App"
+  local app_home="${HERDR_APP_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}/herdr-app}"
+  local base
+  base="$(base_path "$app_home/settings.base.json" "herdr-app/.config/herdr-app/settings.base.json")"
+  local local_file="$app_home/settings.local.json"
+  local output="$app_home/settings.json"
+  local target target_dir tmp
+
+  if [[ ! -f "$base" ]]; then
+    echo "⚠  $label: base not found at $base, skipping"
+    return
+  fi
+  if [[ -L "$app_home" ]]; then
+    echo "$label: $app_home must be a real directory; restow with --no-folding" >&2
+    return 1
+  fi
+  if [[ -d "$output" || ( -e "$output" && ! -f "$output" ) ]]; then
+    echo "$label: $output must be a regular file" >&2
+    return 1
+  fi
+  if [[ ( -e "$local_file" || -L "$local_file" ) && ! -f "$local_file" ]]; then
+    echo "$label: $local_file must be a regular file" >&2
+    return 1
+  fi
+  if [[ -L "$output" ]]; then
+    target="$(readlink "$output")"
+    [[ "$target" == /* ]] || target="$app_home/$target"
+    target_dir="$(cd -P "$(dirname "$target")" 2>/dev/null && pwd)" || return 1
+    if [[ "$target_dir/$(basename "$target")" != "$repo_root/herdr-app/.config/herdr-app/settings.json" ]]; then
+      echo "$label: settings.json is an unfamiliar symlink; back it up and replace the link with a local regular file" >&2
+      return 1
+    fi
+  fi
+
+  mkdir -p "$app_home"
+  tmp="$(mktemp "$output.XXXXXX")"
+  if ! jq -n \
+    --slurpfile base "$base" \
+    --slurpfile current <(if [[ -f "$output" ]]; then cat "$output"; else echo '{}'; fi) \
+    --slurpfile overrides <(if [[ -f "$local_file" ]]; then cat "$local_file"; else echo '{}'; fi) '
+      if all([$base, $current, $overrides][]; length == 1 and (.[0] | type == "object"))
+      then $current[0] * $base[0] * $overrides[0]
+      else error("Herdr App settings files must each contain one JSON object") end
+    ' > "$tmp"; then
+    rm "$tmp"
+    return 1
+  fi
+
+  if [[ ! -L "$output" && -f "$output" ]] && cmp -s "$output" "$tmp"; then
+    rm "$tmp"
+    chmod 600 "$output"
+    echo "✓  $label: settings.json already up to date"
+    return
+  fi
+  chmod 600 "$tmp"
+  mv -f "$tmp" "$output"
+  echo "✓  $label: merged app settings + base + local → settings.json"
+}
+
+merge_herdr_app_settings
+if "$herdr_app_only"; then
+  exit 0
+fi
 
 merge_json() {
   local label="$1"
