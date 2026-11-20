@@ -4,13 +4,10 @@
     { "id": "todo", "label": "Todo", "run": ["~/bin/cardfile-todo"], "where": "space", "every": 60 }
   ],
   "board": [
-    { "id": "up-next", "label": "Up Next", "auto": "new", "tone": "idle" },
-    { "id": "in-progress", "label": "In Progress", "auto": "working", "tone": "working" },
-    { "id": "review", "label": "Review", "auto": "finished", "tone": "accent" },
-    { "id": "blocked", "label": "Blocked", "auto": "blocked", "tone": "blocked" },
-    { "id": "paused", "label": "Paused", "sticky": true, "tone": "muted" },
-    { "id": "done", "label": "Done", "tone": "done" },
-    { "id": "backlog", "label": "Backlog", "tone": "muted" },
-    { "id": "canceled", "label": "Canceled", "tone": "muted" }
+    { "id": "needs-you", "label": "Needs you", "auto": "blocked", "tone": "blocked" },
+    { "id": "review", "label": "Review", "auto": "finished", "icon": "review", "tone": "accent" },
+    { "id": "parked", "label": "Parked", "action": "Park", "icon": "parked", "tone": "dim" },
+    { "id": "running", "label": "Running", "auto": ["working", "new"], "tone": "working", "strip": true },
+    { "id": "done", "label": "Done", "action": "Done", "icon": "done", "tone": "done" }
   ]
 }

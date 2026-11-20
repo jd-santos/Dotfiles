@@ -43,24 +43,28 @@ async function loadConfig() {
   };
 }
 
-const TONES = new Set(["blocked", "working", "done", "idle", "accent", "muted"]);
+const TONES = new Set(["blocked", "working", "done", "idle", "accent", "muted", "dim"]);
 
 // ── Board lanes ─────────────────────────────────────────────────────────────
-// A lane can fill itself from Herdr's statuses (`auto`): "working", "blocked", "new" (idle,
-// never given a turn) and "finished" (idle or done, with no lane of its own). Otherwise an
-// agent is in a lane because its terminal has the label cardfile.lane=<id>. The label
-// cardfile.turn=<n> records the agent's turn when it was moved: once the agent starts
-// another turn the move is out of date, unless the lane is `sticky`. Live "working" and
-// "blocked" always win.
+// Lanes hold the person's call on each agent, not the agent's status. A lane with `auto`
+// fills itself from Herdr's statuses: "blocked", "finished" (idle or done), "working" and
+// "new" (idle, never given a turn). A lane without `auto` is yours: an agent is in it
+// because its terminal has the label cardfile.lane=<id>, and cardfile.turn=<n> records its
+// turn when you put it there. Your call holds whatever the agent does, until it starts
+// another turn (you gave it more work), unless the lane is `sticky`. Only "blocked" beats
+// your call, because the agent is stuck until you answer. `strip` draws a lane as a narrow
+// column of one-line rows. Lanes show in config order, on the board and in the sidebar. `icon` names an SVG in this folder that marks
+// the lane's cards; on a "finished" lane, `<icon>-unseen` marks a turn you haven't seen.
 
 const LANE_LABEL = "cardfile.lane";
 const TURN_LABEL = "cardfile.turn";
 const AUTO = new Set(["working", "blocked", "new", "finished"]);
 const DEFAULT_LANES = [
-  { id: "in-progress", label: "In Progress", auto: ["working"], tone: "working" },
-  { id: "blocked", label: "Blocked", auto: ["blocked"], tone: "blocked" },
-  { id: "review", label: "Review", auto: ["finished"], tone: "accent" },
-  { id: "done", label: "Done", tone: "done" },
+  { id: "needs-you", label: "Needs you", auto: ["blocked"], tone: "blocked" },
+  { id: "review", label: "Review", auto: ["finished"], icon: "review", tone: "accent" },
+  { id: "parked", label: "Parked", action: "Park", icon: "parked", tone: "dim" },
+  { id: "running", label: "Running", auto: ["working", "new"], tone: "working", strip: true },
+  { id: "done", label: "Done", action: "Done", icon: "done", tone: "done" },
 ].map((l) => ({ sticky: false, ...l }));
 
 function cleanLanes(list) {
@@ -75,26 +79,46 @@ function cleanLanes(list) {
       label: typeof l.label === "string" && l.label.trim() ? l.label.trim() : l.id,
       auto: (Array.isArray(l.auto) ? l.auto : l.auto ? [l.auto] : []).filter((a) => AUTO.has(a)),
       sticky: l.sticky === true,
+      strip: l.strip === true,
+      // The button that puts an agent in a lane of yours ("Park" for Parked).
+      action: typeof l.action === "string" && l.action.trim() ? l.action.trim() : null,
+      icon: typeof l.icon === "string" && /^[\w-]+$/.test(l.icon) ? l.icon : null,
       tone: TONES.has(l.tone) ? l.tone : null,
     });
   }
   return lanes.length ? lanes : null;
 }
 
+const isMine = (lane) => lane.auto.length === 0;
+
 // The lane an agent is in. `moved` is a move not yet visible in the labels: { lane, turn }.
 function laneOf(a, term, lanes, moved) {
   const auto = (k) => lanes.find((l) => l.auto.includes(k));
-  if (a.status === "working" || a.status === "blocked") {
-    const live = auto(a.status);
-    if (live) return live;
-  }
+  if (a.status === "blocked" && auto("blocked")) return auto("blocked");
   const turn = Number(term?.turn) || 0;
   const labels = term?.labels ?? {};
   const id = moved ? moved.lane : labels[LANE_LABEL];
   const at = moved ? moved.turn : Number(labels[TURN_LABEL] ?? NaN); // no turn: holds until changed
   const lane = id ? lanes.find((l) => l.id === id) : null;
   if (lane && (lane.sticky || !Number.isFinite(at) || turn <= at)) return lane;
-  return auto(turn ? "finished" : "new") ?? auto("finished") ?? lanes[0];
+  const k = a.status === "working" ? "working" : turn ? "finished" : "new";
+  return auto(k) ?? auto("finished") ?? lanes[0];
+}
+
+// Records your call on an agent as two labels on its terminal; `laneId` null takes it back.
+async function setCall(address, laneId, turn) {
+  const labels = laneId ? [`${LANE_LABEL}=${laneId}`, `${TURN_LABEL}=${turn}`] : [`${LANE_LABEL}=`, `${TURN_LABEL}=`];
+  const r = await hc(["label", address, ...labels]).catch((e) => ({ code: 1, stderr: e?.message ?? String(e) }));
+  if (r.code !== 0) throw new Error((r.stderr || r.stdout || `exit ${r.code}`).trim().split("\n").at(-1));
+}
+
+// What a card's mark says when you point at it.
+function callTip(lane, a) {
+  if (isMine(lane)) return `${lane.label}. Click to change.`;
+  if (a.status === "blocked") return "Needs you: it's waiting for your answer. Click to park it or mark it done.";
+  if (a.status === "working") return "Working. Click to park it or mark it done.";
+  if (a.status === "done") return `${lane.label}: finished a turn you haven't seen. Click to decide.`;
+  return `${lane.label}: finished, waiting for your call. Click to decide.`;
 }
 
 // Herdr sets labels through herdr-core's `hc`, which a GUI app may not find on PATH.
@@ -253,13 +277,19 @@ function statusMark(t, status) {
 export default class CardFile extends View {
   init(_p, cx) {
     const p = props() ?? {};
-    this.role = p.view ? "view" : p.ticket ? "ticket" : ["spaces", "todo", "panel-tabs", "tab-button", "board"].includes(p.column) ? p.column : "agents";
+    this.role = p.view ? "view" : p.ticket ? "ticket" : p.call ? "call"
+      : ["spaces", "todo", "panel-tabs", "tab-button", "board"].includes(p.column) ? p.column : "agents";
     this.width = 300;
     this.folded = new Set();
     if (this.role === "view") return this.initView(p.view, cx);
-    if (this.role === "agents") {
-      this.changed = {}; // agent address -> { s, at }: when its status last changed
-      cx.timer.every(30000, (cx) => cx.notify()); // keeps the "4m" durations honest
+    if (this.role === "agents" || this.role === "call") {
+      this.call = p.call ?? null; // the popup: { address, lane }
+      this.error = null;
+      this.config = { agent: ["claude"], sources: [], boards: [], lanes: DEFAULT_LANES, errors: [] };
+      if (checking()) return;
+      const load = (cx) => cx.spawn(async (cx) => { this.config = await loadConfig(); cx.notify(); });
+      load(cx);
+      if (this.role === "agents") cx.timer.every(30000, (cx) => load(cx));
       return;
     }
     if (this.role === "board") return this.initBoard(cx);
@@ -348,7 +378,7 @@ export default class CardFile extends View {
   // An index card: a title line, a ruled line under it in the card's color, a few
   // lines of text, and a small footer. `rule` is a theme color. `top` aligns the
   // title line's items to the top, for a title that wraps.
-  card(t, { id, rule, head, top, lines, foot, selected, onClick, after }) {
+  card(t, { id, rule, head, top, lines, foot, selected, onClick, onMenu, after }) {
     const chars = Math.max(40, Math.floor(((this.width - 40) / 6.4) * 2));
     return v_flex()
       .id(id)
@@ -360,6 +390,7 @@ export default class CardFile extends View {
       .border_color(selected ? t.accent : t.border)
       .shadow_sm()
       .when(Boolean(onClick), (el) => el.cursor_pointer().hover((s) => s.border_color(selected ? t.accent : t.input)).on_click(onClick))
+      .when(Boolean(onMenu), (el) => el.on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); onMenu(); }))
       .child(h_flex().px(10).pt(8).pb(6).gap(7).min_w(0).when(Boolean(top), (el) => el.items_start()).when(!top, (el) => el.items_center()).children(head))
       .child(div().mx(10).h(1).bg(fade(rule, "aa")))
       .when(lines.length > 0, (el) => el.child(v_flex().px(10).pt(6).gap(2).text_size(12).text_color(t.muted)
@@ -368,41 +399,116 @@ export default class CardFile extends View {
       .when(Boolean(after), (el) => el.child(after));
   }
 
-  // `opts` (the board): { onClick, foot: extra footer items, after: an element under the footer }.
+  laneFor(a, term) {
+    return laneOf(a, term, this.config.lanes, this.moved?.get(a.address));
+  }
+
+  // The card's mark for its lane. In a lane of yours, the lane's icon (or its name), plus a
+  // spinner while the agent works anyway. In Review, its icon: filled for a turn you haven't
+  // seen, outlined for one you have. Otherwise the agent's status.
+  callMark(t, lane, a) {
+    const tone = lane.tone ? t[lane.tone] ?? t.accent : t.muted;
+    const glyph = (name) => svg(`mods/cardfile/${name}.svg`).size(13).flex_none().text_color(tone);
+    if (!isMine(lane)) {
+      const finished = a.status === "idle" || a.status === "done";
+      if (lane.icon && finished && lane.auto.includes("finished")) return glyph(a.status === "done" ? `${lane.icon}-unseen` : lane.icon);
+      return statusMark(t, a.status);
+    }
+    return h_flex().flex_none().gap(5).items_center()
+      .when(a.status === "working", (el) => el.child(statusMark(t, "working")))
+      .child(lane.icon ? glyph(lane.icon)
+        : div().flex_none().px(5).h(16).rounded(4).border(1).border_color(fade(tone, "99")).text_size(10)
+          .font_semibold().text_color(tone).flex().items_center().child(lane.label));
+  }
+
+  // Opens the small menu of calls at the pointer: your lanes, and Reopen when it's in one.
+  openCall(a, lane) {
+    const items = this.config.lanes.filter(isMine).length + (isMine(lane) ? 1 : 0);
+    openOverlay({ mod: "cardfile", kind: "popup", width: 190, height: 40 + 31 * items, props: { call: { address: a.address, lane: lane.id } } });
+  }
+
+  // `opts` (the board): { lane, onClick, foot: extra footer items }.
   agentCard(t, a, byAddress, kids, now, opts = {}) {
     const term = byAddress.get(a.address);
+    const lane = opts.lane ?? this.laneFor(a, term);
+    const mine = isMine(lane); // you've made your call, so the agent's progress is beside the point
     const report = term?.report;
     const msg = typeof report === "object" ? report?.msg : null;
     const name = clean(a.title) || (/^\d+$/.test(a.tab_name) ? a.program?.name : a.tab_name) || a.address;
-    const since = this.changed[a.address]?.at;
     const helpers = kids.get(a.address) ?? 0;
     const where = [a.space_name, /^\d+$/.test(a.tab_name) ? `tab ${a.tab_name}` : a.tab_name].filter(Boolean).join(" · ");
     const pic = icon(a.program, 13, t.muted);
-    const mark = statusMark(t, a.status);
+    // The mark is also the way to change your call: click it, or right-click the card.
+    const mark = h_flex().id(`mk-${a.address}`).flex_none().h(21).min_w(21).px(4).rounded(5).items_center().justify_center()
+      .cursor_pointer().hover((s) => s.bg(t.hover)).tooltip(callTip(lane, a))
+      .on_click((_e, cx) => { cx.stop_propagation(); this.openCall(a, lane); })
+      .child(this.callMark(t, lane, a) ?? div().size(7));
     // The title is the agent's summary of its task, so it wraps to three lines.
     const chars = Math.max(40, Math.floor((this.width - 60) / 7) * 3);
     return this.card(t, {
       id: `ag-${a.address}`,
-      rule: t[a.status] ?? t.border,
+      rule: mine ? (lane.tone ? t[lane.tone] ?? t.border : t.border) : t[a.status] ?? t.border,
       selected: a.focused,
       onClick: opts.onClick ?? (() => run("pane.focus", { pane: a.pane })),
-      after: opts.after,
+      onMenu: () => this.openCall(a, lane),
       top: true,
       head: [
         div().flex_1().min_w(0).max_h(63).overflow_hidden().text_size(13).font_medium()
-          .text_color(a.status === "idle" && !a.focused ? t.muted : t.foreground).child(clip(name, chars)),
-        mark ? h_flex().flex_none().h(21).items_center().child(mark) : null,
-      ].filter(Boolean),
-      lines: msg && msg !== name ? [msg] : [],
+          .text_color((mine || a.status === "idle") && !a.focused ? t.muted : t.foreground).child(clip(name, chars)),
+        mark,
+      ],
+      lines: !mine && msg && msg !== name ? [msg] : [],
       foot: [
         pic,
         div().flex_1().min_w(0).truncate().child(where),
-        helpers ? div().flex_none().child(`${helpers} helper${helpers > 1 ? "s" : ""}`) : null,
-        term?.turn ? div().flex_none().child(`turn ${term.turn}`) : null,
-        since ? div().flex_none().child(duration(now - since)) : null,
+        !mine && helpers ? div().flex_none().child(`${helpers} helper${helpers > 1 ? "s" : ""}`) : null,
+        !mine && term?.turn ? div().flex_none().child(`turn ${term.turn}`) : null,
         ...(opts.foot ?? []),
       ].filter(Boolean),
     });
+  }
+
+  // The menu `openCall` opens: props { call: { address, lane } }.
+  renderCall(t) {
+    const { address, lane: laneId } = this.call;
+    const lanes = this.config.lanes;
+    const current = lanes.find((l) => l.id === laneId) ?? null;
+    const term = terminals().find((k) => k.address === address);
+    const pick = (id) => (_e, cx) => {
+      this.error = null;
+      cx.spawn(async (cx) => {
+        try {
+          await setCall(address, id, Number(term?.turn) || 0);
+          closeOverlay(props().overlay);
+        } catch (e) {
+          this.error = `Couldn't save: ${e?.message ?? e}`;
+          cx.notify();
+        }
+      });
+    };
+    const item = (id, glyph, label, on, onClick) => h_flex()
+      .id(`call-${id}`).h(31).px(8).gap(9).rounded(7).items_center().text_color(t.foreground)
+      .when(on, (el) => el.bg(t.selected)).hover((el) => el.bg(t.hover)).on_click(onClick)
+      .child(glyph ?? div().size(14).flex_none())
+      .child(div().flex_1().child(label));
+    const items = lanes.filter(isMine).map((l) => item(l.id,
+      /^[\w-]+$/.test(l.icon ?? "") ? svg(`mods/cardfile/${l.icon}.svg`).size(14).flex_none().text_color(l.tone ? t[l.tone] ?? t.muted : t.muted) : null,
+      l.label, l.id === laneId, pick(l.id)));
+    if (current && isMine(current)) items.push(item("reopen", null, "Reopen", false, pick(null)));
+    return v_flex().w_full().p(5).bg(t.popover).text_size(12.8)
+      .child(div().px(8).pt(4).pb(6).text_size(11).text_color(t.dim).child("Your call"))
+      .children(items)
+      .when(Boolean(this.error), (el) => el.child(div().px(8).pt(4).text_size(11).text_color(t.blocked).child(this.error)));
+  }
+
+  // A one-line agent: the "Other spaces" list and the board's strip lanes. `onMenu`: right-click.
+  agentRow(t, a, text, onClick, onMenu = null) {
+    return h_flex()
+      .id(`row-${a.address}`).flex_none().px(8).h(26).gap(7).rounded(6).items_center().cursor_pointer()
+      .hover((s) => s.bg(t.hover)).on_click(onClick)
+      .when(Boolean(onMenu), (el) => el.on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); onMenu(); }))
+      .child(div().flex_1().min_w(0).truncate().text_size(12).text_color(t.foreground).child(text))
+      .child(statusMark(t, a.status) ?? div());
   }
 
   pluginCard(t, src, c) {
@@ -474,13 +580,6 @@ export default class CardFile extends View {
     return this.toggle(t, "scope", [{ id: "space", label: "This space" }, { id: "all", label: "All" }], scope, (id) => setShared(SCOPE_KEY, id));
   }
 
-  track(list, now) {
-    for (const a of list) {
-      const s = a.status === "done" ? "idle" : a.status;
-      if (this.changed[a.address]?.s !== s) this.changed[a.address] = { s, at: now };
-    }
-  }
-
   renderAgents(t) {
     const now = Date.now();
     const scope = shared(SCOPE_KEY) === "all" ? "all" : "space";
@@ -491,23 +590,29 @@ export default class CardFile extends View {
     for (const k of all) if (k.parent && k.state === "live") kids.set(k.parent, (kids.get(k.parent) ?? 0) + 1);
 
     const list = agents();
-    this.track(list, now);
+    const lanes = this.config.lanes;
+    const laneAt = new Map(list.map((a) => [a.address, this.laneFor(a, byAddress.get(a.address))]));
+    const rank = (a) => lanes.indexOf(laneAt.get(a.address));
+    const finished = (a) => laneAt.get(a.address).auto.includes("finished");
     const urgent = (x, y) => (RANK[y.status] ?? 0) - (RANK[x.status] ?? 0) || y.seq - x.seq;
-    const here = list.filter((a) => scope === "all" || a.space === active?.id).sort((x, y) => (y.pinned - x.pinned) || urgent(x, y));
-    // In "This space", agents elsewhere that need you still get a line at the top.
-    const elsewhere = scope === "space" ? list.filter((a) => a.space !== active?.id && (a.status === "blocked" || a.status === "done")).sort(urgent) : [];
+    // In the board's lane order; Review oldest first (lowest `seq`), so what has waited
+    // longest is on top.
+    const order = (x, y) => rank(x) - rank(y) || (finished(x) ? x.seq - y.seq : urgent(x, y));
+    const here = list.filter((a) => scope === "all" || a.space === active?.id).sort((x, y) => (y.pinned - x.pinned) || order(x, y));
+    // In "This space", agents elsewhere that need you, or finished a turn you haven't seen
+    // and are waiting for your call, still get a line at the top.
+    const waiting = (a) => laneAt.get(a.address).auto.includes("blocked") || (finished(a) && a.status === "done");
+    const elsewhere = scope === "space" ? list.filter((a) => a.space !== active?.id && waiting(a)).sort(order) : [];
     setAgentOrder([...elsewhere, ...here].map((a) => a.address));
 
     const rows = [];
     if (elsewhere.length) {
-      rows.push(...this.section(t, "elsewhere", "Other spaces", elsewhere.length, elsewhere.map((a) => h_flex()
-        .id(`el-${a.address}`).flex_none().px(8).h(26).gap(7).rounded(6).items_center().cursor_pointer()
-        .hover((s) => s.bg(t.hover)).on_click(() => run("pane.focus", { pane: a.pane }))
-        .child(div().flex_1().min_w(0).truncate().text_size(12).text_color(t.foreground).child(`${a.space_name} · ${clean(a.title) || a.tab_name}`))
-        .child(statusMark(t, a.status) ?? div()))));
+      rows.push(...this.section(t, "elsewhere", "Other spaces", elsewhere.length, elsewhere.map((a) =>
+        this.agentRow(t, a, `${a.space_name} · ${clean(a.title) || a.tab_name}`, () => run("pane.focus", { pane: a.pane }),
+          () => this.openCall(a, laneAt.get(a.address))))));
     }
     const agentBody = here.length
-      ? here.map((a) => this.agentCard(t, a, byAddress, kids, now))
+      ? here.map((a) => this.agentCard(t, a, byAddress, kids, now, { lane: laneAt.get(a.address) }))
       : [this.note(t, scope === "space" ? "No agents in this space." : "No agents report a status yet.")];
     rows.push(...this.section(t, "agents", "Agents", here.length, agentBody));
 
@@ -606,7 +711,6 @@ export default class CardFile extends View {
   // ── Board: agents in lanes, in the middle of the window ──────────────────────
 
   initBoard(cx) {
-    this.changed = {};
     this.width = 248; // a lane's width; card() sizes its text from it
     this.moved = new Map(); // address -> { lane, turn, at }: moves the labels don't show yet
     this.picking = null; // the card whose lane menu is open
@@ -1020,28 +1124,34 @@ export default class CardFile extends View {
       .child(label);
   }
 
+  // A small outlined button, so it doesn't read as more footer text.
   footButton(t, id, label, tip, on, onClick) {
-    return div().id(id).flex_none().px(5).h(18).rounded(4).flex().items_center()
-      .text_color(on ? t.foreground : t.dim).when(on, (el) => el.bg(t.selected))
-      .hover((s) => s.bg(t.hover).text_color(t.foreground)).tooltip(tip)
+    return div().id(id).flex_none().px(7).h(19).rounded(5).flex().items_center().cursor_pointer()
+      .border(1).border_color(on ? t.accent : t.border).bg(on ? t.selected : t.surface)
+      .text_color(on ? t.foreground : t.muted).font_medium()
+      .hover((s) => s.bg(t.hover).border_color(t.input).text_color(t.foreground)).tooltip(tip)
       .on_click((_e, cx) => { cx.stop_propagation(); onClick(cx); })
       .child(label);
   }
 
-  lanePicker(t, a, term, current) {
-    const labelled = term?.labels?.[LANE_LABEL] ?? null;
-    return h_flex().flex_wrap().px(10).pb(8).gap(4)
-      .children(this.config.lanes.map((l) => this.chip(t, `mv-${a.address}-${l.id}`, l.label, l.id === current.id, (cx) => this.moveTo(a, term, l, cx))))
-      .when(Boolean(labelled || this.moved.get(a.address)?.lane), (el) => el.child(
-        this.chip(t, `mv-${a.address}-auto`, "Automatic", false, (cx) => this.moveTo(a, term, null, cx))));
+  // A card's buttons: one per lane of yours it isn't in ("Park", "Done"), and "Reopen" to
+  // take your call back.
+  callButtons(t, a, term, current) {
+    const buttons = this.config.lanes.filter((l) => isMine(l) && l.id !== current.id).map((l) =>
+      this.footButton(t, `mv-${a.address}-${l.id}`, l.action ?? l.label, `Move to ${l.label}`, false, (cx) => this.moveTo(a, term, l, cx)));
+    if (isMine(current)) {
+      buttons.push(this.footButton(t, `mv-${a.address}-auto`, "Reopen", "Take back your call: the card follows the agent again", false,
+        (cx) => this.moveTo(a, term, null, cx)));
+    }
+    return buttons;
   }
 
-  laneColumn(t, l, items, note = null) {
+  laneColumn(t, l, items, note = null, width = this.width) {
     const tone = l.tone ? t[l.tone] ?? t.accent : t.dim;
-    return v_flex().id(`lane-${l.id}`).w(this.width).flex_none().h_full().min_h(0)
+    return v_flex().id(`lane-${l.id}`).w(width).flex_none().h_full().min_h(0)
       .rounded(8).bg(t.chrome).border(1).border_color(t.border)
       .child(h_flex().px(10).h(34).flex_none().gap(7).items_center()
-        .child(div().size(7).flex_none().rounded(4).bg(tone))
+        .child(/^[\w-]+$/.test(l.icon ?? "") ? svg(`mods/cardfile/${l.icon}.svg`).size(12).flex_none().text_color(tone) : div().size(7).flex_none().rounded(4).bg(tone))
         .child(div().flex_1().min_w(0).truncate().text_size(12).font_medium().text_color(t.foreground).child(l.label))
         .child(div().flex_none().text_size(11).text_color(t.dim).child(String(items.length))))
       .when(Boolean(note), (el) => el.child(div().px(10).pb(6).flex_none().truncate().text_size(10.5).text_color(t.dim).child(note)))
@@ -1094,7 +1204,6 @@ export default class CardFile extends View {
     const kids = new Map();
     for (const k of all) if (k.parent && k.state === "live") kids.set(k.parent, (kids.get(k.parent) ?? 0) + 1);
     const list = agents().filter((a) => scope === "all" || a.space === active?.id);
-    this.track(list, now);
 
     // Forget a move once the labels show it (or it has had long enough to).
     for (const [address, m] of this.moved) {
@@ -1110,22 +1219,25 @@ export default class CardFile extends View {
       groups.get(lane.id).push(a);
     }
 
+    const go = (a) => () => { showBoard(false); run("pane.focus", { pane: a.pane }); };
     const card = (a) => {
-      const term = byAddress.get(a.address);
-      const picking = this.picking === a.address;
+      const lane = laneFor.get(a.address);
       return this.agentCard(t, a, byAddress, kids, now, {
-        onClick: () => { showBoard(false); run("pane.focus", { pane: a.pane }); },
-        foot: [this.footButton(t, `mv-${a.address}`, "Move", "Move to another lane", picking,
-          (cx) => { this.picking = picking ? null : a.address; cx.notify(); })],
-        after: picking ? this.lanePicker(t, a, term, laneFor.get(a.address)) : null,
+        lane,
+        onClick: go(a),
+        foot: this.callButtons(t, a, byAddress.get(a.address), lane),
       });
     };
+    const sorted = (l) => groups.get(l.id).sort((x, y) => (y.pinned - x.pinned)
+      || (l.auto.includes("finished") ? x.seq - y.seq : y.seq - x.seq)); // Review: oldest first
 
     return {
       info: scope === "all" ? "All spaces" : active?.name ?? "",
       error: this.error,
       controls: [this.scopeToggle(t, scope)],
-      lanes: lanes.map((l) => this.laneColumn(t, l, groups.get(l.id).sort((x, y) => (y.pinned - x.pinned) || y.seq - x.seq).map(card))),
+      lanes: lanes.map((l) => l.strip
+        ? this.laneColumn(t, l, sorted(l).map((a) => this.agentRow(t, a, clean(a.title) || a.tab_name, go(a), () => this.openCall(a, l))), null, 200)
+        : this.laneColumn(t, l, sorted(l).map(card))),
     };
   }
 
@@ -1305,6 +1417,7 @@ export default class CardFile extends View {
     if (this.role === "tab-button") return this.renderTabButton(t);
     if (this.role === "board") return this.renderBoard(t);
     if (this.role === "ticket") return this.renderTicket(t);
+    if (this.role === "call") return this.renderCall(t);
     return this.renderAgents(t);
   }
 }

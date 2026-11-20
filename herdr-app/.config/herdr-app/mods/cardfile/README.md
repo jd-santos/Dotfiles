@@ -16,16 +16,35 @@ tab bar stays unmodified and keeps getting updates.
 
 Each card shows:
 
-1. The agent's title (Claude Code names its session), up to three lines, and
-   its status.
+1. The agent's title (Claude Code names its session), up to three lines, and a
+   mark for where it stands with you (below).
 2. What it reports it is doing now, up to two lines.
-3. Its space and tab, helpers it started, its turn, and how long it has been in
-   this state.
+3. Its space and tab, helpers it started, and its turn.
+
+The sidebar sorts cards in the board's lane order: **Needs you**, **Review**
+with the longest-waiting on top, **Parked**, running agents, then **Done**.
+Parked and Done cards are dimmed and drop the message and turn, because
+you've already made your call.
+
+| Mark | Means |
+| --- | --- |
+| "Needs you" chip | The agent is stuck until you answer. |
+| Filled diamond | Review: it finished a turn you haven't looked at. |
+| Outlined diamond | Review: it finished and you've looked, but haven't decided. |
+| Spinner | It's working. |
+| Bookmark | Parked: you're putting it off, on purpose. |
+| Check | Done: you've accepted the work. |
+
+Click the mark, or right-click the card, to change your call: a small menu
+offers your lanes (**Parked**, **Done**) and **Reopen** to take the call back.
+These marks are your calls, not the agent's own status. Herdr's "done" status
+means the agent finished while you weren't looking, and shows here as the
+filled diamond.
 
 Click a card to focus that agent. **This space** shows the shown space's agents.
-Agents elsewhere that need you or have finished still get a line under
-**Other spaces**. **All** shows every agent. `agent.next` and `agent.prev`
-follow the order on screen.
+Agents elsewhere that need you, or finished a turn you haven't seen, still get
+a line under **Other spaces**. **All** shows every agent. `agent.next` and
+`agent.prev` follow the order on screen.
 
 ## Board
 
@@ -35,22 +54,31 @@ back to the terminals, and so does **×**. Switching spaces keeps the board, so
 you can look through each space's board. It follows the sidebar's **This
 space** / **All** switch.
 
-Some lanes fill themselves from Herdr's statuses. Others hold agents you put
-there: click **Move** on a card and pick a lane, or **Automatic** to undo the
-move. A move holds until the agent starts another turn, because a new turn
-makes the old triage out of date. A `sticky` lane keeps its agents anyway.
-While an agent is working or needs you, it shows in that lane whatever you
-moved it to.
+The lanes hold your call on each agent, not the agent's status, which changes
+every few seconds:
+
+- **Needs you** and **Review** fill themselves: an agent that's blocked, or
+  that finished and that you haven't decided on.
+- **Parked** and **Done** are yours. **Park** and **Done** on a card put it
+  there, and **Reopen** takes your call back. The card's mark opens the same
+  menu as in the sidebar.
+- **Running** is a narrow strip between Parked and Done, for agents at work.
+
+Your call holds while the agent keeps working, until it starts another turn:
+giving it more work means it isn't done anymore. Only "blocked" beats your
+call, because the agent can't go on without you. A `sticky` lane keeps its
+agents even after a new turn.
 
 The lanes are `board` in `cardfile.json`, in board order. A `board` in
 `cardfile.local.json` replaces the whole list.
 
 ```json
 "board": [
-  { "id": "up-next", "label": "Up Next", "auto": "new", "tone": "idle" },
-  { "id": "in-progress", "label": "In Progress", "auto": "working", "tone": "working" },
-  { "id": "review", "label": "Review", "auto": "finished", "tone": "accent" },
-  { "id": "paused", "label": "Paused", "sticky": true, "tone": "muted" }
+  { "id": "needs-you", "label": "Needs you", "auto": "blocked", "tone": "blocked" },
+  { "id": "review", "label": "Review", "auto": "finished", "icon": "review", "tone": "accent" },
+  { "id": "parked", "label": "Parked", "action": "Park", "icon": "parked", "tone": "dim" },
+  { "id": "running", "label": "Running", "auto": ["working", "new"], "tone": "working", "strip": true },
+  { "id": "done", "label": "Done", "action": "Done", "icon": "done", "tone": "done" }
 ]
 ```
 
@@ -58,20 +86,42 @@ The lanes are `board` in `cardfile.json`, in board order. A `board` in
 | --- | --- |
 | `id` | Required. What the label stores. |
 | `label` | The lane's name. |
-| `auto` | Herdr statuses this lane collects, one or a list: `working`, `blocked` (needs you), `new` (idle, never given a turn), `finished` (done or idle, not moved anywhere). |
+| `auto` | Herdr statuses this lane collects, one or a list: `working`, `blocked` (needs you), `new` (idle, never given a turn), `finished` (done or idle, with no call of yours). A lane without `auto` is yours: agents get there only from a button or a label. |
+| `action` | The button that puts an agent in a lane of yours, such as "Park". Defaults to the label. |
+| `icon` | An SVG in this folder, without `.svg`, that marks the lane's cards and header. On a `finished` lane, `<icon>-unseen.svg` marks a turn you haven't seen. |
+| `strip` | Draw the lane as a narrow column of one-line rows. |
 | `sticky` | Keep agents moved here after they start another turn. |
-| `tone` | The dot's color: `blocked`, `working`, `done`, `idle`, `accent` or `muted`. |
+| `tone` | The mark's color: `blocked`, `working`, `done`, `idle`, `accent`, `muted` or `dim`. |
 
-A move is two labels on the agent's terminal, so it survives restarts, works
+A call is two labels on the agent's terminal, so it survives restarts, works
 for agents on other machines, and can be set from anywhere:
 
 ```sh
-hc label t3 cardfile.lane=review cardfile.turn=6   # until turn 7 starts
-hc label t3 cardfile.lane=review                   # no turn: until changed
-hc label t3 cardfile.lane= cardfile.turn=          # back to automatic
+hc label t3 cardfile.lane=done cardfile.turn=6   # until turn 7 starts
+hc label t3 cardfile.lane=parked                 # no turn: until changed
+hc label t3 cardfile.lane= cardfile.turn=        # take the call back
 ```
 
 An agent can move itself this way, for example from a hook when it stops.
+
+### For agents
+
+Herdr's `done` status means you finished a turn. The board's **Done** lane
+means the work is accepted and needs nothing more from the person. Those are
+different things:
+
+- A sub-agent, or a sibling agent working for another agent, can put itself
+  in Done when its job is finished and its result has been handed back.
+- An agent the person is working with directly leaves its lane alone, unless
+  the person asks it to clean up on their behalf.
+- Use Parked only when the person asks; it records their choice to wait.
+
+```sh
+t=$HC_TERMINAL_ID   # set in every Herdr terminal
+hc label "$t" cardfile.lane=done cardfile.turn="$(hc get "$t" | jq .turn)"
+```
+
+With the turn recorded, Done lapses if someone gives you more work.
 
 ### Board sources
 
