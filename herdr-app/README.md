@@ -85,9 +85,10 @@ remain ordinary Stow-managed files; runtime state does not go through the merger
 sidebar stacks spaces over agent cards, and the side panel to the right of the
 terminals has Files, Changes and Todo as tabs. Switch to it with
 `ctrl-shift-l`. **Board** in the tab bar swaps the terminals for a board of
-agents in lanes you define, such as Up Next, Review and Paused, alongside
-lanes Herdr fills from its own statuses. The `cardfile` mod draws the sidebar,
-the panel tabs, Todo and the board, and `themes/cardfile.json` gives it warm
+agents in lanes by your call on each: Needs you and Review fill themselves,
+Parked and Done are yours, and running agents sit in a narrow strip. The
+`cardfile` mod draws the sidebar, the panel tabs, Todo and the board, and
+`themes/cardfile.json` gives it warm
 grays with a blush accent. Todo cards come from small programs listed in
 `cardfile.json`; the shared list runs
 `~/bin/cardfile-todo` (from the `bin` package), which reads the shown repo's
