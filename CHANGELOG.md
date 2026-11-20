@@ -38,6 +38,8 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 
 ### Changed
 
+- Allow explicitly requested local Pi session-log analysis while keeping raw
+  session content private and run history out of Git.
 - Hold the Pi footer at a fixed height: on narrow terminals its fields drop (cache timer, then output tokens, limits, agents, cost, and the shelf button) instead of wrapping onto more rows, and plugin statuses share the summary row, collapsing to `+n` when they do not fit.
 - Replace Pi's `/costs` widget with the shelf's Usage section, which adds cache reads and writes and counts tool calls from the session branch so the counts survive reload. `/costs` now opens the shelf. The Codex allowance lookup moves from `usage.ts` to the shared `lib/codex-allowance.ts`.
 - Bring a few `shellfish` ideas to the Pi prompt: the context meter marks the 80% automatic compaction point with `┃`, both prompt borders take the accent colour while a run is in progress, each prompt gets a rule labelled with its send time, and each finished run ends with a one-line receipt (`✓ 42s · 3.1k out · 61 t/s · $0.210 · ctx 31%`) instead of a speed notification. Live generation speed moves from the footer into the working spinner, so the footer holds still while a response streams.
@@ -71,6 +73,8 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 
 ### Fixed
 
+- Recognize `/usr/bin/git` in Pi permission policies without false protected-path
+  prompts, while retaining dangerous-command and protected-argument checks.
 - Move the `shellfish` usage-log writers into its hooks module. Newer `claude plugin validate` builds refuse a module that passes `$` into a function imported from another file, so the mod failed validation for anyone on those builds.
 - Stop tracking `lastChangelogVersion` in Pi's settings base so `merge-settings` no longer downgrades the version Pi writes at runtime, and clear the stale machine-local Pi defaults that predate the Codex routing.
 - Use `openai-codex` for Pi's default and OpenAI subagent routes, remove OpenRouter OpenAI models from the shortlist, and add Codex Astra as a selectable model.
