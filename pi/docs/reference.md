@@ -259,14 +259,38 @@ The permission gate allows `write` and `edit` calls in the current working direc
 
 Prompt flow:
 
-1. Show the tool target or command preview.
-2. Let the user allow once, always allow, deny, show or hide the full command, or add a note.
-3. If always allowed, ask for a session scope. The first options are the exact operation, yolo, and all write/edit operations. Tool-specific options follow, with directory options last.
-4. If denied, ask whether the denial should apply once or become a session rule.
+1. Show the tool target or command preview with Allow once selected by default.
+2. Choose Allow once, Enable YOLO for this session, Deny, or More options. Selecting YOLO is the confirmation; there is no second dialog. Enabling it clears granular allow/deny rules, matching `/yolo`.
+3. More options offers Allow for this session or Block for this session. Narrower scopes live here, with one relevant directory and no parent/grandparent ladder. Canceling either picker returns to the main prompt without approving or denying the operation.
+4. Deny and Esc deny once immediately, without another question. Persistent denials require an explicit choice under More options.
+
+In the TUI, hotkeys are local to the open permission prompt:
+
+| Key | Action |
+| --- | --- |
+| `a` | Allow once |
+| `y` | Enable YOLO for this session and allow the pending ordinary operation |
+| `d` | Deny once |
+| `m` | More options |
+| `v` | Show or hide the full bash command |
+| `n` | Add or edit a note to the model |
+| Up / Down | Move the selection |
+| Enter | Activate the selected action; initially Allow once |
+| Esc / Ctrl+C | Deny once |
+
+Navigation honors Pi’s configured `tui.select.*` bindings. Returning from command expansion, notes, or a canceled scope picker restores Allow once as the default. High-risk prompts omit YOLO and More options, and ignore their hotkeys. RPC clients retain ordinary selection dialogs rather than receiving a terminal-only component. Run `/reload` after updating the extension.
+
+Focused validation uses the installed Pi renderer and SDK:
+
+```bash
+node --test pi/.pi/agent/extensions/tests/permission-gate.test.ts pi/.pi/agent/extensions/tests/permission-prompt.test.ts pi/.pi/agent/extensions/tests/permission-prompt-types.test.mjs
+```
+
+The typecheck uses TypeScript from the installed `pi-lens` package when available, without adding repository dependencies. Interaction tests cover keyboard actions, narrower rules, cancellation, notes, RPC fallback, narrow terminal widths, and retained high-risk checks. A live `/reload` smoke test is still useful for terminal-specific behavior.
 
 Writes to protected system paths, destructive or permission-changing shell commands, and remote-execution commands always require an interactive one-time confirmation. They are not covered by yolo or session rules. An executable's absolute location alone does not trigger a protected-path prompt. Known dangerous command names are still checked, and protected absolute paths in command arguments still require confirmation. The built-in Git policy recognizes `git` and `/usr/bin/git`. Sensitive bash reads remain blocked.
 
-The prompt sets the below-editor pointer widget and sends an OSC 777 desktop notification in interactive Ghostty or cmux sessions outside tmux. tmux passthrough is not enabled in this configuration, so Pi uses a contextual fallback: the cmux CLI inside a cmux surface or macOS Notification Center through `osascript` on macOS. Other unsupported platforms have no fallback. Notification failures are ignored.
+The prompt sets a one-line below-editor reminder and sends an OSC 777 desktop notification in interactive Ghostty or cmux sessions outside tmux. tmux passthrough is not enabled in this configuration, so Pi uses a contextual fallback: the cmux CLI inside a cmux surface or macOS Notification Center through `osascript` on macOS. Other unsupported platforms have no fallback. Notification failures are ignored.
 
 OSC 777 has no delivery acknowledgement, so Pi cannot detect notifications suppressed by terminal or OS settings.
 
@@ -286,18 +310,17 @@ Session rules are ephemeral and reset between Pi sessions.
 Allow scopes:
 
 - The exact target or bash command for the current session
-- Everything, which enables yolo mode
 - Both write and edit tool types, regardless of path
 - The current tool type
 - Individual bash executables, such as `rg`
 - All executables in the current bash command
 - Read-only Git inspection
 - All Git operations for the session
-- Current directory, parent directory, or grandparent directory
+- The relevant directory: CWD for bash, or the target file’s containing directory for write/edit, resolved against CWD; the filesystem root is not offered
 
 Deny scopes:
 
-- Current directory, parent directory, or grandparent directory
+- The same relevant directory
 - Current tool type
 - Individual bash command patterns
 - All command patterns in a bash command
@@ -351,7 +374,7 @@ For chained commands, every part must be covered by the static inspection polici
 
 The gate recognizes unquoted `&&`, `||`, `;`, `|`, and newlines. Quoted separators stay inside their command, so inline scripts such as `python -c 'a;b'` no longer produce misleading command scopes.
 
-Commands with multiline shell, command substitution, backticks, redirection outside `/dev/null`, shell grouping, incomplete quoting, or control flow are classified as complex and do not get command-pattern scope options. A multiline chain can still auto-allow when every line independently passes a static inspection policy. Directory, tool, and yolo scopes remain available for other complex commands.
+Commands with multiline shell, command substitution, backticks, redirection outside `/dev/null`, shell grouping, incomplete quoting, or control flow are classified as complex and do not get command-pattern scope options. A multiline chain can still auto-allow when every line independently passes a static inspection policy. Directory and tool scopes remain available under More options for other complex commands; session YOLO remains a main-prompt action.
 
 Safety note: this is a visibility and consent layer, not a sandbox. The scanner is conservative but is not a complete shell parser. Wrapped commands can still obscure their behavior. Pi already has shell access, so the extension's job is to surface risky operations before they run.
 
@@ -903,7 +926,7 @@ The README uses two editable recreations, not live screenshots:
 - [`assets/prompt.svg`](assets/prompt.svg): prompt borders and compact telemetry,
   based on `ui-read-and-shortcuts.ts`, `footer.ts`, and `lib/shell-layout.ts`.
 - [`assets/permission-gate.svg`](assets/permission-gate.svg): an ordinary bash
-  confirmation and its always-allow scope picker, based on `permission-gate.ts`.
+  confirmation with local hotkeys and its narrower allow-scope picker, based on `permission-gate.ts` and `lib/permission-prompt.ts`.
 
 Both use Catppuccin Mocha colors and dummy data. Update affected labels, layout,
 options, colors, alt text, and nearby explanations when UI behavior changes.

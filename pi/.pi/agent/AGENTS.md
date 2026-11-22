@@ -140,7 +140,7 @@ The `permission-gate` extension controls tool access:
 - **`/rules`**: shows active session permission rules (allow/deny rules set during the session).
 - **`/reset-rules`**: clears all session rules and resets to default mode.
 
-**Session rules**: at a prompt, choosing "Always allow" opens a scope picker: the exact operation, yolo, all writes and edits, tool-specific scopes, then directories. Rules reset between sessions.
+**Permission prompts**: `a` allows once (the default), `y` explicitly enables session YOLO, `d` or Esc denies once, and `m` opens narrower session allow/block scopes. `v` toggles the full bash command; `n` adds a note. Hotkeys apply only inside the prompt. More options offers one relevant directory, not parent/grandparent directories. High-risk prompts omit YOLO and persistent permissions. Rules reset between sessions.
 
 ## Auto-Formatting
 

@@ -38,6 +38,7 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 
 ### Changed
 
+- Give Pi permission prompts local hotkeys for allow once, session YOLO, deny once, More options, full-command viewing, and notes. Allow once remains the default, YOLO needs an explicit selection, and risky operations still require one-time approval. Narrower session rules move under More options with one relevant directory instead of parent/grandparent choices; canceling a scope picker no longer approves the pending operation.
 - Allow explicitly requested local Pi session-log analysis while keeping raw
   session content private and run history out of Git.
 - Hold the Pi footer at a fixed height: on narrow terminals its fields drop (cache timer, then output tokens, limits, agents, cost, and the shelf button) instead of wrapping onto more rows, and plugin statuses share the summary row, collapsing to `+n` when they do not fit.

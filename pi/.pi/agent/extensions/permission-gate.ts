@@ -9,7 +9,7 @@
  *
  * Default mode: allows writes and edits inside the working directory, then
  * prompts for other file operations and unrecognized bash commands.
- * Two-step prompt: first choose once/always/deny, then pick the scope.
+ * Prompt-local hotkeys approve once, enable session YOLO, deny, or open narrower rules.
  *
  * Chained bash commands (cd && ls) are split with quote awareness, each part
  * is checked, and all command patterns (cd, ls) are listed in the rule UI.
@@ -21,14 +21,13 @@
  * has full shell access; this extension surfaces risky operations before they run.
  */
 
-/// <reference path="../types.d.ts" />
-
 import { homedir } from "node:os";
-import { basename, isAbsolute, resolve } from "node:path";
+import { basename, dirname, isAbsolute, resolve } from "node:path";
 import type {
 	ExtensionAPI,
 	ExtensionContext,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
+import type { PermissionChoice } from "./lib/permission-prompt.ts";
 
 // Commands with predictable, inspection-only behavior. Commands that can
 // execute another program or mutate through their own arguments are handled by
@@ -670,24 +669,10 @@ export function areBashPartsCovered(
 	);
 }
 
-function parentDir(path: string): string {
-	const normalized = path.replace(/\/+$/, "");
-	const slash = normalized.lastIndexOf("/");
-	if (slash <= 0) return ".";
-	return normalized.slice(0, slash);
-}
-
-function getDirChain(path?: string): string[] {
-	if (!path) return [];
-	const dirs: string[] = [];
-	let d = parentDir(path);
-	for (let i = 0; i < 3 && d && d !== "." && d !== "/"; i++) {
-		dirs.push(d);
-		const next = parentDir(d);
-		if (next === d) break;
-		d = next;
-	}
-	return dirs;
+function getScopeDirectory(path: string | undefined, cwd: string): string | undefined {
+	if (!path) return undefined;
+	const directory = dirname(resolvePath(path, cwd));
+	return directory === "/" ? undefined : directory;
 }
 
 function scopePathForDirectory(dir?: string): string | undefined {
@@ -825,13 +810,11 @@ export default function (pi: ExtensionAPI) {
 	pi.registerCommand("yolo", {
 		description: "Toggle yolo mode — auto-allow ordinary operations",
 		handler: async (_args, ctx) => {
-			yolo = !yolo;
-			if (yolo) {
-				// Wipe session rules before toggling — avoids confusing
-				// overlap between yolo and granular rules.
-				rules = { allow: [], deny: [] };
-				readonly = false;
+			if (!yolo) {
+				enableYolo(ctx);
+				return;
 			}
+			yolo = false;
 			updateStatus(ctx);
 			ctx.ui.notify(
 				yolo
@@ -877,6 +860,14 @@ export default function (pi: ExtensionAPI) {
 			);
 		},
 	});
+
+	function enableYolo(ctx: ExtensionContext) {
+		yolo = true;
+		readonly = false;
+		rules = { allow: [], deny: [] };
+		updateStatus(ctx);
+		ctx.ui.notify("YOLO on for this session. Ordinary operations auto-approve; risky operations still ask.", "info");
+	}
 
 	function updateStatus(ctx: ExtensionContext) {
 		const parts: string[] = [];
@@ -1007,27 +998,9 @@ export default function (pi: ExtensionAPI) {
 		target.push(rule);
 	}
 
-	// ─── Two-step prompt ──────────────────────────────────────────────
+	// ─── Permission prompt ────────────────────────────────────────────
 
 	const PERMISSION_WIDGET_ID = "permission-gate-alert";
-	const PERMISSION_BOX_WIDTH = 56;
-
-	function boxLine(text: string): string {
-		return `│ ${text.slice(0, PERMISSION_BOX_WIDTH - 4).padEnd(PERMISSION_BOX_WIDTH - 4)} │`;
-	}
-
-	function permissionTitleBox(title: string): string {
-		const innerWidth = PERMISSION_BOX_WIDTH - 2;
-		const heading = " 🔔 Permission required 🔔 ";
-		const left = Math.floor((innerWidth - heading.length) / 2);
-		const right = innerWidth - heading.length - left;
-		return [
-			`╭${"─".repeat(left)}${heading}${"─".repeat(right)}╮`,
-			...title.split("\n").map(boxLine),
-			`╰${"─".repeat(innerWidth)}╯`,
-			"",
-		].join("\n");
-	}
 
 	function truncateInline(text: string, limit = 140): string {
 		return text.length > limit ? `${text.slice(0, limit)}…` : text;
@@ -1061,7 +1034,7 @@ export default function (pi: ExtensionAPI) {
 		command?: string,
 		expanded = false,
 	): string {
-		const lines = [permissionTitleBox(title)];
+		const lines = [ctx.ui.theme.fg("accent", "Permission required"), title];
 
 		if (toolName === "bash" && command) {
 			const commands = extractDisplayCommandNames(command);
@@ -1086,11 +1059,7 @@ export default function (pi: ExtensionAPI) {
 	}
 
 	function permissionWidgetLines(_toolName: string): string[] {
-		return [
-			"                 ▲ ▲ ▲",
-			"                 │ │ │",
-			"       Choose in the permission prompt above",
-		];
+		return ["Permission required. Choose an action above."];
 	}
 
 	function showPermissionWidget(ctx: ExtensionContext, toolName: string): void {
@@ -1168,7 +1137,7 @@ export default function (pi: ExtensionAPI) {
 		await sendFallbackNotification(body);
 	}
 
-	async function twoStepPrompt(
+	async function permissionPrompt(
 		ctx: ExtensionContext,
 		title: string,
 		toolName: string,
@@ -1179,7 +1148,6 @@ export default function (pi: ExtensionAPI) {
 		allowPersistentScopes = true,
 	): Promise<{
 		allow: boolean;
-		rule?: PermissionRule;
 		message?: string;
 		expanded?: boolean;
 	}> {
@@ -1190,52 +1158,73 @@ export default function (pi: ExtensionAPI) {
 		let message: string | undefined;
 		let expanded = false;
 
+		// Load the TUI only when prompting so policy helpers stay usable without Pi.
+		const { selectPermissionChoice } = await import("./lib/permission-prompt.ts");
 		while (true) {
-			const noteLabel = message
-				? `✏️  Edit note: “${message.length > 40 ? message.slice(0, 40) + "…" : message}”`
-				: "✏️  Add note…";
-			const toggleLabel =
-				toolName === "bash" && command
-					? expanded
-						? "🙈  Hide full command"
-						: "👁  Show full command"
-					: undefined;
-			const options = ["✅  Allow this once"];
-			if (allowPersistentScopes) options.push("🔁  Always allow…");
-			options.push("🚫  Deny");
-			if (toggleLabel) options.push(toggleLabel);
-			options.push(noteLabel);
-
-			const primaryChoice = await ctx.ui.select(
+			const choices: PermissionChoice[] = [{ value: "once", key: "a", label: "Allow once" }];
+			if (allowPersistentScopes) {
+				choices.push({ value: "yolo", key: "y", label: "Enable YOLO for this session" });
+			}
+			choices.push({ value: "deny", key: "d", label: "Deny" });
+			if (allowPersistentScopes) {
+				choices.push({ value: "more", key: "m", label: "More options…" });
+			}
+			if (toolName === "bash" && command) {
+				choices.push({ value: "view", key: "v", label: expanded ? "Hide full command" : "View full command" });
+			}
+			choices.push({ value: "note", key: "n", label: message ? `Edit note: ${truncateInline(message, 40)}` : "Add note…" });
+			const primaryChoice = await selectPermissionChoice(
+				ctx,
 				permissionPromptTitle(ctx, title, toolName, path, command, expanded),
-				options,
+				choices,
+				allowPersistentScopes
+					? "YOLO auto-approves ordinary operations. Risky operations still ask."
+					: "One-time approval only. Session permissions cannot bypass this check.",
 			);
-
-			if (!primaryChoice || primaryChoice === "🚫  Deny") {
+			if (!primaryChoice || primaryChoice === "deny") {
 				return { allow: false, message, expanded };
 			}
-
-			if (primaryChoice === "✅  Allow this once") {
+			if (primaryChoice === "once") return { allow: true, message, expanded };
+			if (primaryChoice === "yolo" && allowPersistentScopes) {
+				enableYolo(ctx);
 				return { allow: true, message, expanded };
 			}
-
-			if (toggleLabel && primaryChoice === toggleLabel) {
+			if (primaryChoice === "view") {
 				expanded = !expanded;
 				continue;
 			}
-
-			if (primaryChoice === noteLabel) {
-				const input = await ctx.ui.input(
-					permissionTitleBox("Note to model (optional)"),
-					"denial reason, or guidance for the model…",
-				);
-				message = input || undefined;
+			if (primaryChoice === "note") {
+				const input = await ctx.ui.input("Note to model (optional)", "denial reason, or guidance for the model…");
+				if (input !== undefined) message = input || undefined;
 				continue;
 			}
-
-			break;
+			if (primaryChoice !== "more" || !allowPersistentScopes) continue;
+			const advanced = await ctx.ui.select("Session permissions", [
+				"Allow for this session…",
+				"Block for this session…",
+				"Back",
+			]);
+			if (advanced === "Allow for this session…") {
+				if (await allowSessionScope(ctx, toolName, path, patterns, command, operationSignature, expanded)) {
+					return { allow: true, message, expanded };
+				}
+			} else if (advanced === "Block for this session…") {
+				if (await denyPrompt(ctx, toolName, path, patterns, command, expanded)) {
+					return { allow: false, message, expanded };
+				}
+			}
 		}
+	}
 
+	async function allowSessionScope(
+		ctx: ExtensionContext,
+		toolName: string,
+		path?: string,
+		patterns?: string[],
+		command?: string,
+		operationSignature?: string,
+		expanded = false,
+	): Promise<boolean> {
 		const isBash = toolName === "bash";
 		const scopeOptions: {
 			label: string;
@@ -1257,10 +1246,6 @@ export default function (pi: ExtensionAPI) {
 			});
 		}
 
-		scopeOptions.push({
-			label: "⚡ Everything (full yolo)",
-			rules: [{ type: "yolo" }],
-		});
 		scopeOptions.push({
 			label: "✍️  All write + edit operations",
 			rules: [
@@ -1305,24 +1290,18 @@ export default function (pi: ExtensionAPI) {
 			}
 		}
 
-		const dirChain = getDirChain(path);
-		const dirIcons = ["📁", "📂", "📂📂"];
-		const dirLabels = [
-			"This directory",
-			"Parent directory",
-			"Grandparent directory",
-		];
-		for (let i = 0; i < dirChain.length; i++) {
+		const directory = getScopeDirectory(path, ctx.cwd);
+		if (directory) {
 			scopeOptions.push({
-				label: `${dirIcons[i]} ${dirLabels[i]} (${dirChain[i]}/)`,
-				rules: [{ type: "directory", prefix: dirChain[i] }],
+				label: `📁 This directory (${directory}/)`,
+				rules: [{ type: "directory", prefix: directory }],
 			});
 		}
 
 		const scopeChoice = await ctx.ui.select(
 			permissionPromptTitle(
 				ctx,
-				"Scope for always allow:",
+				"Allow for this session:",
 				toolName,
 				path,
 				command,
@@ -1331,13 +1310,12 @@ export default function (pi: ExtensionAPI) {
 			scopeOptions.map((o) => o.label),
 		);
 
-		if (!scopeChoice) return { allow: true, message };
+		if (!scopeChoice) return false;
 
 		const selected = scopeOptions.find((o) => o.label === scopeChoice);
 		if (selected) {
 			for (const rule of selected.rules) {
-				if (rule.type === "yolo") yolo = true;
-				else pushRule(rules.allow, rule);
+				pushRule(rules.allow, rule);
 			}
 			const notifyLabel =
 				selected.notifyLabel ??
@@ -1348,7 +1326,7 @@ export default function (pi: ExtensionAPI) {
 			updateStatus(ctx);
 		}
 
-		return { allow: true, message: message || undefined, expanded };
+		return Boolean(selected);
 	}
 
 	async function confirmHighRisk(
@@ -1360,7 +1338,7 @@ export default function (pi: ExtensionAPI) {
 		operationSignature?: string,
 	): Promise<{ allow: boolean; message?: string }> {
 		if (!ctx.hasUI) return { allow: false };
-		const result = await twoStepPrompt(
+		const result = await permissionPrompt(
 			ctx,
 			`High-risk operation requires confirmation:\n${reason}`,
 			toolName,
@@ -1381,17 +1359,11 @@ export default function (pi: ExtensionAPI) {
 		patterns?: string[],
 		command?: string,
 		expanded = false,
-	): Promise<void> {
-		if (!ctx.hasUI) return;
+	): Promise<boolean> {
+		if (!ctx.hasUI) return false;
 
-		const scopeOptions: string[] = ["Just this once"];
-		const dirChain = getDirChain(path);
-		const dirIcons = ["📁", "📂", "📂📂"];
-		const dirLabels = [
-			"This directory",
-			"Parent directory",
-			"Grandparent directory",
-		];
+		const scopeOptions: string[] = ["Back"];
+		const directory = getScopeDirectory(path, ctx.cwd);
 
 		if (toolName === "bash" && patterns && patterns.length > 0) {
 			for (const p of patterns) {
@@ -1403,11 +1375,7 @@ export default function (pi: ExtensionAPI) {
 		}
 
 		scopeOptions.push(`🔧 This tool type (${toolName})`);
-		for (let i = 0; i < dirChain.length; i++) {
-			scopeOptions.push(`${dirIcons[i]} ${dirLabels[i]} (${dirChain[i]}/)`);
-		}
-
-		await announce(ctx, toolName);
+		if (directory) scopeOptions.push(`📁 This directory (${directory}/)`);
 
 		const scopeChoice = await ctx.ui.select(
 			permissionPromptTitle(
@@ -1421,23 +1389,20 @@ export default function (pi: ExtensionAPI) {
 			scopeOptions,
 		);
 
-		if (!scopeChoice || scopeChoice === "Just this once") return;
+		if (!scopeChoice || scopeChoice === "Back") return false;
 
 		if (scopeChoice === `🔧 This tool type (${toolName})`) {
 			pushRule(rules.deny, { type: "tool", tool: toolName });
 			ctx.ui.notify(`🔴 ${toolName} (tool) — blocked from now on.`, "warning");
 			updateStatus(ctx);
-			return;
+			return true;
 		}
 
-		// Directory deny
-		for (let i = 0; i < dirChain.length; i++) {
-			if (scopeChoice === `${dirIcons[i]} ${dirLabels[i]} (${dirChain[i]}/)`) {
-				pushRule(rules.deny, { type: "directory", prefix: dirChain[i] });
-				ctx.ui.notify(`🔴 ${dirChain[i]}/ (dir) — blocked from now on.`, "warning");
-				updateStatus(ctx);
-				return;
-			}
+		if (directory && scopeChoice === `📁 This directory (${directory}/)`) {
+			pushRule(rules.deny, { type: "directory", prefix: directory });
+			ctx.ui.notify(`🔴 ${directory}/ (dir) blocked for this session.`, "warning");
+			updateStatus(ctx);
+			return true;
 		}
 
 		// Pattern deny
@@ -1447,7 +1412,7 @@ export default function (pi: ExtensionAPI) {
 					pushRule(rules.deny, makePatternRule(p));
 					ctx.ui.notify(`🔴 ${p} (pattern) — blocked from now on.`, "warning");
 					updateStatus(ctx);
-					return;
+					return true;
 				}
 			}
 			if (
@@ -1459,9 +1424,10 @@ export default function (pi: ExtensionAPI) {
 				}
 				ctx.ui.notify(`🔴 All patterns — blocked from now on.`, "warning");
 				updateStatus(ctx);
-				return;
+				return true;
 			}
 		}
+		return false;
 	}
 
 	// ─── Tool call handler ────────────────────────────────────────────
@@ -1526,7 +1492,7 @@ export default function (pi: ExtensionAPI) {
 			}
 			if (!ctx.hasUI) return undefined;
 
-			const result = await twoStepPrompt(
+			const result = await permissionPrompt(
 				ctx,
 				`Allow ${toolName}?`,
 				toolName,
@@ -1537,14 +1503,6 @@ export default function (pi: ExtensionAPI) {
 			);
 
 			if (!result.allow) {
-				await denyPrompt(
-					ctx,
-					toolName,
-					path,
-					undefined,
-					undefined,
-					result.expanded,
-				);
 				clearPermissionWidget(ctx);
 				const reason = result.message
 					? `Blocked by user: ${result.message}`
@@ -1654,7 +1612,7 @@ export default function (pi: ExtensionAPI) {
 			if (check.decision === "allow") return undefined;
 			if (!ctx.hasUI) return undefined;
 
-			const result = await twoStepPrompt(
+			const result = await permissionPrompt(
 				ctx,
 				"Allow bash command?",
 				toolName,
@@ -1665,14 +1623,6 @@ export default function (pi: ExtensionAPI) {
 			);
 
 			if (!result.allow) {
-				await denyPrompt(
-					ctx,
-					toolName,
-					bashDirectoryPath,
-					scopeablePatterns,
-					command,
-					result.expanded,
-				);
 				clearPermissionWidget(ctx);
 				const reason = result.message
 					? `Blocked by user: ${result.message}`

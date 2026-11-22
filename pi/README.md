@@ -53,13 +53,15 @@ Catppuccin Mocha is the default. Latte, Frappé, Macchiato, Dracula, and the qui
 
 ## The permission gate
 
-![Two-step permission gate recreation: first choose allow once, always allow, deny, expand the command, or add a note; then choose the scope of an always-allow rule.](docs/assets/permission-gate.svg)
+![Permission gate recreation with local hotkeys for allow once, session YOLO, deny, and More options, plus a narrower session-scope picker.](docs/assets/permission-gate.svg)
 
-*Recreation with an example command. The second panel shows the scope picker after choosing “Always allow…”. Icons and spacing vary by terminal.*
+*Recreation with an example command. The second panel shows More options → Allow for this session. Icons and spacing vary by terminal.*
 
 The default isn't “ask before everything.” Writes and edits inside the working directory and recognized inspection commands can run without a prompt. Changes outside that directory, unrecognized commands, and risky operations need attention.
 
-At a prompt, I can allow once, allow for a chosen session scope, deny, inspect the full command, or send a note back to the agent. Scope choices start with the exact operation, then yolo and broader tool rules, with directory rules last. Rules reset between sessions.
+At a TUI permission prompt, `a` allows once, `y` enables YOLO for this session, `d` denies once, and `m` opens More options. Selecting YOLO is the confirmation, with no second dialog. `v` toggles the full bash command and `n` adds a note. Arrow keys and Enter also work, with Allow once selected by default; Esc denies once. These hotkeys apply only while the permission prompt is open.
+
+More options keeps narrower session allow/block rules available, with just the relevant directory instead of a parent-directory ladder. Canceling a scope picker returns to the main prompt without approving anything. Rules reset between sessions. Run `/reload` to load the updated gate.
 
 | Command | Effect |
 | --- | --- |

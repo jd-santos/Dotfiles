@@ -9,7 +9,7 @@
   - [x] Avoid pattern-scope options for heredocs and other complex bash commands
   - [x] Make deny rules block immediately instead of falling through to another prompt
   - [x] Smoke test longer complex bash command handling in helper logic
-  - [ ] Smoke test Python and heredoc bash prompts in Pi
+  - [ ] Smoke test Python/heredoc bash prompts and permission hotkeys in Pi after `/reload`
   - [x] Polish permission-gate prompt layout and add full-command toggle
   - [x] Add combined write + edit allow scope for write/edit prompts
   - [x] Analyze recent Pi bash tool calls without loading conversation content
