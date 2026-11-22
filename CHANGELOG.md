@@ -81,7 +81,7 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 - Use `openai-codex` for Pi's default and OpenAI subagent routes, remove OpenRouter OpenAI models from the shortlist, and add Codex Astra as a selectable model.
 - Pin `pi-subagents` to `0.78.0` for the upstream background-startup fix on Pi hosts that no longer ship `chord`.
 - Stow the `claude` package from `scripts/bootstrap` and the README install lists, and sync stale Pi permission, zsh, and shellfish docs with current behavior.
-- Ignore Pi Lens runtime state in the Stow package while keeping its shared config tracked.
+- Exclude Pi Lens runtime state from individual Stow links while deploying its shared config. A missing `~/.pi-lens/config.json` link leaves the diagnostics widget visible until the config is deployed and Pi restarts.
 - Enable 1Password desktop prompts for Pi launched in Herdr on macOS unless
   explicitly overridden.
 - Fall back to the Anthropic summary model when a Codex conversation-summary request fails, not only when Codex is unconfigured, and warn once per session when it happens.

@@ -26,3 +26,6 @@ _darcs
 ^docs$
 ^todo$
 ^\.stow-local-ignore$
+
+# Lens runtime state is machine-local. Deploy only the tracked global config.
+^/\.pi-lens/(?!config\.json$).+
