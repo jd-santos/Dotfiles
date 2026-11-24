@@ -10,7 +10,9 @@
  * built-in Last turn, Context, and Usage sections through the same contract.
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { truncateToWidth } from "@earendil-works/pi-tui";
+import { ShelfDetail, drawerLayout, shelfHeight, type ShelfHit } from "./lib/shelf-view.ts";
+export { renderDrawer, sectionHeading, shelfHeight } from "./lib/shelf-view.ts";
 import { COMPACT_AT_PERCENT } from "./lib/compaction.ts";
 import {
 	latestAssistantModel,
@@ -36,115 +38,12 @@ import {
 	formatCount,
 	formatMoney,
 	packRows,
-	type ThemeLike,
 } from "./lib/shell-layout.ts";
 import { TURN_ENTRY, formatElapsed, type TurnReceipt } from "./tps-tracker.ts";
 
 const DISPLAY_ENTRY = "shelf-display";
 const WIDGET_KEY = "shelf";
 export const SHELF_SHORTCUT = "alt+s";
-/** Share of the terminal the drawer may take, and its floor in rows. */
-const HEIGHT_SHARE = 0.4;
-const MIN_HEIGHT = 4;
-const INDENT = "  ";
-
-export function shelfHeight(rows: number | undefined): number {
-	const total = Number.isFinite(rows) && rows > 0 ? rows : 24;
-	return Math.max(MIN_HEIGHT, Math.floor(total * HEIGHT_SHARE));
-}
-
-/** `Title ──────── headline`, fitted to `width`. The headline drops before the title truncates. */
-export function sectionHeading(
-	theme: ThemeLike,
-	title: string,
-	headline: string | undefined,
-	width: number,
-): string {
-	if (width <= 0) return "";
-	const name = truncateToWidth(title, width, "…");
-	const styledName = theme.fg("mdHeading", theme.bold(name));
-	let right = headline ? ` ${headline}` : "";
-	// Keep at least a short rule between the title and the headline.
-	if (right && visibleWidth(name) + 4 + visibleWidth(right) > width) {
-		right = ` ${truncateToWidth(headline!, Math.max(0, width - visibleWidth(name) - 5), "…")}`;
-		if (visibleWidth(right) <= 1) right = "";
-	}
-	const fill = Math.max(0, width - visibleWidth(name) - 1 - visibleWidth(right));
-	const rule = fill > 0 ? ` ${theme.fg("border", "─".repeat(fill))}` : "";
-	return truncateToWidth(styledName + rule + right, width, "");
-}
-
-function safeHeadline(section: ShelfSection, theme: ThemeLike): string | undefined {
-	try {
-		return section.headline?.(theme) || undefined;
-	} catch {
-		return theme.fg("error", "error");
-	}
-}
-
-function safeBody(section: ShelfSection, theme: ThemeLike, width: number): string[] {
-	try {
-		const lines = section.render(width, theme);
-		return Array.isArray(lines) ? lines.map((line) => truncateToWidth(String(line), width, "…")) : [];
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		return [truncateToWidth(theme.fg("error", `section failed: ${message}`), width, "…")];
-	}
-}
-
-/**
- * Every section as a heading plus its body, within `maxLines`. When the drawer
- * is too short, headings stay and body lines are shared out round-robin in
- * section order; a cut section ends with `… +n more`.
- */
-export function renderDrawer(
-	sections: Iterable<ShelfSection>,
-	width: number,
-	theme: ThemeLike,
-	maxLines: number,
-): string[] {
-	if (width <= 0 || maxLines <= 0) return [];
-	const ordered = [...sections].sort((a, b) => a.order - b.order);
-	if (!ordered.length) {
-		return [truncateToWidth(theme.fg("dim", `${INDENT}The shelf is empty.`), width, "")];
-	}
-	const bodyWidth = Math.max(0, width - INDENT.length);
-	const blocks = ordered.map((section) => ({
-		heading: sectionHeading(theme, section.title, safeHeadline(section, theme), width),
-		body: bodyWidth > 0 ? safeBody(section, theme, bodyWidth) : [],
-	}));
-	const indent = (line: string) => truncateToWidth(INDENT + line, width, "");
-	const total = blocks.reduce((sum, block) => sum + 1 + block.body.length, 0);
-	if (total <= maxLines) return blocks.flatMap((block) => [block.heading, ...block.body.map(indent)]);
-
-	if (blocks.length >= maxLines) {
-		const shown = blocks.slice(0, Math.max(1, maxLines - 1)).map((block) => block.heading);
-		const hidden = blocks.length - shown.length;
-		if (hidden > 0) shown.push(truncateToWidth(theme.fg("dim", `${INDENT}… +${hidden} more sections`), width, ""));
-		return shown.slice(0, maxLines);
-	}
-	let budget = maxLines - blocks.length;
-	const allowed = blocks.map(() => 0);
-	while (budget > 0) {
-		let gave = false;
-		for (let index = 0; index < blocks.length && budget > 0; index++) {
-			if (allowed[index] < blocks[index].body.length) {
-				allowed[index]++;
-				budget--;
-				gave = true;
-			}
-		}
-		if (!gave) break;
-	}
-	return blocks.flatMap((block, index) => {
-		const shown = block.body.slice(0, allowed[index]).map(indent);
-		const hidden = block.body.length - allowed[index];
-		if (hidden > 0 && shown.length) {
-			shown[shown.length - 1] = indent(theme.fg("dim", `… +${hidden + 1} more`));
-		}
-		return [block.heading, ...shown];
-	});
-}
 
 function percentColor(percent: number): string {
 	return percent >= 80 ? "error" : percent >= 50 ? "warning" : "syntaxOperator";
@@ -249,9 +148,34 @@ export default function (pi: ExtensionAPI) {
 	let tui: { requestRender(): void; terminal?: { rows?: number } } | undefined;
 	const sections = new Map<string, ShelfSection>();
 	let cleanups: Array<() => void> = [];
+	let detail: ShelfDetail | undefined;
+	let detailTui: { requestRender(): void } | undefined;
+	let detailDone: (() => void) | undefined;
+	let detailPending = false;
 
 	const publishState = () => pi.events.emit(SHELF_STATE, { open });
-	const redraw = () => tui?.requestRender();
+	const redraw = () => { tui?.requestRender(); detailTui?.requestRender(); };
+	const showDetails = async (id?: string) => {
+		if (!ctx || ctx.mode !== "tui") {
+			ctx?.ui.notify("Shelf detail requires an interactive terminal", "info");
+			return;
+		}
+		if (detailPending) { if (id) detail?.select(id); return; }
+		detailPending = true;
+		try {
+			await ctx.ui.custom((nextTui, theme, keybindings, done) => {
+				detailTui = nextTui;
+				detailDone = () => done(undefined);
+				detail = new ShelfDetail(() => sections.values(), nextTui, theme, detailDone, keybindings, id);
+				return detail;
+			}, { overlay: true, overlayOptions: { width: "90%", maxHeight: "80%", anchor: "center" } });
+		} finally {
+			detail = undefined;
+			detailTui = undefined;
+			detailDone = undefined;
+			detailPending = false;
+		}
+	};
 
 	const mount = () => {
 		if (!ctx?.hasUI) return;
@@ -263,9 +187,20 @@ export default function (pi: ExtensionAPI) {
 			WIDGET_KEY,
 			(nextTui, theme) => {
 				tui = nextTui;
+				let hits: ShelfHit[] = [];
 				return {
-					render: (width: number) =>
-						renderDrawer(sections.values(), width, theme, shelfHeight(nextTui.terminal?.rows)),
+					render(width: number) {
+						const layout = drawerLayout(sections.values(), width, theme, shelfHeight(nextTui.terminal?.rows));
+						hits = layout.hits;
+						return layout.lines;
+					},
+					handleMouse(event) {
+						if (event.type !== "click" || event.button !== "left") return undefined;
+						const hit = hits.find((hit) => event.x >= hit.x && event.x < hit.x + hit.width && event.y >= hit.y && event.y < hit.y + hit.height);
+						if (!hit) return undefined;
+						void showDetails(hit.id).catch((error) => ctx?.ui.notify(`Shelf detail failed: ${error.message}`, "error"));
+						return { handled: true };
+					},
 					invalidate() {},
 					dispose() {
 						if (tui === nextTui) tui = undefined;
@@ -285,14 +220,20 @@ export default function (pi: ExtensionAPI) {
 	};
 
 	pi.registerCommand("shelf", {
-		description: "Open or close the shelf below the editor (open | close)",
+		description: "Toggle the shelf, choose open | close, or browse details [section-id]",
 		handler: async (args) => {
 			const mode = args.trim();
-			if (mode && mode !== "open" && mode !== "close") {
-				ctx?.ui.notify("Usage: /shelf [open|close]", "info");
+			if (!mode || mode === "open" || mode === "close") {
+				setOpen(mode ? mode === "open" : !open);
 				return;
 			}
-			setOpen(mode ? mode === "open" : !open);
+			const explicit = mode === "details" || mode.startsWith("details ");
+			const id = explicit ? mode.slice("details".length).trim() : mode;
+			if ((explicit && !id) || sections.has(id)) {
+				await showDetails(id || undefined);
+				return;
+			}
+			ctx?.ui.notify(`Usage: /shelf [open|close|details [section-id]|${[...sections.keys()].join("|")}]`, "info");
 		},
 	});
 
@@ -343,6 +284,7 @@ export default function (pi: ExtensionAPI) {
 	}
 
 	pi.on("session_shutdown", () => {
+		detailDone?.();
 		for (const cleanup of cleanups) cleanup();
 		cleanups = [];
 		sections.clear();

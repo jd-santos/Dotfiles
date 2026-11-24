@@ -37,6 +37,8 @@
 
 ## P4: Low
 
+- [ ] [Make the Pi shelf responsive and deploy the hidden Lens widget config](work/pi-responsive-shelf/README.md) [context: medium]
+
 - [ ] [Pi side questions with `/btw`](work/pi-btw/README.md) [context: medium]
 
 - [ ] Keep personal `todo/` tracking from conflicting with work task systems [context: small]

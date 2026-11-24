@@ -29,9 +29,15 @@ const contract = await jiti.import(file("../lib/shelf.ts"));
 const allowance = await jiti.import(file("../lib/codex-allowance.ts"));
 const footerModule = await jiti.import(file("../footer.ts"));
 const shelfModule = await jiti.import(file("../shelf.ts"));
+const shelfView = await jiti.import(file("../lib/shelf-view.ts"));
 const limitsModule = await jiti.import(file("../codex-limits.ts"));
 const { Theme } = await import(join(piDir, "dist/index.js"));
-const { visibleWidth } = await import(tuiPath);
+const { visibleWidth, matchesKey } = await import(tuiPath);
+const keybindings = {
+	matches(data: string, action: string) {
+		return matchesKey(data, { "tui.select.cancel": "escape", "tui.select.up": "up", "tui.select.down": "down" }[action]);
+	},
+};
 
 function makeTheme(name = "catppuccin-mocha") {
 	const json = JSON.parse(readFileSync(file(`../../themes/${name}.json`), "utf8"));
@@ -58,6 +64,10 @@ function harness(
 	const notices: Array<{ text: string; level: string }> = [];
 	const widgets = new Map<string, { component: any; placement?: string }>();
 	let footer: any;
+	let detail: any;
+	let detailOptions: any;
+	let customCalls = 0;
+	let renders = 0;
 	const events = {
 		on(name: string, callback: (value: any) => void) {
 			if (!listeners.has(name)) listeners.set(name, new Set());
@@ -85,7 +95,7 @@ function harness(
 			entries.push({ type: "custom", customType, data });
 		},
 	};
-	const tui = { requestRender() {}, terminal: { rows } };
+	const tui = { requestRender() { renders++; }, terminal: { rows } };
 	const data = {
 		getGitBranch: () => "feat/pi-shelf",
 		getExtensionStatuses: () => statuses,
@@ -93,12 +103,20 @@ function harness(
 	};
 	const ctx = {
 		cwd: "/workspace/Dotfiles",
+		mode: "tui",
 		hasUI: true,
 		model: { id: "gpt-6.1-sol", provider, contextWindow: 128000 },
 		getContextUsage: () => ({ tokens: 48640, percent: 38, contextWindow: 128000 }),
 		sessionManager: { getBranch: () => entries },
 		ui: {
 			theme,
+			custom(factory: any, options: any) {
+				customCalls++;
+				detailOptions = options;
+				return new Promise((resolve) => {
+					detail = factory(tui, theme, keybindings, (value: any) => { detail = undefined; resolve(value); });
+				});
+			},
 			setStatus(name: string, text: string | undefined) {
 				if (text === undefined) statuses.delete(name);
 				else statuses.set(name, text);
@@ -126,6 +144,11 @@ function harness(
 		pi,
 		ctx,
 		theme,
+		tui,
+		get detail() { return detail; },
+		get detailOptions() { return detailOptions; },
+		get customCalls() { return customCalls; },
+		get renders() { return renders; },
 		statuses,
 		entries,
 		notices,
@@ -138,6 +161,14 @@ function harness(
 		get footer() {
 			return footer;
 		},
+		async detailText(id: string, width = 100) {
+			const pending = commands.get("shelf").handler(id, ctx);
+			assert.ok(detail, "detail opens synchronously");
+			const text = detail.render(width).map(layout.plain).join("\n");
+			detail.handleInput("\x1b");
+			await pending;
+			return text;
+		},
 		shelf(width = 80): string[] | undefined {
 			return widgets.get("shelf")?.component.render(width);
 		},
@@ -145,7 +176,8 @@ function harness(
 }
 
 const headings = (lines: string[]) =>
-	lines.map(layout.plain).filter((line) => / ─+/.test(line)).map((line) => line.split(" ")[0] + (line.startsWith("Last turn") ? " turn" : ""));
+	lines.map(layout.plain).filter((line) => !line.startsWith("/shelf"))
+		.map((line) => /^(Agents|Last turn|Context|Cache|Usage|Long|Limits)\b/.exec(line)?.[1]).filter(Boolean);
 
 test("the shelf starts closed and toggles from /shelf, the shortcut, the event, and the footer button", async () => {
 	const h = harness();
@@ -270,14 +302,15 @@ test("built-in sections show the last turn, context, and usage with tool counts"
 	assert.match(text, /compacts at 80% \(102k\)/);
 	assert.match(text, /^Usage ─+ \$0\.250$/m);
 	assert.match(text, /in 1\.2k .*out 300 .*cache read 5\.0k .*cache write 100/);
-	assert.match(text, /tools +bash 2 +read 1/);
+	assert.match(await h.detailText("usage"), /tools +bash 2 +read 1/);
 	await h.emit("session_shutdown");
 });
 
-test("the drawer is capped to a share of the terminal and keeps every heading", async () => {
+test("the drawer limits its height, preserves previews, and offers reachable overflow", async () => {
 	assert.equal(shelfModule.shelfHeight(24), 9);
-	assert.equal(shelfModule.shelfHeight(60), 24);
-	assert.equal(shelfModule.shelfHeight(5), 4);
+	assert.equal(shelfModule.shelfHeight(60), 12);
+	assert.equal(shelfModule.shelfHeight(5), 0);
+	assert.equal(shelfModule.shelfHeight(10), 2);
 	assert.equal(shelfModule.shelfHeight(undefined), 9);
 
 	const h = harness(undefined, { rows: 24 });
@@ -292,7 +325,9 @@ test("the drawer is capped to a share of the terminal and keeps every heading", 
 	const lines = h.shelf(80)!;
 	assert.equal(lines.length, 9);
 	assert.deepEqual(headings(lines), ["Long", "Last turn", "Context", "Usage"]);
-	assert.match(lines.map(layout.plain).join("\n"), /… \+\d+ more/);
+	assert.match(lines.map(layout.plain).join("\n"), /line 0/);
+	assert.doesNotMatch(lines.map(layout.plain).join("\n"), /… \+\d+ more/);
+	assert.match(lines.map(layout.plain).join("\n"), /\/shelf details/);
 
 	const many = Array.from({ length: 12 }, (_, index) => ({
 		id: `s${index}`,
@@ -302,7 +337,7 @@ test("the drawer is capped to a share of the terminal and keeps every heading", 
 	}));
 	const cut = shelfModule.renderDrawer(many, 40, h.theme, 5);
 	assert.equal(cut.length, 5);
-	assert.match(layout.plain(cut.at(-1)), /\+8 more sections/);
+	assert.match(layout.plain(cut.at(-1)), /\/shelf details · \+8 sections/);
 	await h.emit("session_shutdown");
 });
 
@@ -400,8 +435,9 @@ test("Codex limits show in the footer and shelf, refresh at most every five minu
 	const shelf = h.shelf(100)!.map(layout.plain).join("\n");
 	assert.match(shelf, /^Limits ─+ 7d 34%$/m);
 	assert.match(shelf, /5h +[█░]+ +12% +resets \d\d:\d\d \(in 3h 00m\)/);
-	assert.match(shelf, /7d +[█░]+ +34% +resets \w{3} \d\d:\d\d \(in 4d\)/);
-	assert.match(shelf, /plan plus · checked just now/);
+	const detail = await h.detailText("limits");
+	assert.match(detail, /7d +[█░]+ +34% +resets \w{3} \d\d:\d\d \(in 4d\)/);
+	assert.match(detail, /plan plus · checked just now/);
 
 	// Turn ends inside the five-minute cache do not refetch.
 	fiveHour = 85;
@@ -433,6 +469,163 @@ test("Codex limits show in the footer and shelf, refresh at most every five minu
 	assert.doesNotMatch(h.shelf(100)!.map(layout.plain).join("\n"), /^Limits/m);
 	await h.emit("session_shutdown");
 	allowance.resetCodexAllowanceCache();
+});
+
+test("six sections keep useful figures at 24 rows and reflow into two columns", () => {
+	const theme = makeTheme();
+	const sections = Array.from({ length: 6 }, (_, index) => ({
+		id: `section-${index}`, title: `Section ${index}`, order: index,
+		headline: () => `value ${index}`,
+		render: () => [`preview ${index}`, `extra ${index}`, "third line"],
+	}));
+	const narrow = shelfView.drawerLayout(sections, 80, theme, shelfModule.shelfHeight(24));
+	for (let index = 0; index < 6; index++) assert.ok(narrow.lines.some((line: string) => layout.plain(line).includes(`value ${index}`)));
+	assert.match(narrow.lines.map(layout.plain).join("\n"), /preview 0/);
+	assert.doesNotMatch(narrow.lines.map(layout.plain).join("\n"), /more$/m);
+	const wide = shelfView.drawerLayout(sections, 120, theme, 9);
+	assert.match(layout.plain(wide.lines[0]), /Section 0 .*value 0 .*Section 1 .*value 1/);
+	assert.equal(wide.hits[0].y, wide.hits[1].y);
+	assert.ok(wide.hits[1].x > 0);
+	assert.match(wide.lines.map(layout.plain).join("\n"), /preview 5/);
+	for (let rows = 1; rows <= 60; rows++) {
+		for (const width of [1, 2, 20, 40, 80, 109, 110, 111, 120, 200]) {
+			const cap = shelfModule.shelfHeight(rows);
+			const result = shelfView.drawerLayout(sections, width, theme, cap);
+			assert.ok(result.lines.length <= cap, `${width}x${rows}: height`);
+			assert.ok(result.lines.every((line: string) => visibleWidth(line) <= width), `${width}x${rows}: width`);
+			for (const hit of result.hits) assert.ok(hit.y + hit.height <= result.lines.length, "hit within rendered rows");
+		}
+	}
+});
+
+test("detail scrolls every line, changes sections, clamps after resize, and handles mouse input", () => {
+	const theme = makeTheme();
+	const tui = { terminal: { rows: 24 }, requestRender() {} };
+	let closed = false;
+	const sections = [
+		{ id: "long", title: "Long", order: 0, render: () => Array.from({ length: 100 }, (_, index) => `line ${index}`) },
+		{ id: "other", title: "项目👩‍💻", order: 1, render: () => ["second section"] },
+	];
+	const detail = new shelfView.ShelfDetail(() => sections, tui, theme, () => { closed = true; }, keybindings, "long");
+	const text = (width = 80) => detail.render(width).map(layout.plain).join("\n");
+	assert.match(text(), /line 0\n/);
+	detail.handleInput("\x1b[B");
+	assert.doesNotMatch(text(), /^line 0$/m);
+	assert.match(text(), /^line 1$/m);
+	detail.handleInput("\x1b[6~");
+	assert.match(text(), /^line 18$/m);
+	detail.handleInput("\x1b[5~");
+	assert.match(text(), /^line 1$/m);
+	detail.handleInput("\x1b[F");
+	assert.match(text(), /^line 99$/m);
+	assert.match(text(), /84-100\/100/);
+	tui.terminal.rows = 60;
+	assert.match(text(), /55-100\/100/);
+	detail.handleInput("\x1b[H");
+	assert.match(text(), /^line 0$/m);
+	detail.handleMouse({ type: "wheel", wheelDelta: 3 });
+	assert.match(text(), /^line 3$/m);
+	detail.handleInput("\x1b[C");
+	assert.match(text(), /second section/);
+	detail.handleInput("\x1b[D");
+	assert.match(text(), /^line 0$/m);
+	detail.handleInput("\t");
+	assert.match(text(), /second section/);
+	detail.handleInput("\x1b[Z");
+	assert.match(text(), /^line 0$/m);
+	text(120);
+	detail.handleMouse({ type: "click", button: "left", x: 2, y: 2 });
+	assert.match(text(120), /second section/);
+	sections.pop();
+	assert.match(text(), /^line 0$/m, "removing selected section falls back safely");
+	for (const rows of [1, 2, 3, 4, 5, 10, 24, 60]) {
+		tui.terminal.rows = rows;
+		for (const width of [1, 2, 5, 20, 40, 99, 100, 120]) {
+			const lines = detail.render(width);
+			assert.ok(lines.length <= Math.max(1, Math.floor(rows * 0.8)), `${width}x${rows}: height`);
+			assert.ok(lines.every((line: string) => visibleWidth(line) <= width), `${width}x${rows}: width`);
+		}
+	}
+	sections.length = 0;
+	tui.terminal.rows = 24;
+	assert.match(text(), /No sections registered/);
+	detail.handleInput("\x1b");
+	assert.ok(closed);
+});
+
+test("detail commands and overview clicks preserve the drawer and clean up on shutdown", async () => {
+	const h = harness();
+	await h.emit("session_start");
+	const pending = h.commands.get("shelf").handler("context", h.ctx);
+	assert.ok(h.detail);
+	assert.equal(h.shelf(), undefined, "detail does not change drawer persistence");
+	assert.equal(h.detailOptions.overlay, true);
+	assert.match(h.detail.render(80).map(layout.plain).join("\n"), /Shelf · Context/);
+	await h.commands.get("shelf").handler("usage", h.ctx);
+	assert.equal(h.customCalls, 1, "only one detail overlay opens");
+	assert.match(h.detail.render(80).map(layout.plain).join("\n"), /Shelf · Usage/);
+	const renders = h.renders;
+	contract.refreshShelf(h.pi);
+	assert.ok(h.renders > renders, "closed drawer still refreshes open detail");
+	h.detail.handleInput("\x1b");
+	await pending;
+	await h.commands.get("shelf").handler("open", h.ctx);
+	h.shelf(80);
+	assert.deepEqual(h.widgets.get("shelf")!.component.handleMouse({ type: "click", button: "left", x: 2, y: 0 }), { handled: true });
+	assert.match(h.detail.render(80).map(layout.plain).join("\n"), /Shelf · Last turn/);
+	await h.emit("session_shutdown");
+	await tick();
+	assert.equal(h.detail, undefined);
+	assert.equal(h.shelf(), undefined);
+	await h.emit("session_start");
+	assert.ok(h.shelf(), "drawer remains open after resume");
+	await h.commands.get("shelf").handler("unknown", h.ctx);
+	assert.match(h.notices.at(-1)!.text, /Usage: \/shelf/);
+	h.ctx.mode = "rpc";
+	await h.commands.get("shelf").handler("details", h.ctx);
+	assert.match(h.notices.at(-1)!.text, /interactive terminal/);
+	assert.equal(h.detail, undefined);
+	await h.emit("session_shutdown");
+});
+
+test("section ids cannot shadow drawer controls and remain reachable through explicit detail", async () => {
+	const h = harness();
+	await h.emit("session_start");
+	for (const id of ["open", "close", "details"]) {
+		contract.registerShelfSection(h.pi, { id, title: `Section ${id}`, order: 99, render: () => [`body ${id}`] });
+	}
+	await h.commands.get("shelf").handler("open", h.ctx);
+	assert.ok(h.shelf());
+	assert.equal(h.detail, undefined);
+	await h.commands.get("shelf").handler("close", h.ctx);
+	assert.equal(h.shelf(), undefined);
+	assert.equal(h.detail, undefined);
+	for (const id of ["open", "close", "details"]) {
+		assert.match(await h.detailText(`details ${id}`), new RegExp(`body ${id}`));
+	}
+	await h.commands.get("shelf").handler("details missing", h.ctx);
+	assert.equal(h.detail, undefined);
+	assert.match(h.notices.at(-1)!.text, /Usage: \/shelf/);
+	await h.emit("session_shutdown");
+});
+
+test("detail isolates section failures and rebuilds themed output", () => {
+	const h = harness();
+	let body = "first";
+	const sections = [
+		{ id: "bad", title: "Bad", order: 0, headline() { throw new Error("heading"); }, render() { throw new Error("body"); } },
+		{ id: "ok", title: "Okay", order: 1, render: () => [body] },
+	];
+	let tint = "A";
+	const theme = { fg: (_color: string, text: string) => `${tint}${text}`, bold: (text: string) => text };
+	const detail = new shelfView.ShelfDetail(() => sections, h.tui, theme, () => {}, keybindings);
+	assert.match(detail.render(80).join("\n"), /section failed: body/);
+	detail.select("ok");
+	body = "updated";
+	tint = "B";
+	detail.invalidate();
+	assert.match(detail.render(80)[0], /^BShelf/);
+	assert.match(detail.render(80).join("\n"), /updated/);
 });
 
 test("limit colours change at 50% and 80%, and failures read unavailable", () => {

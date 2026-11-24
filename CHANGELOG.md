@@ -38,6 +38,7 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 
 ### Changed
 
+- Make the Pi shelf adapt to terminal width and height: two columns on wide screens, compact figures on short ones, and scrollable section detail through `/shelf details` or `/shelf <section-id>`. Hidden body lines remain reachable without expanding the drawer over the transcript.
 - Give Pi permission prompts local hotkeys for allow once, session YOLO, deny once, More options, full-command viewing, and notes. Allow once remains the default, YOLO needs an explicit selection, and risky operations still require one-time approval. Narrower session rules move under More options with one relevant directory instead of parent/grandparent choices; canceling a scope picker no longer approves the pending operation.
 - Allow explicitly requested local Pi session-log analysis while keeping raw
   session content private and run history out of Git.

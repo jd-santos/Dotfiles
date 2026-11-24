@@ -28,4 +28,5 @@ _darcs
 ^\.stow-local-ignore$
 
 # Lens runtime state is machine-local. Deploy only the tracked global config.
+# Stow prepends '/' when matching patterns that contain a slash.
 ^/\.pi-lens/(?!config\.json$).+

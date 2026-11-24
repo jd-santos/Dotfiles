@@ -34,9 +34,13 @@ The top border answers **where am I working, on which branch, and with what perm
 
 ## The shelf
 
-`shelf ▸` at the right of the footer opens a drawer below the editor; `/shelf` and `Option+s` do the same, and the footer button reads `shelf ▾` while it is open. Clicking anywhere else on the footer's first row also opens it. The drawer stays open or closed across reload and resume, and takes at most 40% of the terminal's height.
+`shelf ▸` at the right of the footer opens a drawer below the editor; `/shelf` and `Option+s` do the same, and the footer button reads `shelf ▾` while it is open. Clicking anywhere else on the footer's first row also opens it. The drawer stays open or closed across reload and resume. It uses at most 40% of the terminal's height, capped at 12 rows, and leaves eight rows for the rest of the shell.
 
-Each section starts with a ruled heading and its headline figure at the right (`Context ──────── 38%`):
+At 110 columns and wider, sections form two columns. Shorter screens show compact headline figures instead of mostly headings and overflow notices; spare rows show up to two preview lines per section.
+
+Use `/shelf details` for full detail, or `/shelf cache` to go directly to a section. `/shelf details <section-id>` also works, including ids named `open`, `close`, or `details`. Left/right or Tab switches sections; up/down, Page Up/Down, and Home/End scroll. Esc returns to the editor. In fullscreen, clicking an overview section opens it, and the detail view supports wheel scrolling. Wide detail views include a clickable section list.
+
+The overview previews these sections; their complete bodies remain available in the detail view:
 
 | Section | Shows |
 | --- | --- |
@@ -139,6 +143,7 @@ The permission commands are listed above. These are the other everyday entry poi
 | `/btw [--last [N]] question` | Ask a side question without steering the main agent; bare `--last` selects one exchange |
 | `/lg [--staged\|--all]` | Unstaged + untracked changes by default; optionally staged or all changes against `HEAD` |
 | `/shelf [open\|close]`, `Option+s` | Open or close the shelf; `/costs` also opens it |
+| `/shelf details [section-id]`, `/shelf <section-id>` | Scrollable detail; for example `/shelf cache` or `/shelf agents` |
 | `/usage` | Cross-session usage report |
 | `/subagents-fleet` | Inspect, steer, or stop child runs |
 | `/subagents-doctor`, `/subagents-models [agent]` | Check the runtime or role-to-model mapping |
@@ -171,7 +176,7 @@ Formatters need to be on `PATH`. Xcode MCP needs Xcode; Svelte MCP needs `npx`. 
 
 Run `merge-settings` after pulling changes, editing settings or MCP inputs, or updating Pi packages. Shared settings take precedence over stale local copies; put intentional machine-specific replacements under `localOverrides` in `settings.local.json`. If a stowed base-file link is missing, the script uses the repo copy. It also patches installed manifests that still list Pi's host-provided `typebox` under `dependencies`.
 
-Restart Pi for changes to launch-time environment or package versions; `/reload` handles extension changes. Lens's diagnostics widget is hidden by the tracked `.pi-lens/config.json`; `/lens-widget-toggle` shows it for the current session without disabling Lens tools.
+Restart Pi for changes to launch-time environment or package versions; `/reload` handles extension changes. Lens's diagnostics widget is hidden by the tracked `.pi-lens/config.json`; `/lens-widget-toggle` shows it for the current session without disabling Lens tools. If it still appears after a restart, check that `~/.pi-lens/config.json` links to the tracked config. Pi's Stow ignore rules exclude other Lens runtime files from individual deployment.
 
 The shared default is `openai-codex/gpt-6.1-sol` with medium thinking. Astra (`openai-codex/gpt-6-astra`) is also in the shortlist. OpenAI models use Codex, not OpenRouter. `Ctrl+P` cycles the configured shortlist; `/model` shows the full catalog. A resumed session can restore its old model: use `/new` or `pi --no-session` to start with the configured default. [Model list and wrapper behavior](docs/reference.md#settings)
 

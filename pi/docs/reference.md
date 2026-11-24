@@ -693,13 +693,18 @@ removed when the footer is disposed. Shared rendering helpers live in
 Pi places below-editor widgets, including the shelf and Lens, between the editor and footer.
 The tracked global Pi Lens config hides the Lens widget by default without
 uninstalling the package or disabling its tools. `/lens-widget-toggle` can show
-it for the current session. The directory and branch are part of the editor's
+it for the current session. The footer separately filters the `pi-lens-lsp`
+status key. If the widget still appears after restarting, check the
+`~/.pi-lens/config.json` link: a tracked file that has not been deployed cannot
+change Lens's default. `pi/.stow-local-ignore` excludes Lens runtime artifacts
+other than `config.json` from individual Stow links; existing runtime files
+remain untouched. The directory and branch are part of the editor's
 own top border, so widgets cannot separate them from the prompt or its model
 border.
 
 ## Shelf
 
-Location: `.pi/agent/extensions/shelf.ts`; section contract in `.pi/agent/extensions/lib/shelf.ts`
+Location: `.pi/agent/extensions/shelf.ts`; section contract in `.pi/agent/extensions/lib/shelf.ts`; responsive layout and detail component in `.pi/agent/extensions/lib/shelf-view.ts`
 
 A drawer below the editor, closed by default. It is a `belowEditor` widget that exists only while open.
 
@@ -707,13 +712,26 @@ A drawer below the editor, closed by default. It is a `belowEditor` widget that 
 | --- | --- |
 | `/shelf` | Toggle |
 | `/shelf open`, `/shelf close` | Open or close |
+| `/shelf details [section-id]` | Open scrollable section detail without changing the drawer's open state; optionally select a section |
+| `/shelf <section-id>` | Open that section directly, for example `/shelf cache` |
+| Overview section / hint | Open section detail / the first section (fullscreen mouse) |
 | `Option+s` (`alt+s`) | Toggle. Not a Pi default, and tmux here does not bind `M-s`. |
 | Footer `shelf ▸` / `shelf ▾` | Toggle (fullscreen mouse) |
 | `/costs` | Open. Kept for the retired cost tracker, whose figures now live in the Usage section. |
 
-The open state is stored as a `shelf-display` custom session entry (`{ open }`) and restored on reload or resume. The drawer takes at most 40% of the terminal's rows, and never fewer than 4. When the sections need more, every heading stays and body lines are shared out one at a time in section order; a cut section ends with `… +n more`. When there are more sections than rows, the last row reads `… +n more sections`.
+The open state is stored as a `shelf-display` custom session entry (`{ open }`) and restored on reload or resume. The overview budget is the smallest of 40% of terminal rows, 12 rows, and terminal rows minus eight. Below nine terminal rows the overview renders no lines, leaving the remaining shell alone; commands still work.
 
-Each section is drawn as a ruled heading with its headline figure at the right (`Agents ──── ● 2 running`), then its body indented two columns. The headline drops before the title is truncated. A section that throws shows `section failed: …` instead of breaking the drawer.
+At 110 columns the overview switches from one column to two, ordered left to right, then top to bottom. One row is reserved for `/shelf details`. Each section gets up to three rows: a ruled heading with its headline figure, then up to two indented previews. When only one row fits, it shows the title and headline (or first nonempty body line) without a rule. Extra preview rows go to earlier sections. Preview data is never replaced with a `more` notice. If even compact sections do not all fit, the hint reports the number omitted; every section remains reachable through detail.
+
+The detail overlay takes 90% of terminal width and up to 80% of terminal height. It uses native `HStack` layout and `ScrollView` navigation state. Because Pi's overlay renderer supplies width rather than a bounded layout viewport, the component supplies the height budget and slices the scroll viewport itself. At 100 columns of overlay width and five rows of overlay height, a section list appears beside the body. Narrower layouts show the selected section in the header instead.
+
+- Left/right, Tab, and Shift+Tab cycle sections, resetting scroll to the top.
+- Up/down scroll one row; Page Up/Down and Space scroll a page; Home/End go to the start/end.
+- Esc closes detail and restores editor input. Opening detail does not persist a new drawer state.
+- In fullscreen, the wheel scrolls, section-list entries select a section, and clicking the header advances to the next section. All navigation is also available by keyboard in regular mode.
+- A row range shows the current scroll position. Resizing clamps the position to the new content bounds; refresh events update an open detail view even while the overview is closed.
+
+Section render errors show `section failed: …` instead of breaking either view. Removing the selected section falls back to the first remaining section. Session shutdown closes the overlay and removes listeners.
 
 Sections, by order:
 
@@ -746,6 +764,8 @@ pi.on("session_start", () => {
 refreshShelf(pi);
 pi.on("session_shutdown", () => unregister?.());
 ```
+
+The command words `open`, `close`, and `details` take precedence over section-id shortcuts. Sections with those ids remain accessible through `/shelf details <section-id>` and the detail navigator.
 
 Every body line must fit in `width`; the drawer truncates defensively. Registering the same `id` again replaces the section. Sections can register before or after the drawer loads: the drawer asks for them again (`SHELF_SECTION_REQUEST`) when a session starts. `refreshShelf` only requests a render, and the drawer has no renderer while closed, so frequent refreshes cost nothing when it is shut.
 
