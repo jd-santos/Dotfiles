@@ -16,10 +16,23 @@ tab bar stays unmodified and keeps getting updates.
 
 Each card shows:
 
-1. The agent's title (Claude Code names its session), up to three lines, and a
-   mark for where it stands with you (below).
+1. A 20px agent logo beside its title (Claude Code names its session), up to
+   three lines, and a mark for where it stands with you (below). A title that
+   only repeats the agent's name is hidden when its logo is available.
 2. What it reports it is doing now, up to two lines.
 3. Its space and tab, helpers it started, and its turn.
+
+Pi cards use the generated conversation short title, not Pi's terminal title
+(`Pi - …`). The `herdr-jd.ts` Pi extension publishes it to the Core terminal's
+`pi.title` label as JSON with `title` and `expiresAt`. Manual `/summary <text>`
+overrides it; `/summary clear` removes it. Missing, invalid or expired labels
+show **Awaiting summary**. Other agents keep their own session titles. The same
+selection applies to the board and compact agent rows.
+
+After updating the Pi bridge, run `/reload` in each running Pi session to
+publish its stored title. No new summary-model call is needed. The label expires
+six hours after publication and is removed on graceful shutdown; a new run
+renews it. Lifecycle status reports are unchanged.
 
 The sidebar sorts cards in the board's lane order: **Needs you**, **Review**
 with the longest-waiting on top, **Parked**, running agents, then **Done**.

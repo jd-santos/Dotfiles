@@ -7,6 +7,9 @@
  * unit tested with node:test.
  */
 
+export const SUMMARY_UPDATED_EVENT = "conversation-summary:updated";
+export const APP_TITLE_LABEL = "pi.title";
+export const TITLE_TTL_MS = 6 * 60 * 60 * 1000;
 export const MAX_AGENT_TITLE_CHARS = 80;
 export const MAX_SUMMARY_CHARS = 120;
 
@@ -63,6 +66,20 @@ export function parseSummaryResponse(raw: unknown): {
 		...(title ? { title } : {}),
 		...(summary ? { summary } : {}),
 	};
+}
+
+export function latestConversationTitle(entries: readonly any[]): string | undefined {
+	for (let index = entries.length - 1; index >= 0; index -= 1) {
+		const entry = entries[index];
+		if (entry?.type !== "custom" || entry.customType !== "conversation-summary") continue;
+		const data = entry.data ?? {};
+		if (data.source === "manual-clear") return undefined;
+		for (const value of [data.title, data.summary]) {
+			if (typeof value === "string" && value.trim()) return value.trim();
+		}
+		return undefined;
+	}
+	return undefined;
 }
 
 export function formatForkSuffix(parentTitle: unknown): string {

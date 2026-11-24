@@ -1,6 +1,6 @@
 # Herdr JD bridge and agent titles
 
-Status: Merged. The bridge shipped in [PR #35](https://github.com/jd-santos/Dotfiles/pull/35) and the sidebar layout follow-up in [PR #36](https://github.com/jd-santos/Dotfiles/pull/36). Only the live two-row layout check remains.
+Status: App title-label follow-up implemented and reviewed; live Pi reload and visual verification remain. The legacy TUI bridge shipped in [PR #35](https://github.com/jd-santos/Dotfiles/pull/35) and the sidebar layout follow-up in [PR #36](https://github.com/jd-santos/Dotfiles/pull/36).
 
 ## Purpose
 
@@ -11,7 +11,7 @@ agent.
 Herdr identifies an agent by the pane that hosts it, so the transport is pane
 metadata, but the value is tracked on the agent record and rendered per agent.
 
-## Decisions
+## Legacy TUI decisions
 
 - `herdr-jd.ts` is the general bridge. It reports display-only pane metadata and
   can carry more small exports later.
@@ -31,6 +31,20 @@ metadata, but the value is tracked on the agent record and rendered per agent.
   title.
 - `--source herdr:jd` keeps the title token separate from lifecycle reports.
 
+## Herdr App follow-up
+
+Focused change [context: medium]. Keep the legacy TUI transport intact. In a
+Core terminal, publish the generated short title through a namespaced terminal
+label, with a six-hour expiry. Card File reads that value instead of Pi's generic
+terminal title. Keep the larger logo, location and turn information.
+
+- [x] Publish stored, generated and manual titles to the calling Core terminal
+- [x] Clear on `/summary clear`, session replacement and shutdown; serialize writes
+- [x] Use the summary title across Card File's sidebar, board and compact rows
+- [x] Test transport, ordering, clearing, expiry and non-Pi fallbacks
+- [x] Sync Pi and Card File documentation and run correctness/design reviews
+- [ ] Reload Pi and visually verify a generated title in Herdr App
+
 ## Work
 
 - [x] Add `lib/herdr-title.ts` pure helpers with unit tests.
@@ -44,7 +58,15 @@ metadata, but the value is tracked on the agent record and rendered per agent.
 - [x] Update tests and docs, and verify the config.
 - [ ] Restart Pi and reload Herdr to check the live two-row layout.
 
-## Validation
+## App validation
+
+- 24 focused tests passed: `node --test pi/.pi/agent/extensions/tests/herdr-title.test.ts pi/.pi/agent/extensions/tests/herdr-bridge.test.ts bin/tests/cardfile-agent-title.test.mjs`.
+- `herdr-app check herdr-app/.config/herdr-app/mods/cardfile` passed; scoped `git diff --check` passed.
+- Active LSP probes reported no findings in the changed Pi bridge, summary, helper and test paths, with three paths inconclusive. Card File has existing strict-JavaScript diagnostics; a compiler comparison against HEAD found 446 baseline and 446 current diagnostics, with no new diagnostic identities.
+- Fresh correctness review found no issues. Design review identified the stale status sentence above, now corrected.
+- Existing Stow paths resolve to the edited Pi source. Run `/reload` in each running Pi session to restore its stored short title. No new summary-model call is required. Live rendering has not been verified.
+
+## Legacy TUI validation
 
 - `node --test pi/.pi/agent/extensions/tests/herdr-title.test.ts`: 9 pass, 0 fail after moving the glyph.
 - `herdr config check`: `config: ok`.

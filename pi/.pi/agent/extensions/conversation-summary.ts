@@ -22,7 +22,7 @@ import type {
 	ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 
-import { parseSummaryResponse } from "./lib/herdr-title.ts";
+import { SUMMARY_UPDATED_EVENT, parseSummaryResponse } from "./lib/herdr-title.ts";
 
 const SUMMARY_ENTRY_TYPE = "conversation-summary";
 const SUMMARY_STATUS_KEY = "conv-summary";
@@ -423,6 +423,7 @@ export default function (pi: ExtensionAPI) {
 					generatedAt: Date.now(),
 					automaticSummaryCount,
 				});
+				pi.events.emit(SUMMARY_UPDATED_EVENT);
 				saveCurrentSummaryAsSessionName();
 				if (ctx.hasUI) ctx.ui.setStatus(SUMMARY_STATUS_KEY, summary);
 				return;
@@ -533,6 +534,7 @@ export default function (pi: ExtensionAPI) {
 					source: "manual-clear",
 					automaticSummaryCount,
 				});
+				pi.events.emit(SUMMARY_UPDATED_EVENT);
 				if (ctx.hasUI) {
 					ctx.ui.setStatus(SUMMARY_STATUS_KEY, "(awaiting next exchange)");
 					ctx.ui.notify("Summary cleared", "info");
@@ -548,6 +550,7 @@ export default function (pi: ExtensionAPI) {
 					source: "manual",
 					automaticSummaryCount,
 				});
+				pi.events.emit(SUMMARY_UPDATED_EVENT);
 				saveCurrentSummaryAsSessionName();
 				if (ctx.hasUI) {
 					ctx.ui.setStatus(SUMMARY_STATUS_KEY, currentSummary);

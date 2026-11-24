@@ -74,6 +74,7 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 
 ### Fixed
 
+- Show Pi's generated conversation titles in Herdr App's Card File instead of generic terminal titles. Put a larger agent logo beside the title, keep location and turn info in the footer, and update or clear titles with `/summary`. Existing Pi sessions need `/reload` to publish their stored titles.
 - Recognize `/usr/bin/git` in Pi permission policies without false protected-path
   prompts, while retaining dangerous-command and protected-argument checks.
 - Move the `shellfish` usage-log writers into its hooks module. Newer `claude plugin validate` builds refuse a module that passes `$` into a function imported from another file, so the mod failed validation for anyone on those builds.

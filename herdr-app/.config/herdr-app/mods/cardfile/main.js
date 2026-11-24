@@ -250,6 +250,26 @@ const showBoard = (on) => run("layout.select", { stack: "center", child: on ? "b
 const clean = (s) => (s ?? "").replace(/^[^\p{L}\p{N}\p{Ps}\p{Pi}]+/u, "").trim();
 const clip = (s, n) => (s && s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s);
 
+// Pi's terminal title is generic. Its summary bridge publishes a separate,
+// expiring display label; every agent view uses this same selection rule.
+/**
+ * @param {{ app?: string | null, program?: { key?: string, name?: string }, title?: string, tab_name: string, address: string }} a
+ * @param {Record<string, any> | undefined} term
+ * @param {number} now
+ */
+function agentTitle(a, term, now) {
+  if (a.app === "pi" || a.program?.key === "pi") {
+    try {
+      const value = JSON.parse(term?.labels?.["pi.title"] ?? "null");
+      if (typeof value?.title === "string" && value.title.trim() && Number.isFinite(value.expiresAt) && value.expiresAt > now) {
+        return value.title.trim().slice(0, 80);
+      }
+    } catch { /* A missing or invalid label is not a session title. */ }
+    return "Awaiting summary";
+  }
+  return clean(a.title) || (/^\d+$/.test(a.tab_name) ? a.program?.name : a.tab_name) || a.address;
+}
+
 function duration(ms) {
   const m = Math.floor(ms / 60000);
   if (m < 1) return "now";
@@ -434,10 +454,11 @@ export default class CardFile extends View {
     const mine = isMine(lane); // you've made your call, so the agent's progress is beside the point
     const report = term?.report;
     const msg = typeof report === "object" ? report?.msg : null;
-    const name = clean(a.title) || (/^\d+$/.test(a.tab_name) ? a.program?.name : a.tab_name) || a.address;
+    const name = agentTitle(a, term, now);
     const helpers = kids.get(a.address) ?? 0;
     const where = [a.space_name, /^\d+$/.test(a.tab_name) ? `tab ${a.tab_name}` : a.tab_name].filter(Boolean).join(" · ");
-    const pic = icon(a.program, 13, t.muted);
+    const pic = icon(a.program, 20, t.muted);
+    const redundantName = pic && (name.toLowerCase() === a.program?.name?.trim().toLowerCase() || /^(pi|π)$/i.test(name));
     // The mark is also the way to change your call: click it, or right-click the card.
     const mark = h_flex().id(`mk-${a.address}`).flex_none().h(21).min_w(21).px(4).rounded(5).items_center().justify_center()
       .cursor_pointer().hover((s) => s.bg(t.hover)).tooltip(callTip(lane, a))
@@ -453,13 +474,13 @@ export default class CardFile extends View {
       onMenu: () => this.openCall(a, lane),
       top: true,
       head: [
+        pic ? h_flex().h(21).items_center().flex_none().child(pic) : null,
         div().flex_1().min_w(0).max_h(63).overflow_hidden().text_size(13).font_medium()
-          .text_color((mine || a.status === "idle") && !a.focused ? t.muted : t.foreground).child(clip(name, chars)),
+          .text_color((mine || a.status === "idle") && !a.focused ? t.muted : t.foreground).child(redundantName ? "" : clip(name, chars)),
         mark,
-      ],
+      ].filter(Boolean),
       lines: !mine && msg && msg !== name ? [msg] : [],
       foot: [
-        pic,
         div().flex_1().min_w(0).truncate().child(where),
         !mine && helpers ? div().flex_none().child(`${helpers} helper${helpers > 1 ? "s" : ""}`) : null,
         !mine && term?.turn ? div().flex_none().child(`turn ${term.turn}`) : null,
@@ -608,7 +629,7 @@ export default class CardFile extends View {
     const rows = [];
     if (elsewhere.length) {
       rows.push(...this.section(t, "elsewhere", "Other spaces", elsewhere.length, elsewhere.map((a) =>
-        this.agentRow(t, a, `${a.space_name} · ${clean(a.title) || a.tab_name}`, () => run("pane.focus", { pane: a.pane }),
+        this.agentRow(t, a, `${a.space_name} · ${agentTitle(a, byAddress.get(a.address), now)}`, () => run("pane.focus", { pane: a.pane }),
           () => this.openCall(a, laneAt.get(a.address))))));
     }
     const agentBody = here.length
@@ -1236,7 +1257,7 @@ export default class CardFile extends View {
       error: this.error,
       controls: [this.scopeToggle(t, scope)],
       lanes: lanes.map((l) => l.strip
-        ? this.laneColumn(t, l, sorted(l).map((a) => this.agentRow(t, a, clean(a.title) || a.tab_name, go(a), () => this.openCall(a, l))), null, 200)
+        ? this.laneColumn(t, l, sorted(l).map((a) => this.agentRow(t, a, agentTitle(a, byAddress.get(a.address), now), go(a), () => this.openCall(a, l))), null, 200)
         : this.laneColumn(t, l, sorted(l).map(card))),
     };
   }

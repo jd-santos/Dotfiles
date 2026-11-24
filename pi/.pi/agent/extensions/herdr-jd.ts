@@ -3,39 +3,64 @@
 /**
  * Herdr bridge.
  *
- * Publishes small pieces of Pi state as display-only Herdr pane metadata. The
- * first export is the conversation short title, shown on the Herdr Agent
- * sidebar row. Herdr tracks the value on the agent that owns the pane.
+ * Publishes the conversation short title as a Core terminal label for Herdr
+ * App's Card File, or pane metadata for the legacy Herdr TUI. Lifecycle reports
+ * and the terminal's own title are left alone.
  *
  * The generated `herdr-agent-state.ts` integration is Herdr-managed and is
  * overwritten on integration updates, so this bridge lives beside it.
  */
-import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
 
-import { composeAgentTitle } from "./lib/herdr-title.ts";
+import {
+	APP_TITLE_LABEL,
+	SUMMARY_UPDATED_EVENT,
+	TITLE_TTL_MS,
+	composeAgentTitle,
+	latestConversationTitle,
+} from "./lib/herdr-title.ts";
 
 const SUMMARY_ENTRY_TYPE = "conversation-summary";
 const TOKEN_NAME = "title";
 const GLYPH_TOKEN_NAME = "pi_glyph";
 const SOURCE = "herdr:jd";
-const TTL_MS = 6 * 60 * 60 * 1000;
 
 export default function (pi) {
-	const enabled = process.env.HERDR_ENV === "1";
+	const terminalId = process.env.HC_TERMINAL_ID;
 	const paneId = process.env.HERDR_PANE_ID;
-	const bin = process.env.HERDR_BIN_PATH;
-	if (!enabled || !paneId || !bin) return;
+	const legacyBin = process.env.HERDR_BIN_PATH;
+	const legacy = process.env.HERDR_ENV === "1" && paneId && legacyBin;
+	if (!terminalId && !legacy) return;
 
 	let parentTitle;
 	let parentResolved = false;
+	let currentContext;
+	let warned = false;
+	let pending = Promise.resolve();
 
+	// Keep writes ordered, including clear-before-reload. Never launch a shell.
 	function run(args) {
-		execFile(bin, args, () => {});
+		const ctx = currentContext;
+		pending = pending.then(async () => {
+			try {
+				const result = await pi.exec(terminalId ? "hc" : legacyBin, args, {
+					timeout: 2000,
+					maxBuffer: 8192,
+				});
+				if (result.code !== 0) throw new Error("Title publish failed");
+			} catch {
+				if (ctx && currentContext === ctx && !warned) {
+					warned = true;
+					ctx.ui.notify("Herdr title could not be updated; check hc is on PATH", "warning");
+				}
+			}
+		});
+		return pending;
 	}
 
 	function clear() {
-		run([
+		if (terminalId) return run(["label", terminalId, `${APP_TITLE_LABEL}=`]);
+		return run([
 			"pane",
 			"report-metadata",
 			paneId,
@@ -49,10 +74,14 @@ export default function (pi) {
 	}
 
 	function publish(text) {
+		if (terminalId) {
+			const value = text ? JSON.stringify({ title: text, expiresAt: Date.now() + TITLE_TTL_MS }) : "";
+			return run(["label", terminalId, `${APP_TITLE_LABEL}=${value}`]);
+		}
 		const titleArgs = text
 			? ["--token", `${TOKEN_NAME}=${text}`]
 			: ["--clear-token", TOKEN_NAME];
-		run([
+		return run([
 			"pane",
 			"report-metadata",
 			paneId,
@@ -62,28 +91,13 @@ export default function (pi) {
 			`${GLYPH_TOKEN_NAME}=π`,
 			...titleArgs,
 			"--ttl-ms",
-			String(TTL_MS),
+			String(TITLE_TTL_MS),
 		]);
 	}
 
 	function latestTitle(ctx) {
 		try {
-			const entries = ctx.sessionManager.getEntries() ?? [];
-			for (let index = entries.length - 1; index >= 0; index -= 1) {
-				const entry = entries[index];
-				if (
-					entry?.type !== "custom" ||
-					entry.customType !== SUMMARY_ENTRY_TYPE
-				) {
-					continue;
-				}
-				const data = entry.data ?? {};
-				if (data.source === "manual-clear") return undefined;
-				if (typeof data.title === "string" && data.title) return data.title;
-				if (typeof data.summary === "string" && data.summary)
-					return data.summary;
-				return undefined;
-			}
+			return latestConversationTitle(ctx.sessionManager.getBranch() ?? []);
 		} catch {
 			// Fall through to no title.
 		}
@@ -130,8 +144,7 @@ export default function (pi) {
 	function refresh(ctx, force = false) {
 		const title = latestTitle(ctx);
 		if (!title) {
-			publish(undefined);
-			return;
+			return publish(undefined);
 		}
 
 		if (force || !parentResolved) {
@@ -139,7 +152,7 @@ export default function (pi) {
 			parentResolved = true;
 		}
 
-		publish(
+		return publish(
 			composeAgentTitle({
 				title,
 				parentTitle,
@@ -148,16 +161,30 @@ export default function (pi) {
 	}
 
 	pi.on("session_start", (_event, ctx) => {
+		// Non-interactive children inherit Core's terminal ID but do not own its card.
+		if (ctx.mode !== "tui") return;
+		currentContext = ctx;
+		warned = false;
 		parentTitle = undefined;
 		parentResolved = false;
-		refresh(ctx, true);
+		return refresh(ctx, true);
 	});
 
-	pi.on("session_info_changed", (_event, ctx) => {
-		refresh(ctx);
+	for (const event of ["session_info_changed", "session_tree", "agent_start"]) {
+		pi.on(event, (_event, ctx) => {
+			if (currentContext) return refresh(ctx);
+		});
+	}
+
+	const unsubscribe = pi.events.on(SUMMARY_UPDATED_EVENT, () => {
+		if (currentContext) void refresh(currentContext);
 	});
 
 	pi.on("session_shutdown", () => {
-		clear();
+		unsubscribe();
+		if (!currentContext) return;
+		const cleared = clear();
+		currentContext = undefined;
+		return cleared;
 	});
 }

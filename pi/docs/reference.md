@@ -556,15 +556,21 @@ Summary state is stored as custom session entries so resumed sessions can restor
 
 Location: `.pi/agent/extensions/herdr-jd.ts`
 
-Publishes small display-only values to Herdr as pane metadata. The first export is the conversation short title, shown on the Herdr Agent sidebar row. Herdr tracks the value on the agent that owns the pane, so the title follows the agent rather than the tab.
+Publishes the generated conversation short title independently of Pi's generic terminal title. It uses the active branch's latest `conversation-summary` entry, preferring its short `title` and falling back to its `summary` for manual overrides and older entries. Forked sessions append `↳ <parent title>`. Display titles are capped at 80 characters.
 
-- Source id `herdr:jd`, tokens `pi_glyph` and `title`, 6 hour TTL.
-- `pi_glyph` is `π` after the location; `title` is the unprefixed conversation title, trimmed on a word boundary to 80 characters. Herdr may truncate the title row at the sidebar edge.
-- Forked sessions append `↳ <parent title>`, read from the parent session in the session header.
-- Re-reported when the session name changes, and cleared on shutdown.
-- No-op outside a Herdr pane, gated on `HERDR_ENV`, `HERDR_PANE_ID`, and `HERDR_BIN_PATH`.
+### Herdr App / Core
 
-Herdr shows it through `[ui.sidebar.agents.rows_by_agent]` in `herdr/.config/herdr/config.toml`:
+Inside an interactive Pi session with `HC_TERMINAL_ID`, the bridge runs `hc label <terminal> pi.title=<JSON>` without a shell. The JSON holds `title` and `expiresAt` (six hours from publication). It leaves lifecycle reports and the terminal title alone. Card File uses this label for full cards and compact rows, with a 20px logo on full cards. Missing, invalid or expired labels show **Awaiting summary**, not `Pi - …`.
+
+Stored titles are restored on startup, resume and `/reload`. Generated and manual summary updates publish immediately through `conversation-summary:updated`, even if the session name did not change. `/summary clear` and shutdown remove the label; `/tree` refreshes from the active branch. Starting another run renews the expiry. Writes are serialized so a late update cannot overwrite shutdown's clear. A transport failure warns once per session without interrupting Pi.
+
+After updating the extension, run `/reload` in each already-running Pi session. The summary model does not need to run again for stored titles. Print, JSON and RPC children do not publish, even if they inherit the terminal ID. Remote sessions publish through their own machine's `hc`; Card File reads the labels delivered with that terminal.
+
+### Legacy Herdr TUI
+
+Without a Core terminal ID, the original pane metadata transport remains available when `HERDR_ENV=1`, `HERDR_PANE_ID` and `HERDR_BIN_PATH` are set. Source `herdr:jd` publishes `title` and `pi_glyph` (`π`) with a six-hour TTL and clears them on shutdown.
+
+The TUI shows them through `[ui.sidebar.agents.rows_by_agent]` in `herdr/.config/herdr/config.toml`:
 
 ```toml
 pi = [["state_icon", "machine", "workspace", "tab", "$pi_glyph"], ["$title"]]

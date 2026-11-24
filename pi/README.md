@@ -95,7 +95,7 @@ These live in [`.pi/agent/extensions/`](.pi/agent/extensions/). The UI extension
 | `usage.ts` | `/usage` for deduplicated Pi, child-agent, and Codex CLI usage plus Codex subscription allowance. The allowance lookup is shared with `codex-limits.ts` through `lib/codex-allowance.ts`. |
 | `lg.ts` | Scripted Git change summaries, without asking the model to count lines |
 | `btw.ts` | Side questions in an isolated overlay, with full context or `--last [N]`, request approval, and visible usage |
-| `herdr-jd.ts` | Display-only Pi metadata for Herdr's sidebar. The separate `herdr-agent-state.ts` integration is generated locally by `scripts/setup-herdr`. |
+| `herdr-jd.ts` | Generated short titles for Herdr App's Card File via Core terminal labels, plus the legacy TUI metadata transport. Run `/reload` in existing Pi sessions to restore stored titles. The separate `herdr-agent-state.ts` integration is generated locally by `scripts/setup-herdr`. |
 | `promptfoo-export.ts` | Export the active conversation branch as a promptfoo evaluation starter |
 
 `/usage` keeps transcript content local. It looks up pricing at `models.dev` and queries the local Codex app-server for subscription allowance; neither request sends transcript content. [Extension reference](docs/reference.md#format-on-save)
