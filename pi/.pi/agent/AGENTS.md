@@ -136,7 +136,7 @@ The `permission-gate` extension controls tool access:
 
 - **Default**: writes and edits inside the working directory auto-allow. Changes outside it and bash commands not on the inspection allowlist prompt for confirmation. Sensitive file access is always blocked.
 - **`/readonly`**: blocks all writes and restricts bash to the read-only allowlist.
-- **`/yolo`**: toggles auto-approval for ordinary operations. Sensitive files stay blocked, and destructive, permission-changing, protected-path, and remote-execution operations still need one-time confirmation.
+- **`/yolo`**: toggles auto-approval for ordinary operations. Recognized system-path inspection does not prompt. For scratch work, use a standalone `mktemp -d` Bash call; successful output registers a bounded temporary directory for ordinary YOLO writes and edits. Other protected-system mutations, deletion, permission changes, remote execution, hard Git resets, non-dry-run Git clean, force pushes (including leases and `+` refspecs), and remote deletion/mirror pushes still need one-time confirmation. Sensitive file checks remain active. `/reset-rules` and fresh extension instances clear scratch registrations.
 - **`/rules`**: shows active session permission rules (allow/deny rules set during the session).
 - **`/reset-rules`**: clears all session rules and resets to default mode.
 

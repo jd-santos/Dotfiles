@@ -21,7 +21,8 @@
  * has full shell access; this extension surfaces risky operations before they run.
  */
 
-import { homedir } from "node:os";
+import { lstatSync, realpathSync, statSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, resolve } from "node:path";
 import type {
 	ExtensionAPI,
@@ -176,6 +177,12 @@ const READ_ONLY_GIT_COMMANDS = new Set([
 	"status",
 ]);
 
+// These stores are never inspection targets, including normalized aliases.
+const AUTHENTICATION_PATH_PATTERNS: RegExp[] = [
+	/(?:^|[\s'"=])\/(?:private\/)?etc\/(?:shadow|gshadow|master\.passwd|security\/opasswd)(?=[\s'";|&)]|$)/,
+	/(?:^|[\s'"=])\/(?:private\/)?var\/db\/dslocal\/nodes\/(?:Default|default)\/users(?:\/|[\s'";|&)]|$)/,
+];
+
 // Sensitive file access is always blocked, regardless of mode.
 const DENY_PATTERNS: RegExp[] = [
 	/^(cat|head|tail)\s+.*\.env/,
@@ -183,6 +190,7 @@ const DENY_PATTERNS: RegExp[] = [
 	/^(cat|head|tail)\s+.*\.(pem|key)(\s|$)/,
 	/^(cat|head|tail)\s+.*\.aws\//,
 	/^(cat|head|tail)\s+.*\.ssh\/id_/,
+	...AUTHENTICATION_PATH_PATTERNS,
 ];
 
 type BashPolicy = "git-read" | "git-all";
@@ -293,6 +301,17 @@ export function analyzeBashCommand(command: string): BashCommandAnalysis {
 			continue;
 		}
 
+		if (char === "&" && command[i - 1] !== ">") {
+			if (next === ">") {
+				reasons.add("redirection");
+				current += char;
+			} else {
+				reasons.add("background execution");
+				pushPart();
+			}
+			continue;
+		}
+
 		if (
 			(char === ">" || char === "<") &&
 			!isNonMutatingDevNullRedirect(command, i)
@@ -398,6 +417,28 @@ function extractCommandPatterns(parts: string[]): string[] {
 	return Array.from(patterns).sort((a, b) => a.localeCompare(b));
 }
 
+// Only proven print-only sed scripts qualify as static inspection. Parsing
+// arbitrary sed programs would otherwise miss w/W files and e execution.
+function isInspectionSed(part: string): boolean {
+	const words = splitShellWords(part).slice(1);
+	const scripts: string[] = [];
+	let optionsEnded = false;
+	for (let index = 0; index < words.length; index++) {
+		const word = words[index];
+		if (!optionsEnded && word === "--") { optionsEnded = true; continue; }
+		if (!optionsEnded && /^-[nEr]+$|^--(?:quiet|silent|regexp-extended)$/.test(word)) continue;
+		if (!optionsEnded && ["-e", "--expression"].includes(word)) {
+			scripts.push(words[++index] ?? "");
+		} else if (!optionsEnded && (word.startsWith("-e") || word.startsWith("--expression="))) {
+			scripts.push(word.startsWith("-e") ? word.slice(2) : word.slice(13));
+		} else if (!optionsEnded && word.startsWith("-") && word !== "-") {
+			return false;
+		} else if (scripts.length === 0) scripts.push(word);
+	}
+	return scripts.length > 0 && scripts.every((script) =>
+		/^\s*(?:(?:\d+|\$)(?:\s*,\s*(?:\d+|\$))?\s*)?p\s*$/.test(script));
+}
+
 function hasPromptOnlyArguments(part: string): boolean {
 	const commandPattern = extractCommandPattern(part);
 	if (!commandPattern) return true;
@@ -414,12 +455,7 @@ function hasPromptOnlyArguments(part: string): boolean {
 	) {
 		return true;
 	}
-	if (
-		/^sed\b/.test(part) &&
-		/(?:^|\s)(?:-i\S*|--in-place(?:=\S*)?)(?:\s|$)/.test(part)
-	) {
-		return true;
-	}
+	if (command === "sed" && !isInspectionSed(part)) return true;
 	if (/^rg\b/.test(part) && /(?:^|\s)--pre(?:\s|=|$)/.test(part)) return true;
 	if (
 		/^fd\b/.test(part) &&
@@ -427,7 +463,7 @@ function hasPromptOnlyArguments(part: string): boolean {
 	) {
 		return true;
 	}
-	if (/^sort\b/.test(part) && /(?:^|\s)(?:-o|--output)(?:\s|=|$)/.test(part))
+	if (/^sort\b/.test(part) && /(?:^|\s)(?:-o\S*|--output(?:=\S*)?)(?:\s|$)/.test(part))
 		return true;
 	if (
 		/^tree\b/.test(part) &&
@@ -586,9 +622,111 @@ function absolutePathArgument(word: string): string | undefined {
 	return word.match(/^-[A-Za-z]+(\/.*)$/)?.[1];
 }
 
+// Keep option values out of risk flags: clean -e -n excludes the filename
+// '-n'; it is not a dry run. Expand short clusters only until a valued option.
+function gitRiskArguments(args: string[], subcommand: string): { options: string[]; operands: string[] } {
+	const shortValues = subcommand === "clean" ? ["e"] : subcommand === "push" ? ["o"] : [];
+	const longValues = subcommand === "clean" ? ["--exclude"] : subcommand === "push"
+		? ["--push-option", "--repo", "--receive-pack", "--exec"] : ["--pathspec-from-file"];
+	const options: string[] = [];
+	const operands: string[] = [];
+	let positional = false;
+	for (let index = 0; index < args.length; index++) {
+		const arg = args[index];
+		if (positional || !arg.startsWith("-") || arg === "-") { operands.push(arg); continue; }
+		if (arg === "--") { positional = true; continue; }
+		if (arg.startsWith("--")) {
+			options.push(arg);
+			if (!arg.includes("=") && longValues.some((option) => option.startsWith(arg))) index++;
+			continue;
+		}
+		for (let offset = 1; offset < arg.length; offset++) {
+			const flag = arg[offset];
+			options.push(`-${flag}`);
+			if (shortValues.includes(flag)) {
+				if (offset === arg.length - 1) index++;
+				break;
+			}
+		}
+	}
+	return { options, operands };
+}
+
+const EXECUTION_WRAPPER_VALUE_OPTIONS: Record<string, readonly string[]> = {
+	command: [],
+	env: ["-u", "--unset", "-C", "--chdir", "-a", "--argv0"],
+	exec: ["-a"],
+	nice: ["-n", "--adjustment"],
+	nohup: [],
+	time: ["-o", "--output", "-f", "--format"],
+	timeout: ["-k", "--kill-after", "-s", "--signal"],
+	gtimeout: ["-k", "--kill-after", "-s", "--signal"],
+	stdbuf: ["-i", "--input", "-o", "--output", "-e", "--error"],
+	xargs: ["-a", "--arg-file", "-E", "-I", "-L", "-n", "--max-args", "-P", "--max-procs", "-s", "--max-chars"],
+};
+
+function unwrappedCommandIndex(words: string[]): number | undefined {
+	let index = commandWordIndex(words);
+	// Do not search arbitrary operands or quoted scripts for the word git.
+	while (index !== undefined) {
+		const wrapper = commandName(words[index]);
+		if (!Object.hasOwn(EXECUTION_WRAPPER_VALUE_OPTIONS, wrapper)) return index;
+		const valuedOptions = EXECUTION_WRAPPER_VALUE_OPTIONS[wrapper];
+		let next = index + 1;
+		while (next < words.length) {
+			const word = words[next];
+			if (wrapper === "command" && ["-v", "-V"].includes(word)) return undefined;
+			if (word === "--") { next++; break; }
+			if (valuedOptions.includes(word)) next += 2;
+			else if (word.startsWith("-") || wrapper === "env" && /^[A-Za-z_][A-Za-z0-9_]*=/.test(word)) next++;
+			else break;
+		}
+		// timeout's first positional argument is a duration, not the executable.
+		if (wrapper === "timeout" || wrapper === "gtimeout") next++;
+		index = next < words.length ? next : undefined;
+	}
+	return undefined;
+}
+
+function destructiveGitReason(words: string[]): string | undefined {
+	const commandIndex = unwrappedCommandIndex(words);
+	if (commandIndex === undefined || commandName(words[commandIndex]) !== "git")
+		return undefined;
+	// Risk checks also cover alternate absolute Git executables and env assignments.
+	const gitWords = ["git", ...words.slice(commandIndex + 1)];
+	const index = gitSubcommandIndex(gitWords);
+	if (index === undefined) return undefined;
+	const subcommand = gitWords[index];
+	const { options, operands } = gitRiskArguments(gitWords.slice(index + 1), subcommand);
+	if (subcommand === "reset" && options.some((option) => option.startsWith("--") && "--hard".startsWith(option))) {
+		return "git reset --hard discards uncommitted work";
+	}
+	if (subcommand === "clean") {
+		let dryRun = false;
+		let understood = true;
+		for (const option of options) {
+			if (option === "-n" || option === "--dry-run") dryRun = true;
+			else if (option === "--no-dry-run") dryRun = false;
+			else if (!/^-[dfiqxXe]$|^--(?:force|interactive|quiet|exclude(?:=.*)?)$/.test(option)) understood = false;
+		}
+		if (!dryRun || !understood) return "git clean can permanently delete untracked files";
+	}
+	if (
+		subcommand === "push" &&
+		(options.some((arg) => arg === "-f" || arg === "-d" ||
+			arg.startsWith("--") && ["--force", "--force-with-lease", "--force-if-includes", "--mirror", "--delete"]
+				.some((option) => option.startsWith(arg.split("=")[0])),
+		) || operands.some((arg) => arg.startsWith("+") || arg.startsWith(":")))
+	) {
+		return "git push can overwrite or delete remote history";
+	}
+	return undefined;
+}
+
 export function highDangerBashReason(
 	parts: string[],
 	cwd: string,
+	temporaryDirectories: readonly string[] = [],
 ): string | undefined {
 	const commandTokens = parts.flatMap((part) => {
 		const command = extractCommandPattern(part);
@@ -605,8 +743,13 @@ export function highDangerBashReason(
 		return "downloads are being piped into an interpreter";
 	}
 
+	const inspectionOnly = parts.every((part) =>
+		canInferCommandSafety(analyzeBashCommand(part)) && isSafeCommandPart(part),
+	);
 	for (const part of parts) {
 		const words = splitShellWords(part);
+		const gitReason = destructiveGitReason(words);
+		if (gitReason) return gitReason;
 		const commandIndex = commandWordIndex(words);
 		const rawCommand = commandIndex === undefined ? undefined : words[commandIndex];
 		const command = rawCommand ? commandName(rawCommand) : undefined;
@@ -616,15 +759,23 @@ export function highDangerBashReason(
 		if (command && REMOTE_EXECUTION_COMMANDS.has(command)) {
 			return `${command} can execute or transfer data on another machine`;
 		}
+		// Inspection does not modify protected arguments. A cd only qualifies if
+		// the whole chain is inspection-only, since it changes later targets.
+		const inspection = (command !== "cd" || inspectionOnly) &&
+			canInferCommandSafety(analyzeBashCommand(part)) && isSafeCommandPart(part);
 		// Leading environment assignments and the executable are not file targets.
-		// Dangerous names are handled above; check protected absolute arguments.
 		const protectedPath = words
 			.map((word, index) =>
 				commandIndex !== undefined && index <= commandIndex
 					? undefined
 					: absolutePathArgument(word),
 			)
-			.find((path) => path !== undefined && isProtectedPath(path, cwd));
+			.find((path) => {
+				if (path === undefined || !isProtectedPath(path, cwd)) return false;
+				if (isSensitiveDirectory(path, cwd)) return true;
+				return !inspection && !temporaryDirectories.some((directory) =>
+					isPathInTemporaryDirectory(path, cwd, directory));
+			});
 		if (protectedPath) {
 			return `${protectedPath} is a protected system path`;
 		}
@@ -697,13 +848,77 @@ export function isPathInCwd(path: string, cwd: string): boolean {
 	return pathStartsWith(resolvePath(path, cwd), resolve(cwd));
 }
 
+// Resolve existing components before processing '..', matching symlink
+// traversal in shell paths. Missing components may be new write targets.
+// This inspects metadata only and is not protection against filesystem races.
+function canonicalPath(path: string): string | undefined {
+	const absolute = isAbsolute(path) ? path : `${process.cwd()}/${path}`;
+	let current = "/";
+	for (const component of absolute.split("/")) {
+		if (!component || component === ".") continue;
+		if (component === "..") { current = dirname(current); continue; }
+		const candidate = resolve(current, component);
+		try {
+			current = realpathSync(candidate);
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code !== "ENOENT") return undefined;
+			try {
+				// A dangling symlink is not a creatable in-scope path.
+				if (lstatSync(candidate).isSymbolicLink()) return undefined;
+			} catch (statError) {
+				if ((statError as NodeJS.ErrnoException).code !== "ENOENT") return undefined;
+			}
+			current = candidate;
+		}
+	}
+	return current;
+}
+
+function isSensitiveDirectory(path: string, cwd: string): boolean {
+	const resolved = resolvePath(path, cwd);
+	const canonical = canonicalPath(isAbsolute(path) ? path : `${cwd}/${path}`);
+	return [resolved, canonical].some((target) => target !== undefined &&
+		[".ssh", ".aws"].some((directory) => pathStartsWith(target, resolve(homedir(), directory))));
+}
+
+export function isPathInTemporaryDirectory(path: string, cwd: string, directory: string): boolean {
+	const target = canonicalPath(isAbsolute(path) ? path : `${cwd}/${path}`);
+	const root = resolve(directory);
+	return target !== undefined && canonicalPath(root) === root && pathStartsWith(target, root);
+}
+
+function hasSensitiveBashAccess(command: string, parts: string[], cwd: string): boolean {
+	if ([command, ...parts].some((part) => DENY_PATTERNS.some((pattern) => pattern.test(part)))) return true;
+	let directory = cwd;
+	for (const part of parts) {
+		const words = splitShellWords(part);
+		const index = commandWordIndex(words);
+		if (index === undefined) continue;
+		const args = words.slice(index + 1);
+		for (const word of args) {
+			const path = absolutePathArgument(word) ?? (!word.startsWith("-") ? word : undefined);
+			if (!path) continue;
+			// Normalize dot components before inspection exemptions. Check the
+			// lexical path first, without touching authentication-store contents.
+			const normalized = resolvePath(path, directory);
+			if (AUTHENTICATION_PATH_PATTERNS.some((pattern) => pattern.test(normalized))) return true;
+			const canonical = canonicalPath(isAbsolute(path) ? path : `${directory}/${path}`);
+			if (canonical && AUTHENTICATION_PATH_PATTERNS.some((pattern) => pattern.test(canonical))) return true;
+		}
+		// A simple cd changes the meaning of relative arguments later in a chain.
+		if (words[index] === "cd") {
+			const target = args.at(-1);
+			if (target && !target.startsWith("-")) directory = resolvePath(target, directory);
+		}
+	}
+	return false;
+}
+
 export function isProtectedPath(path: string, cwd: string): boolean {
 	const resolved = resolvePath(path, cwd);
-	return (
-		PROTECTED_PATH_PREFIXES.some((prefix) => pathStartsWith(resolved, prefix)) ||
-		pathStartsWith(resolved, resolve(homedir(), ".ssh")) ||
-		pathStartsWith(resolved, resolve(homedir(), ".aws"))
-	);
+	const canonical = canonicalPath(isAbsolute(path) ? path : `${cwd}/${path}`);
+	return isSensitiveDirectory(path, cwd) || [resolved, canonical].some((target) =>
+		target !== undefined && PROTECTED_PATH_PREFIXES.some((prefix) => pathStartsWith(target, prefix)));
 }
 
 export type PermissionNotificationRoute = "osc777" | "cmux" | "macos";
@@ -787,6 +1002,7 @@ function unreachable(value: never): never {
 export default function (pi: ExtensionAPI) {
 	let readonly = false;
 	let yolo = false;
+	const temporaryDirectories = new Set<string>();
 	// Session rules are intentionally ephemeral — they reset between Pi sessions.
 	let rules: SessionRules = { allow: [], deny: [] };
 
@@ -853,6 +1069,7 @@ export default function (pi: ExtensionAPI) {
 			yolo = false;
 			readonly = false;
 			rules = { allow: [], deny: [] };
+			temporaryDirectories.clear();
 			updateStatus(ctx);
 			ctx.ui.notify(
 				"Session permission rules cleared. Rules are ephemeral and reset between sessions.",
@@ -880,6 +1097,31 @@ export default function (pi: ExtensionAPI) {
 
 	pi.on("session_start", (_event, ctx) => {
 		if (ctx.hasUI) updateStatus(ctx);
+	});
+
+	pi.on("before_agent_start", (event) => {
+		if (!yolo) return;
+		return { systemPrompt: `${event.systemPrompt}\nPermission gate: YOLO permits ordinary operations. For scratch work, use a standalone mktemp -d Bash call; its successful output registers a session-owned temporary directory. Protected system mutations and destructive Git still require one-time approval.` };
+	});
+
+	// Only standalone mktemp -d results establish session-owned scratch roots.
+	// Do not infer ownership from arbitrary output, path names, or all of /tmp.
+	pi.on("tool_result", (event) => {
+		if (event.toolName !== "bash" || event.isError ||
+			!/^(?:\/usr\/bin\/)?mktemp -d$/.test(String(event.input.command ?? "").trim())) return;
+		const output = event.content.filter((item) => item.type === "text")
+			.map((item) => item.text).join("").trim();
+		if (!isAbsolute(output) || /[\r\n]/.test(output)) return;
+		const directory = canonicalPath(output);
+		if (!directory) return;
+		const roots = [tmpdir(), "/tmp"].map(canonicalPath);
+		if (!roots.some((root) => root !== undefined && directory !== root && pathStartsWith(directory, root))) return;
+		try {
+			const info = statSync(directory);
+			if (info.isDirectory() && (process.getuid === undefined || info.uid === process.getuid())) {
+				temporaryDirectories.add(directory);
+			}
+		} catch { /* A removed or inaccessible directory is not a scratch root. */ }
 	});
 
 	// ─── Rule helpers ─────────────────────────────────────────────────
@@ -1466,7 +1708,9 @@ export default function (pi: ExtensionAPI) {
 				};
 			}
 
-			if (isProtectedPath(path, ctx.cwd)) {
+			const temporary = yolo && [...temporaryDirectories].some((directory) =>
+				isPathInTemporaryDirectory(path, ctx.cwd, directory));
+			if (isProtectedPath(path, ctx.cwd) && (!temporary || isSensitiveDirectory(path, ctx.cwd))) {
 				const result = await confirmHighRisk(
 					ctx,
 					toolName,
@@ -1528,33 +1772,21 @@ export default function (pi: ExtensionAPI) {
 				: extractCommandPatterns(parts);
 			const bashDirectoryPath = scopePathForDirectory(ctx.cwd);
 
-			// Sensitive files: check raw command first, then each split part.
-			// Neither catches wrapped commands (sh -c, eval), but together they
-			// catch more cases than either alone.
-			if (DENY_PATTERNS.some((p) => p.test(command))) {
-				if (ctx.hasUI) {
-					ctx.ui.notify("Blocked: sensitive file access.", "warning");
-				}
-				return {
-					block: true,
-					reason: "Access to sensitive files is not allowed.",
-				};
+			// Raw patterns plus normalized literal arguments catch known sensitive
+			// paths before any static-inspection or YOLO exemptions are considered.
+			if (hasSensitiveBashAccess(command, parts, ctx.cwd)) {
+				if (ctx.hasUI) ctx.ui.notify("Blocked: sensitive file access.", "warning");
+				return { block: true, reason: "Access to sensitive files is not allowed." };
 			}
 
-			// Check each split part, block whole chain
-			for (const part of parts) {
-				if (DENY_PATTERNS.some((p) => p.test(part))) {
-					if (ctx.hasUI) {
-						ctx.ui.notify("Blocked: sensitive file access.", "warning");
-					}
-					return {
-						block: true,
-						reason: "Access to sensitive files is not allowed.",
-					};
-				}
+			// Read-only mode must not offer a way to approve a mutating operation.
+			const allSafe = canInferSafety && parts.length > 0 &&
+				parts.every((part) => isSafeCommandPart(part));
+			if (readonly && !allSafe) {
+				return { block: true, reason: "Read-only mode is active. Only read commands are allowed." };
 			}
-
-			const highDangerReason = highDangerBashReason(parts, ctx.cwd);
+			const highDangerReason = highDangerBashReason(parts, ctx.cwd,
+				yolo ? [...temporaryDirectories] : []);
 			if (highDangerReason) {
 				const result = await confirmHighRisk(
 					ctx,
@@ -1596,10 +1828,6 @@ export default function (pi: ExtensionAPI) {
 			}
 
 			// Static safety requires every command part and simple shell syntax.
-			const allSafe =
-				canInferSafety &&
-				parts.length > 0 &&
-				parts.every((part) => isSafeCommandPart(part));
 			if (allSafe) return undefined;
 
 			if (readonly) {

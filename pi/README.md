@@ -74,7 +74,9 @@ More options keeps narrower session allow/block rules available, with just the r
 | `/rules` | Show session rules |
 | `/reset-rules` | Clear rules and return to default mode |
 
-Sensitive bash reads stay blocked. Destructive, permission-changing, protected-system-path, and remote-execution operations still need one-time confirmation, even in yolo mode. An executable's absolute location alone doesn't trigger a protected-path prompt; dangerous command names and protected absolute arguments are still checked. The built-in Git policy recognizes `git` and `/usr/bin/git`. Permission prompts can also trigger a desktop notification where supported.
+Recognized inspection can reference system directories without a prompt, including `ls /opt/homebrew/lib` and `git -C /private/tmp/example status`. In YOLO, a successful standalone `mktemp -d` call registers a session-owned scratch directory where ordinary writes and edits also avoid protected-path prompts. Other temporary paths aren't automatically trusted; scratch scope rejects symlink escapes and resets with `/reset-rules` or a fresh extension instance.
+
+Sensitive bash reads stay blocked. System mutations, deletion, permission changes, and remote execution still need one-time confirmation, even in YOLO. So do `git reset --hard`, non-dry-run `git clean`, force pushes (including `--force-with-lease` and `+` refspecs), and remote deletion or mirror pushes. Normal pushes remain ordinary operations. Permission prompts can also trigger a desktop notification where supported.
 
 This is a consent layer, **not a sandbox**. Extensions and child Pi processes run with my user permissions. The shell scanner isn't a complete parser. [Rules, command handling, and notification support](docs/reference.md#permission-gate)
 
