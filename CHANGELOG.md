@@ -38,6 +38,7 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 
 ### Changed
 
+- Let Pi inspect protected system paths without unnecessary approval prompts. In YOLO, successful standalone `mktemp -d` calls establish bounded scratch scope for ordinary writes and edits, with symlink-escape checks and no blanket trust of temporary directories.
 - Wrap Card File Todo titles and footer actions, and add read-only details with the full inline checklist, notes, source TODO access, and links to parent and child work records.
 
 - Make the Pi shelf adapt to terminal width and height: two columns on wide screens, compact figures on short ones, and scrollable section detail through `/shelf details` or `/shelf <section-id>`. Hidden body lines remain reachable without expanding the drawer over the transcript.
@@ -77,6 +78,7 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 
 ### Fixed
 
+- Require one-time Pi approval for hard Git resets, non-dry-run clean, force/lease pushes, and remote deletion or mirror pushes, even under YOLO or an all-Git session rule. Block mutating Bash commands in read-only mode before offering approval. Keep `sed` inspection print-only and block explicit system authentication-store paths.
 - Distinguish Herdr App/Core terminal detection from the legacy TUI flag in repository agent guidance.
 
 - Show Pi's generated conversation titles in Herdr App's Card File instead of generic terminal titles. Put a larger agent logo beside the title, keep location and turn info in the footer, and update or clear titles with `/summary`. Existing Pi sessions need `/reload` to publish their stored titles.

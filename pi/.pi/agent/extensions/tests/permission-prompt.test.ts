@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -86,6 +87,10 @@ function harness(options: { mode?: string; keys?: Record<string, string[]> } = {
 		command: (name: string) => commands.get(name).handler("", ctx),
 		call: (command = "npm test") => handlers.get("tool_call")({ toolName: "bash", input: { command } }, ctx),
 		write: (path: string) => handlers.get("tool_call")({ toolName: "write", input: { path } }, ctx),
+		edit: (path: string) => handlers.get("tool_call")({ toolName: "edit", input: { path } }, ctx),
+		result: (command: string, output: string, isError = false) => handlers.get("tool_result")({
+			toolName: "bash", input: { command }, isError, content: [{ type: "text", text: output }],
+		}, ctx),
 	};
 }
 const choose = (prefix: string) => (_title: string, items: string[]) => {
@@ -232,7 +237,9 @@ test("notes on denial are returned as the blocking reason", async () => {
 test("high-risk prompts cannot enable YOLO or session rules, even when YOLO is active", async () => {
 	const h = harness();
 	await h.command("yolo");
-	for (const command of ["rm demo.txt", "chmod 755 demo.sh", "ssh example.invalid", "touch /etc/demo"]) {
+	for (const command of ["rm demo.txt", "chmod 755 demo.sh", "ssh example.invalid", "touch /etc/demo",
+		"git reset --hard", "git clean -fd", "git push --force", "git push --force-with-lease",
+		"git push origin +HEAD:main", "git push --mirror"]) {
 		h.customKeys.push(["y", "m", "d"]);
 		assert.equal((await h.call(command)).block, true);
 		assert.doesNotMatch(plain(h.screens.at(-1)!), /\[y\]|\[m\]/);
@@ -253,6 +260,131 @@ test("sensitive reads and read-only mode remain blocked without a prompt", async
 	assert.equal((await h.call()).block, true);
 	assert.equal((await h.write("demo.txt")).block, true);
 	assert.equal(h.screens.length, 0);
+});
+
+test("system inspection does not prompt in default, YOLO, or readonly modes", async () => {
+	for (const mode of [undefined, "yolo", "readonly"]) {
+		const h = harness();
+		if (mode) await h.command(mode);
+		for (const command of ["ls /opt/homebrew/lib", "git -C /private/tmp/example status", "git -C /usr/lib diff --stat"]) {
+			assert.equal(await h.call(command), undefined);
+		}
+		assert.equal(h.screens.length, 0);
+	}
+});
+
+test("destructive Git cannot bypass an all-Git session scope or headless execution", async () => {
+	const h = harness();
+	h.customKeys.push(["m"]);
+	h.selections.push(choose("Allow for"), choose("⌨️  All Git"));
+	assert.equal(await h.call("git add demo.txt"), undefined);
+	h.customKeys.push(["d"]);
+	assert.equal((await h.call("git reset --hard")).block, true);
+	h.ctx.hasUI = false;
+	await h.command("yolo");
+	assert.equal((await h.call("git push --force")).block, true);
+});
+
+test("wrapped destructive Git still requires one-time approval under YOLO", async () => {
+	const h = harness();
+	await h.command("yolo");
+	for (const command of [
+		"nice git reset --hard", "nice -n 10 git clean -fd",
+		"timeout 30s git push --force-with-lease", "nohup git push origin +HEAD:main",
+		"xargs git reset --hard", "git clean -e -n -f", "git clean -n --no-dry-run -f",
+		"env -a bogus git reset --hard", "env --argv0 bogus git push --force",
+	]) {
+		h.customKeys.push(["y", "m", "d"]);
+		assert.equal((await h.call(command)).block, true);
+		assert.doesNotMatch(plain(h.screens.at(-1)!), /\[y\]|\[m\]/);
+	}
+});
+
+test("mutating sed cannot qualify as protected-path or readonly inspection", async () => {
+	const h = harness();
+	const command = "sed -n 'w /private/tmp/gate-output' /etc/hosts";
+	await h.command("yolo");
+	h.customKeys.push(["d"]);
+	assert.equal((await h.call(command)).block, true);
+	await h.command("readonly");
+	assert.match((await h.call(command)).reason, /Read-only mode/);
+	assert.equal(await h.call("sed -n '1,20p' /etc/hosts"), undefined);
+	assert.equal(h.screens.length, 1);
+});
+
+test("authentication stores remain blocked in every mode without reading them", async () => {
+	for (const mode of [undefined, "yolo", "readonly"]) {
+		const h = harness();
+		if (mode) await h.command(mode);
+		for (const command of [
+			"cat /etc/shadow", "head '/private/etc/master.passwd'",
+			"rg pattern /etc/gshadow", "cat /etc/security/opasswd",
+			"ls /var/db/dslocal/nodes/Default/users",
+			"cat /private/var/db/dslocal/nodes/Default/users/example.plist",
+			"cat /etc/./shadow", "cat /etc/../etc/shadow", "cat /etc//gshadow",
+			"head /private/etc/security/../master.passwd",
+			"cat /var/db/dslocal/nodes/Default/./users/example.plist",
+			"cat /private/var/db/dslocal/nodes/Default/users/../users/example.plist",
+			"cd /etc && cat shadow",
+		]) {
+			assert.match((await h.call(command)).reason, /sensitive files/);
+		}
+		assert.equal(h.screens.length, 0);
+		assert.equal(await h.call("cat /etc/passwd"), undefined);
+		h.ctx.cwd = "/etc";
+		assert.match((await h.call("cat ./shadow")).reason, /sensitive files/);
+		assert.equal(h.screens.length, 0);
+	}
+});
+
+test("readonly blocks destructive commands before any confirmation", async () => {
+	const h = harness();
+	await h.command("readonly");
+	for (const command of ["git reset --hard", "git clean -fd", "git push --force", "rm demo.txt", "touch /etc/demo"]) {
+		assert.match((await h.call(command)).reason, /Read-only mode/);
+	}
+	assert.equal(h.screens.length, 0);
+});
+
+test("YOLO recognizes session-created scratch directories, not arbitrary temp output", async (t) => {
+	const root = realpathSync(mkdtempSync(join(tmpdir(), "pi-gate-hook-test-")));
+	t.after(() => rmSync(root, { recursive: true, force: true }));
+	const h = harness();
+	await h.command("yolo");
+	h.result("mktemp -d", root + "\n");
+	assert.equal(await h.call(`touch ${root}/new.txt`), undefined);
+	assert.equal(await h.write(`${root}/new/deep/file.txt`), undefined);
+	assert.equal(await h.edit(`${root}/new/deep/file.txt`), undefined);
+	assert.equal(h.screens.length, 0);
+	// Existing and new targets under a symlink out of scratch remain protected.
+	symlinkSync("/etc", join(root, "escape"));
+	for (const operation of [() => h.write(`${root}/escape/example`), () => h.call(`touch ${root}/escape/example`)]) {
+		h.customKeys.push(["d"]);
+		assert.equal((await operation()).block, true);
+	}
+	h.customKeys.push(["d"]);
+	assert.equal((await h.call(`rm ${root}/new.txt`)).block, true);
+	await h.command("yolo");
+	// Without YOLO a protected scratch path still requires high-risk approval.
+	if (gate.isProtectedPath(root, h.ctx.cwd)) {
+		h.customKeys.push(["d"]);
+		assert.equal((await h.write(`${root}/new.txt`)).block, true);
+		const unregistered = harness();
+		await unregistered.command("yolo");
+		for (const [command, output, failed] of [
+			["mktemp -d", root, true], ["echo scratch", root, false],
+			["mktemp -d && pwd", root, false], ["mktemp -d", tmpdir(), false],
+			["mktemp -d", root + "\nextra", false],
+		] as const) {
+			unregistered.result(command, output, failed);
+		}
+		unregistered.customKeys.push(["d"]);
+		assert.equal((await unregistered.write(`${root}/new.txt`)).block, true);
+		await h.command("reset-rules");
+		await h.command("yolo");
+		h.customKeys.push(["d"]);
+		assert.equal((await h.write(`${root}/new.txt`)).block, true);
+	}
 });
 
 test("complex commands do not gain executable-pattern scopes", async () => {

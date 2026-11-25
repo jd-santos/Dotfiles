@@ -288,7 +288,11 @@ node --test pi/.pi/agent/extensions/tests/permission-gate.test.ts pi/.pi/agent/e
 
 The typecheck uses TypeScript from the installed `pi-lens` package when available, without adding repository dependencies. Interaction tests cover keyboard actions, narrower rules, cancellation, notes, RPC fallback, narrow terminal widths, and retained high-risk checks. A live `/reload` smoke test is still useful for terminal-specific behavior.
 
-Writes to protected system paths, destructive or permission-changing shell commands, and remote-execution commands always require an interactive one-time confirmation. They are not covered by yolo or session rules. An executable's absolute location alone does not trigger a protected-path prompt. Known dangerous command names are still checked, and protected absolute paths in command arguments still require confirmation. The built-in Git policy recognizes `git` and `/usr/bin/git`. Sensitive bash reads remain blocked.
+Protected paths are not automatically risky to inspect. Recognized inspection such as `ls /opt/homebrew/lib`, `cat /etc/hosts`, and `git -C /private/tmp/example status` needs no protected-path confirmation. Mutating variants, redirection, and unknown commands with protected absolute arguments retain the high-risk prompt. A `cd` into a protected directory is exempt only when its entire chain is inspection-only. SSH/AWS private directories retain their protected-path checks. Sensitive Bash patterns remain blocked, including explicit paths to Unix password-hash stores (`shadow`, `gshadow`, `master.passwd`, and `security/opasswd`) and macOS local-user authentication records. Literal path arguments are normalized and checked before inspection exemptions, including dot components, relative paths after simple `cd` chains, and existing symlink aliases; this uses path metadata, never file contents.
+
+Deletion, permission changes, privilege escalation, remote execution, and protected-system mutations outside registered scratch scope require one-time confirmation. So do `git reset --hard`, non-dry-run `git clean`, and pushes that use force, lease, force-if-includes, `+` refspecs, mirror, or remote deletion. These checks precede YOLO and all Git/session allowances. Git risk checks recognize global options, leading environment assignments, absolute Git executables, and common execution prefixes (`command`, `env`, `exec`, `nice`, `nohup`, `time`, `timeout`/`gtimeout`, `stdbuf`, and `xargs`). Option values are not mistaken for risk flags: `git clean -e -n -f` is destructive, not a dry run. Read-only Git policies still recognize only `git` and `/usr/bin/git`; arbitrary executables aren't inferred as safe.
+
+For scratch work, issue a standalone `mktemp -d` or `/usr/bin/mktemp -d` Bash call. Its successful, single-path output registers a real, user-owned directory strictly below an OS temporary root for this extension instance. With YOLO active, ordinary Bash operations and write/edit calls within that directory bypass protected-path confirmation. A failed call, arbitrary printed path, complex command, or temporary root itself cannot establish scope. Existing symlinks are resolved for new targets too; escapes, dangling links, and root replacement with a symlink do not qualify. This does not exempt deletion, permission changes, remote execution, destructive Git, or sensitive directories. `/reset-rules` clears scratch registrations; reload/new instances lose them too. Directories are retained, not automatically deleted. YOLO adds brief model guidance to use standalone `mktemp -d` for scratch work.
 
 The prompt sets a one-line below-editor reminder and sends an OSC 777 desktop notification in interactive Ghostty or cmux sessions outside tmux. tmux passthrough is not enabled in this configuration, so Pi uses a contextual fallback: the cmux CLI inside a cmux surface or macOS Notification Center through `osascript` on macOS. Other unsupported platforms have no fallback. Notification failures are ignored.
 
@@ -333,7 +337,7 @@ For write and edit tools:
 
 1. Read-only mode blocks.
 2. Session deny rules block unless yolo is active.
-3. Protected system paths require an interactive one-time confirmation.
+3. Protected system paths require an interactive one-time confirmation, except ordinary YOLO work inside registered scratch scope. Sensitive-directory checks still apply.
 4. Session allow rules allow.
 5. Paths inside the working directory allow by default.
 6. Otherwise, prompt.
@@ -341,12 +345,13 @@ For write and edit tools:
 For bash:
 
 1. Known sensitive file read patterns block.
-2. Destructive, permission-changing, privileged, and remote-execution commands, plus protected absolute paths in command arguments, require an interactive one-time confirmation.
-3. Simple commands auto-allow when every part of the command chain passes a static inspection policy.
-4. Read-only mode blocks anything not already covered by a static inspection policy.
-5. Broad session scopes, such as the current directory or bash tool type, allow.
-6. Command-specific session rules allow only when every part is covered by either a static inspection policy or a matching session rule.
-7. Otherwise, prompt.
+2. Read-only mode blocks commands outside the static inspection policy, without offering approval.
+3. Destructive Git, deletion, permission-changing, privileged, and remote-execution commands require one-time confirmation. So do protected absolute arguments unless they qualify for inspection or YOLO scratch scope.
+4. Session deny rules block unless YOLO is active.
+5. Simple commands auto-allow when every chain part passes a static inspection policy.
+6. YOLO and broad session scopes, such as the current directory or Bash tool type, allow ordinary operations.
+7. Command-specific session rules allow only when every part is covered by either a static inspection policy or a matching session rule.
+8. Otherwise, prompt.
 
 Yolo mode is explicit session state. It can allow normal Git pushes and other ordinary operations, but it cannot bypass sensitive-read blocks or high-risk confirmations.
 
@@ -364,6 +369,8 @@ The safe list is meant for read-only inspection. It includes commands such as:
 - Read-only Git operations such as status, diff, log, show, revision queries, ref queries, config reads, remote listing, worktree listing, and branch listing
 - Comment-only bash lines
 
+Static `sed` inspection is deliberately limited to print-only scripts with optional numeric addresses, such as `sed -n '1,120p' file`. Other scripts, including `w`/`W`, substitutions, execution, and external script files, require ordinary approval and do not qualify for protected-path inspection or read-only mode.
+
 Argument checks keep mutating or executable variants behind prompts. Examples include `find -exec`, `find -delete`, `fd --exec`, `sed -i`, `rg --pre`, `sort -o`, `tree -o`, `file --compile`, `xmllint --output`, AWK execution or output redirection, and Git output or mutation options.
 
 Interpreters, package managers, network tools, and execution wrappers are never inferred as safe. This includes shells, Python, Node, Ruby, Perl, `uv`, npm-family commands, `gh`, `curl`, `wget`, `env`, and `xargs`. Remote-execution tools such as `ssh`, `scp`, and `sftp` require one-time confirmation even in yolo mode.
@@ -372,7 +379,7 @@ For chained commands, every part must be covered by the static inspection polici
 
 ### Chained and complex commands
 
-The gate recognizes unquoted `&&`, `||`, `;`, `|`, and newlines. Quoted separators stay inside their command, so inline scripts such as `python -c 'a;b'` no longer produce misleading command scopes.
+The gate recognizes unquoted `&&`, `||`, `;`, `|`, background `&`, and newlines. Background execution is complex and cannot qualify as static inspection. Quoted separators stay inside their command, so inline scripts such as `python -c 'a;b'` no longer produce misleading command scopes.
 
 Commands with multiline shell, command substitution, backticks, redirection outside `/dev/null`, shell grouping, incomplete quoting, or control flow are classified as complex and do not get command-pattern scope options. A multiline chain can still auto-allow when every line independently passes a static inspection policy. Directory and tool scopes remain available under More options for other complex commands; session YOLO remains a main-prompt action.
 

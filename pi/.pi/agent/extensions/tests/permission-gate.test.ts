@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
+import { mkdtempSync, mkdirSync, realpathSync, renameSync, rmSync, symlinkSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import {
@@ -10,6 +13,7 @@ import {
 	formatOsc777Notification,
 	highDangerBashReason,
 	isPathInCwd,
+	isPathInTemporaryDirectory,
 	isProtectedPath,
 	isReadOnlyGitCommandPart,
 	isSafeCommandPart,
@@ -158,6 +162,9 @@ test("marks shell features that require an explicit prompt", () => {
 		canInferCommandSafety(analyzeBashCommand("git log @{upstream}..HEAD")),
 		true,
 	);
+	assert.equal(canInferCommandSafety(analyzeBashCommand("ls /opt & touch /etc/example")), false);
+	assert.equal(canInferCommandSafety(analyzeBashCommand("ls /opt &>/etc/example")), false);
+	assert.equal(canInferCommandSafety(analyzeBashCommand("rg example . 2>&1")), true);
 });
 
 test("allows predictable inspection commands", () => {
@@ -173,6 +180,7 @@ test("allows predictable inspection commands", () => {
 		"shasum README.md",
 		"plutil -lint Info.plist",
 		"rg todo . 2>/dev/null",
+		"sed -n '1,120p' /etc/hosts", "sed -n -e '1p' -e '20,30p' file",
 	]) {
 		assert.equal(isSafeCommandPart(command), true, command);
 	}
@@ -188,9 +196,14 @@ test("keeps execution wrappers and mutating command arguments behind prompts", (
 		"find . -delete",
 		"sed -i '' file.txt",
 		"sed -i.bak file.txt",
+		"sed -n 'w /private/tmp/output' /etc/hosts",
+		"sed -n -e '1p' -e 'w /private/tmp/output' /etc/hosts",
+		"sed 's/a/b/w /etc/output' file", "sed 's/a/b/e' file",
+		"sed -f program.sed file",
 		"rg --pre preprocess.sh pattern .",
 		"fd -x echo {}",
 		"sort -o output.txt input.txt",
+		"sort -o/etc/hosts input.txt",
 		"tree --output=tree.txt",
 		"awk '{ print $0 > \"output.txt\" }' input.txt",
 		"xmllint --output formatted.xml input.xml",
@@ -262,9 +275,9 @@ test("keeps high-risk commands outside yolo and session allowances", () => {
 		) ?? "",
 		/downloads are being piped into an interpreter/,
 	);
-	assert.match(
-		highDangerBashReason(["cat /etc/hosts"], "/workspace/Dotfiles") ?? "",
-		/protected system path/,
+	assert.equal(
+		highDangerBashReason(["cat /etc/hosts"], "/workspace/Dotfiles"),
+		undefined,
 	);
 	assert.equal(
 		highDangerBashReason(["git push origin main"], "/workspace/Dotfiles"),
@@ -314,12 +327,9 @@ test("classifies absolute executable paths without weakening protected targets",
 		) ?? "",
 		/\/usr\/bin\/git is a protected system path/,
 	);
-	assert.match(
-		highDangerBashReason(
-			analyzeBashCommand("git show /etc/hosts").parts,
-			cwd,
-		) ?? "",
-		/\/etc\/hosts is a protected system path/,
+	assert.equal(
+		highDangerBashReason(analyzeBashCommand("git show /etc/hosts").parts, cwd),
+		undefined,
 	);
 	assert.match(
 		highDangerBashReason(
@@ -328,20 +338,14 @@ test("classifies absolute executable paths without weakening protected targets",
 		) ?? "",
 		/\/etc\/hosts is a protected system path/,
 	);
-	assert.match(
-		highDangerBashReason(
-			analyzeBashCommand("git -C/usr/lib/git status").parts,
-			cwd,
-		) ?? "",
-		/\/usr\/lib\/git is a protected system path/,
-	);
 	assert.equal(
-		highDangerBashReason(
-			analyzeBashCommand("git diff --output=/tmp/patch").parts,
-			cwd,
-		),
+		highDangerBashReason(analyzeBashCommand("git -C/usr/lib/git status").parts, cwd),
 		undefined,
 	);
+	const temporaryOutputRisk = highDangerBashReason(
+		analyzeBashCommand("git diff --output=/tmp/patch").parts, cwd,
+	);
+	assert.equal(Boolean(temporaryOutputRisk), isProtectedPath("/tmp/patch", cwd));
 });
 
 test("keeps leading environment assignments separate from protected file arguments", () => {
@@ -349,6 +353,7 @@ test("keeps leading environment assignments separate from protected file argumen
 	for (const command of [
 		"PATH=/usr/bin:$PATH git status",
 		"PATH=/usr/bin:$PATH /usr/bin/git status",
+		"printf PATH=/usr/bin",
 	]) {
 		assert.equal(highDangerBashReason(analyzeBashCommand(command).parts, cwd), undefined);
 	}
@@ -356,13 +361,94 @@ test("keeps leading environment assignments separate from protected file argumen
 		"PATH=/usr/bin:$PATH /usr/bin/rm generated.txt",
 		"PATH=/usr/bin:$PATH git diff --output=/etc/hosts",
 		"cp /tmp/x /usr/bin/git",
-		"printf PATH=/usr/bin",
 	]) {
 		assert.notEqual(highDangerBashReason(analyzeBashCommand(command).parts, cwd), undefined);
 	}
 });
 
- test("requires every command part to be covered", () => {
+test("allows protected system inspection but retains mutation and sensitive-directory gates", () => {
+	const cwd = "/workspace/demo";
+	for (const command of [
+		"ls /opt/homebrew/lib", "git -C /private/tmp/example status",
+		"git -C /opt/tool diff --stat", "find /usr/lib -name example",
+		"rg example /Applications", "cd /usr && ls", "ls /opt && node tests.js",
+	]) {
+		assert.equal(highDangerBashReason(analyzeBashCommand(command).parts, cwd), undefined, command);
+	}
+	for (const command of [
+		"touch /etc/example", "git -C /usr/lib add file", "ls /usr > /etc/example",
+		"find /opt -delete", "sort -o/etc/example /opt/input", "cd /usr && touch example",
+		"ls /usr && touch /etc/example", "sed -i '' /etc/example",
+		"ls /opt & touch /etc/example", "ls /opt &>/etc/example",
+		`ls ${homedir()}/.ssh`,
+	]) {
+		assert.match(highDangerBashReason(analyzeBashCommand(command).parts, cwd) ?? "", /protected system path/, command);
+	}
+});
+
+test("gates destructive Git forms without mistaking dry runs or pathspecs for mutations", () => {
+	const cwd = "/workspace/demo";
+	for (const command of [
+		"git reset --hard", "git -C repo reset --hard HEAD~1", "MODE=test /usr/bin/git reset --hard",
+		"/opt/homebrew/bin/git reset --hard", "git --git-dir=repo/.git reset --hard",
+		"git clean", "git clean -fdx", "git clean --force -d", "git clean -- --dry-run",
+		"git clean -e -n -f", "git clean --exclude -n -f", "git clean -n --no-dry-run -f",
+		"git clean -n --no-dry -f", "git reset --har",
+		"git push --force", "git push -vf origin main", "git push --force-with-lease=main:abc",
+		"git push --force-if-includes", "git push origin +HEAD:main", "git push -- origin +main",
+		"git push --mirror", "git push --delete origin old", "git push -d origin old", "git push origin :old",
+		"git status && git reset --hard", "git status & git reset --hard",
+		"command git reset --hard", "env MODE=test git clean -fd",
+		"env -u MODE /usr/bin/git push --force", "exec git reset --hard",
+		"git push -fooption origin main", "git push --for origin main",
+		"nice git reset --hard", "nice -n 10 git reset --hard",
+		"/usr/bin/nice --adjustment=10 /usr/bin/git clean -fd",
+		"nohup git push --force", "timeout 30s git reset --hard",
+		"timeout -s KILL -k 5s 30s nice -n 10 git clean -fd",
+		"time -o /tmp/timing git push --force", "stdbuf -o L git reset --hard",
+		"xargs -I {} git reset --hard", "exec -a fake-name git reset --hard",
+		"env -a bogus git reset --hard", "env --argv0 bogus git clean -fd",
+		"env --argv0=bogus git push --force", "env -a bogus nice -n 10 git reset --hard",
+	]) {
+		assert.match(highDangerBashReason(analyzeBashCommand(command).parts, cwd) ?? "", /git (reset|clean|push)/, command);
+	}
+	for (const command of [
+		"git reset --soft HEAD~1", "git reset -- file", "git reset -- --hard",
+		"git clean -ndx", "git clean -fdn", "git clean --dry-run", "git clean -n -- --force",
+		"git push origin feature", "git push --tags", "git diff -- --hard", "git status",
+		"git push -o +option origin main", "git push --push-option +option origin main",
+		"git push -oforce origin main", "git clean -e '-n' -n", "git clean --no-dry-run -n",
+		"nice echo git reset --hard", "command -v git reset --hard", "timeout 5 echo git reset --hard",
+		"env -a bogus echo git reset --hard",
+	]) {
+		assert.equal(highDangerBashReason(analyzeBashCommand(command).parts, cwd), undefined, command);
+	}
+});
+
+test("bounds temporary scope across new paths, traversal, symlinks, and root replacement", (t) => {
+	const fixture = realpathSync(mkdtempSync(join(tmpdir(), "pi-gate-scope-test-")));
+	t.after(() => rmSync(fixture, { recursive: true, force: true }));
+	const root = join(fixture, "owned");
+	const outside = join(fixture, "outside");
+	mkdirSync(root); mkdirSync(outside);
+	assert.equal(isPathInTemporaryDirectory("new/deep/file", root, root), true);
+	assert.equal(isPathInTemporaryDirectory("../outside/file", root, root), false);
+	assert.equal(isPathInTemporaryDirectory(root + "-sibling/file", root, root), false);
+	symlinkSync(outside, join(root, "escape"));
+	assert.equal(isPathInTemporaryDirectory(join(root, "escape/new"), root, root), false);
+	assert.equal(isPathInTemporaryDirectory(`${root}/escape/../new`, root, root), false);
+	symlinkSync(join(outside, "missing"), join(root, "dangling"));
+	assert.equal(isPathInTemporaryDirectory(join(root, "dangling/file"), root, root), false);
+	const command = `touch ${root}/file`;
+	assert.equal(highDangerBashReason(analyzeBashCommand(command).parts, root, [root]), undefined);
+	assert.match(highDangerBashReason(["touch /etc/example"], root, [root]) ?? "", /protected/);
+	assert.match(highDangerBashReason([`rm ${root}/file`], root, [root]) ?? "", /rm/);
+	renameSync(root, root + "-old");
+	symlinkSync(outside, root);
+	assert.equal(isPathInTemporaryDirectory(join(root, "new"), root, root), false);
+});
+
+test("requires every command part to be covered", () => {
 	const gitAll: PermissionRule = { type: "bashPolicy", policy: "git-all" };
 	const python: PermissionRule = { type: "bash", commands: ["python3"] };
 
