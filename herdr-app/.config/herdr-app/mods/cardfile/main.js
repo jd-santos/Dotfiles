@@ -142,6 +142,9 @@ function cleanCard(c, i) {
     progress,
     url: str(c.url),
     file: str(c.file),
+    markdown: str(c.markdown),
+    index: str(c.index),
+    links: (Array.isArray(c.links) ? c.links : []).filter(/** @param {{ label?: string, file?: string }} l */ (l) => l && str(l.label) && str(l.file)),
     task: str(c.task),
   };
 }
@@ -381,8 +384,8 @@ export default class CardFile extends View {
   // ── Card actions ───────────────────────────────────────────────────────────
 
   openCard(card) {
-    if (card.file) {
-      openOverlay({ mod: "cardfile", kind: "dialog", width: 680, height: 600, props: { view: { title: card.title, file: card.file, url: card.url } } });
+    if (card.markdown || card.file) {
+      openOverlay({ mod: "cardfile", kind: "dialog", width: 680, height: 600, props: { view: card } });
     } else if (card.url) {
       exec("open", [card.url]);
     }
@@ -398,7 +401,7 @@ export default class CardFile extends View {
   // An index card: a title line, a ruled line under it in the card's color, a few
   // lines of text, and a small footer. `rule` is a theme color. `top` aligns the
   // title line's items to the top, for a title that wraps.
-  card(t, { id, rule, head, top, lines, foot, selected, onClick, onMenu, after }) {
+  card(t, { id, rule, head, top, lines, foot, selected, onClick, onMenu, after, wrapFoot = false }) {
     const chars = Math.max(40, Math.floor(((this.width - 40) / 6.4) * 2));
     return v_flex()
       .id(id)
@@ -415,7 +418,7 @@ export default class CardFile extends View {
       .child(div().mx(10).h(1).bg(fade(rule, "aa")))
       .when(lines.length > 0, (el) => el.child(v_flex().px(10).pt(6).gap(2).text_size(12).text_color(t.muted)
         .children(lines.map((l, i) => div().max_h(i === 0 ? 38 : 19).overflow_hidden().child(clip(l, i === 0 ? chars : chars / 2))))))
-      .child(h_flex().px(10).pt(6).pb(7).gap(6).items_center().text_size(11).text_color(t.dim).children(foot))
+      .child(h_flex().px(10).pt(6).pb(7).gap(6).items_center().when(wrapFoot, (el) => el.flex_wrap()).text_size(11).text_color(t.dim).children(foot))
       .when(Boolean(after), (el) => el.child(after));
   }
 
@@ -546,19 +549,23 @@ export default class CardFile extends View {
     return this.card(t, {
       id: `pc-${src.id}-${c.id}`,
       rule: tone,
-      onClick: c.file || c.url ? () => this.openCard(c) : null,
+      onClick: c.markdown || c.file || c.url ? () => this.openCard(c) : null,
+      top: true,
+      wrapFoot: true,
       head: [
         c.tag ? div().flex_none().px(5).h(16).rounded(4).border(1).border_color(tone).text_size(10).font_semibold()
           .text_color(tone === t.border ? t.muted : tone).flex().items_center().child(c.tag) : null,
-        div().flex_1().min_w(0).truncate().text_size(13).font_medium().text_color(t.foreground).child(c.title),
+        div().flex_1().min_w(0).text_size(13).font_medium().text_color(t.foreground).child(c.title),
       ].filter(Boolean),
       lines: c.lines,
       foot: [
         bar,
         c.progress ? div().flex_none().child(`${c.progress[0]}/${c.progress[1]}`) : null,
         div().flex_1(),
+        c.markdown ? button(`details-${src.id}-${c.id}`, "Details", () => this.openCard(c)) : null,
+        c.file ? button(`file-${src.id}-${c.id}`, "Work item", () => this.openCard({ title: c.title, file: c.file })) : null,
         c.task ? button(`run-${src.id}-${c.id}`, "Start agent", () => this.startAgent(c)) : null,
-        c.url && c.file ? button(`url-${src.id}-${c.id}`, "Link", () => exec("open", [c.url])) : null,
+        c.url && (c.file || c.markdown) ? button(`url-${src.id}-${c.id}`, "Link", () => exec("open", [c.url])) : null,
       ].filter(Boolean),
     });
   }
@@ -1409,7 +1416,8 @@ export default class CardFile extends View {
 
   initView(view, cx) {
     this.view = view;
-    this.text = null;
+    this.text = view.markdown ?? null;
+    if (this.text !== null) return;
     cx.spawn(async (cx) => {
       try { this.text = (await readTextFile(view.file)) ?? "*File not found.*"; } catch (e) { this.text = `*Couldn't read the file: ${e?.message ?? e}*`; }
       cx.notify();
@@ -1419,12 +1427,17 @@ export default class CardFile extends View {
   renderView(t) {
     const v = this.view;
     return v_flex().size_full().bg(t.popover)
-      .child(h_flex().px(16).h(44).flex_none().gap(8).items_center().border_b(1).border_color(t.border)
-        .child(div().flex_1().min_w(0).truncate().text_size(14).font_semibold().text_color(t.foreground).child(v.title))
-        .child(div().id("v-open").text_size(12).text_color(t.dim).hover((s) => s.text_color(t.foreground))
-          .on_click(() => exec("open", [v.file])).child("Open file"))
+      .child(h_flex().px(16).py(12).flex_none().gap(8).items_start().border_b(1).border_color(t.border)
+        .child(div().flex_1().min_w(0).text_size(14).font_semibold().text_color(t.foreground).child(v.title))
+        .when(Boolean(v.file || v.index), (el) => el.child(div().id("v-open").text_size(12).text_color(t.dim).cursor_pointer().hover((s) => s.text_color(t.foreground))
+          .on_click(() => exec("open", [v.index || v.file])).child(v.index ? "Open TODO file" : "Open file")))
+        .when(Boolean(v.url), (el) => el.child(div().id("v-url").text_size(12).text_color(t.dim).cursor_pointer().hover((s) => s.text_color(t.foreground))
+          .on_click(() => exec("open", [v.url])).child("Link")))
         .child(div().id("v-close").text_size(12).text_color(t.dim).hover((s) => s.text_color(t.foreground))
           .on_click(() => closeOverlay(props().overlay)).child("Close")))
+      .when(Boolean(v.links?.length), (el) => el.child(v_flex().px(18).py(8).gap(4).children(v.links.map(/** @param {{ label: string, file: string }} link @param {number} i */ (link, i) =>
+        div().id(`v-work-${i}`).text_size(12).text_color(t.accent).cursor_pointer()
+          .on_click(() => this.openCard({ title: link.label, file: link.file })).child(`Open work item: ${link.label}`)))))
       .child(div().id("v-body").flex_1().min_h(0).px(18).py(12).overflow_y_scrollbar().text_size(13).text_color(t.foreground)
         .child(this.text == null ? "Loading…" : TextView.markdown("v-md", this.text).selectable(true)));
   }

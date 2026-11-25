@@ -37,6 +37,15 @@
 
 ## P4: Low
 
+- [ ] Improve Card File Todo readability and details [context: medium]
+  - [x] Wrap titles and expose full inline checklists, notes and parent/child work-record links
+  - [x] Correct local Herdr skill detection and add tracked App/Core guidance to root AGENTS.md
+  - The shared Herdr skill is an ignored external install; its local correction is not included in this repository's commit.
+  - [x] Run regression checks and correctness/design reviews
+  - [x] Wrap footer actions at narrow widths and preserve Link access alongside inline details
+  - Validation: 11 offline tests pass, Herdr App mod check passes, scoped diff check passes. Correctness review found no issues; design review notes addressed. Live title wrapping verified at the current panel width.
+  - [ ] Visually verify wrapped footer actions, full details and work-record click-through in Herdr App
+
 - [ ] [Make the Pi shelf responsive and deploy the hidden Lens widget config](work/pi-responsive-shelf/README.md) [context: medium]
 
 - [ ] [Pi side questions with `/btw`](work/pi-btw/README.md) [context: medium]

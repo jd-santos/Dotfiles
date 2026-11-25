@@ -72,6 +72,8 @@ def parse(path):
                 continue
             m = ITEM.match(line)
             if not m:
+                if current is not None:
+                    current["body"].append(line)
                 continue
             indent, mark, text = m.groups()
             done = mark.lower() == "x"
@@ -89,9 +91,12 @@ def parse(path):
                     "url": target if target and "://" in target else None,
                     "notes": [f"{k}: {v.strip()}" for k, v in NOTE.findall(text)],
                     "steps": [],
+                    "body": ["- [ ] " + text],
+                    "index": path,
                 }
                 items.append(current)
             elif current is not None:
+                current["body"].append(line)
                 current["steps"].append((done, plain(text)))
     return items
 
@@ -109,6 +114,13 @@ def card(item, rel):
         "id": hashlib.sha1(title.encode()).hexdigest()[:10],
         "title": title,
         "lines": lines,
+        "markdown": "\n".join(item["body"]).rstrip(),
+        "index": item["index"],
+        "links": [
+            {"label": match.group(1), "file": os.path.normpath(os.path.join(os.path.dirname(item["index"]), match.group(2)))}
+            for match in LINK.finditer("\n".join(item["body"]))
+            if match.group(2).endswith(".md") and ":" not in match.group(2)
+        ],
         "task": f"Pick up this item from {rel}: {title}"
         + (f" (work record: {item['file']})" if item["file"] else ""),
     }

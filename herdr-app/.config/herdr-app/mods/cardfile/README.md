@@ -261,14 +261,23 @@ Only `cards`, and `title` in each card, are required.
 | Card field | Meaning |
 | --- | --- |
 | `id` | Stable id, so the card keeps its place between refreshes. |
-| `title` | One line. |
+| `title` | Wraps in Todo cards and the details header. |
 | `lines` | Up to three lines. The first may wrap to two. |
 | `tag` | A short chip before the title: a priority, a ticket key. |
 | `tone` | Colors the tag and the line under the title: `blocked`, `working`, `done`, `idle`, `accent` or `muted`. |
 | `progress` | `[done, total]`, drawn as a small bar. |
-| `file` | Clicking the card opens this file as markdown in a dialog. |
-| `url` | With no `file`, clicking opens this link. With a `file` too, the card gets a **Link** button. |
+| `markdown` | Optional full item body. Clicking the card or **Details** opens it in a scrollable, read-only dialog. |
+| `index` | Optional source TODO path; adds **Open TODO file** to details. |
+| `links` | Optional `[{ "label", "file" }]` work-record links, shown as **Open work item** actions in details. |
+| `file` | Opens as Markdown when no inline body is provided; **Work item** opens it directly from the card. |
+| `url` | Clicking opens this link only when there is no `markdown` or `file`. Otherwise **Link** opens it from the card or details. |
 | `task` | Adds **Start agent**, which opens a tab in the shown space running `agent` with this as its first message. |
+
+`cardfile-todo` includes the whole inline item, with nested checkboxes, completed
+steps and supporting notes. It supplies explicit work-record actions for Markdown
+links on the parent or its children, resolved relative to the TODO index. The
+preview still shows only the next open step and progress. This view does not edit
+checkboxes or task files.
 
 A program that exits with an error keeps its last cards on screen and shows the
 last line of its error output above them.

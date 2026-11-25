@@ -38,6 +38,8 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 
 ### Changed
 
+- Wrap Card File Todo titles and footer actions, and add read-only details with the full inline checklist, notes, source TODO access, and links to parent and child work records.
+
 - Make the Pi shelf adapt to terminal width and height: two columns on wide screens, compact figures on short ones, and scrollable section detail through `/shelf details` or `/shelf <section-id>`. Hidden body lines remain reachable without expanding the drawer over the transcript.
 - Give Pi permission prompts local hotkeys for allow once, session YOLO, deny once, More options, full-command viewing, and notes. Allow once remains the default, YOLO needs an explicit selection, and risky operations still require one-time approval. Narrower session rules move under More options with one relevant directory instead of parent/grandparent choices; canceling a scope picker no longer approves the pending operation.
 - Allow explicitly requested local Pi session-log analysis while keeping raw
@@ -74,6 +76,8 @@ Notable changes to this dotfiles repository are recorded here, following [Keep a
 - Remove the hardcoded cua-driver `PATH` entry from zsh. A machine that installs cua-driver outside an existing `PATH` entry needs to add `$HOME/.local/bin` locally.
 
 ### Fixed
+
+- Distinguish Herdr App/Core terminal detection from the legacy TUI flag in repository agent guidance.
 
 - Show Pi's generated conversation titles in Herdr App's Card File instead of generic terminal titles. Put a larger agent logo beside the title, keep location and turn info in the footer, and update or clear titles with `/summary`. Existing Pi sessions need `/reload` to publish their stored titles.
 - Recognize `/usr/bin/git` in Pi permission policies without false protected-path

@@ -20,6 +20,11 @@ deployed with `stow <package>`; `README.md` lists which directories are packages
   `nvim/.config/nvim/lua/config/keymaps.lua`, or
   `nvim/.config/nvim/lua/plugins/*.lua`, update "Keyboard Shortcuts" in
   `README.md`. List only custom bindings, not LazyVim defaults.
+- **Distinguish Herdr App/Core from the legacy TUI.** `HERDR_ENV=1` only
+  identifies the TUI. For App/Core, inspect `HC_TERMINAL_ID` with
+  `hc get "$HC_TERMINAL_ID"` and check `herdr.space` / `herdr.tab` labels.
+  Use `herdr-app` for the desktop window and `hc` for Core terminals, not the
+  legacy `herdr` CLI. A missing TUI flag does not mean this is outside Herdr.
 - **Pi features belong in the `pi` package.** Put Pi prompts, extensions,
   themes, skills, and `settings.base.json` under `pi/.pi/agent/`, which stows to
   `~/.pi/agent/`. Edit there rather than in `~/.pi` unless asked for a
